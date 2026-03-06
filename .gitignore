@@ -1,0 +1,63 @@
+# ==========================
+# Visual Studio & .NET build folders
+# ==========================
+**/bin/
+**/obj/
+**/.vs/
+Debug/
+Release/
+
+# ==========================
+# User-specific files
+# ==========================
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ==========================
+# Logs, cache, and temp files
+# ==========================
+*.log
+*.cache
+*.pdb
+*.dll
+*.exe
+
+# ==========================
+# System files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Node.js
+# ==========================
+node_modules/
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.pyc
+
+# ==========================
+# Java
+# ==========================
+target/
+*.class
+
+# ==========================
+# Build environments
+# ==========================
+build/
+dist/
+.env
+.env.*
+
+# Ignore build outputs
+bin/
+obj/
+*.dll
+*.pdb
+*.deps.json
