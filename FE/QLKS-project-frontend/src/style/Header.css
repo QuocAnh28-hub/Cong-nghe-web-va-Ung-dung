@@ -1,0 +1,70 @@
+.header {
+  background-color: rgb(255, 255, 255);
+  height: 50px;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+}
+.btn-navigation {
+  width: 40px;
+  height: 40px;
+  margin-left: 10px;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 10px;
+  display: none;
+}
+.btn-navigation:hover {
+  background-color: rgb(199, 199, 199);
+}
+.btn-navigation i {
+  color: black;
+  font-size: large;
+}
+.logo-hotel {
+  color: blue;
+  font-size: 28px;
+  margin-left: 20px;
+}
+.header h2 {
+  margin-left: 5px;
+  font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+.header-right-text {
+  height: max-content;
+  line-height: 0px;
+  margin-left: auto;
+  margin-right: 0px;
+  text-align: right;
+  padding-top: 1%;
+}
+.header-right-text p {
+  font-size: 10pt;
+  font-weight: lighter;
+}
+.header-right-text h5 {
+  margin: 0;
+}
+
+.btn-logout {
+  width: 40px;
+  height: 40px;
+  margin-left: 10px;
+  background-color: rgb(255, 255, 255);
+  border: none;
+  border-radius: 10px;
+  margin-right: 15px;
+}
+.btn-logout:hover {
+  background-color: rgb(199, 199, 199);
+}
+.btn-logout i {
+  color: black;
+  font-size: large;
+}

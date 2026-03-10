@@ -1,0 +1,8 @@
+.Content {
+  width: 80%;
+  display: flex;
+  margin-left: auto;
+  margin-top: 50px;
+  background-color: rgb(246, 246, 246);
+  height: calc(100vh - 50px);
+}

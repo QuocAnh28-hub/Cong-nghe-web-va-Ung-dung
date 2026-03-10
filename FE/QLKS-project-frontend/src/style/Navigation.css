@@ -1,0 +1,41 @@
+
+.Navigations {
+  position: fixed;
+  top: 50px;
+  left: 0;
+  width: 20%;
+  height: calc(100vh - 50px);
+  z-index: 1000;
+  overflow: auto;
+  background-color: #ccc;
+  padding-top: 1%;
+}
+.navigations-btn {
+  background-color: transparent;
+  width: 90%;
+  height: 8%;
+  margin-left: 5%;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  border-radius: 10px;
+  border: none;
+  font-size: larger;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.navigations-btn:hover {
+  background-color: #e4e4e4;
+}
+.navigations-btn i {
+  width: 10%;
+  padding-left: 1%;
+}
+
+.navigations-btn.active{
+  background-color: #e4e4e4e8;
+  color: rgba(0,0,255,0.7);
+}
