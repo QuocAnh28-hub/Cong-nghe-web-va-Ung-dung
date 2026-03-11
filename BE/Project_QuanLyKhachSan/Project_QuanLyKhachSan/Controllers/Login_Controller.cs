@@ -57,9 +57,9 @@ namespace API_Common.Controllers
                     token,
                     data = new
                     {
-                        MaTaiKhoan = user.MATAIKHOAN.Trim(),
-                        UserName = user.USERNAME.Trim(),
-                        Quyen = user.QUYEN
+                        USERID = user.USERID.ToString(),
+                        EMAIL = user.EMAIL.Trim(),
+                        ROLE = user.ROLE
                     }
                 });
             }
@@ -78,9 +78,9 @@ namespace API_Common.Controllers
 
             var claims = new[]
             {
-                new Claim(ClaimTypes.Name, user.USERNAME),
-                new Claim("MATAIKHOAN", user.MATAIKHOAN),
-                new Claim("QUYEN", user.QUYEN.ToString())
+                new Claim(ClaimTypes.Name, user.EMAIL),
+                new Claim("UserID", user.USERID.ToString()),
+                new Claim("Role", user.ROLE)
             };
 
             var token = new JwtSecurityToken(
@@ -109,9 +109,9 @@ namespace API_Common.Controllers
                     });
                 }
 
-                int quyen = _bll.LayQuyen(username);
+                string quyen = _bll.LayQuyen(username);
 
-                if (quyen == 0)
+                if (quyen == null)
                 {
                     return Ok(new
                     {

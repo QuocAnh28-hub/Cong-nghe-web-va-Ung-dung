@@ -24,10 +24,10 @@ namespace BLL
         }
 
         // Lấy quyền theo username
-        public int LayQuyen(string username)
+        public string LayQuyen(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
-                return 0;
+                return "";
 
             return tk_dal.GetRoleByUsername(username);
         }

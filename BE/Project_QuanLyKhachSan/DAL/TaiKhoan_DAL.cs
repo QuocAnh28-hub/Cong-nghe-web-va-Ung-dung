@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Configuration;
 using Models;
 using System;
@@ -21,7 +22,7 @@ namespace DAL
         {
             try
             {
-                string sql = "SELECT COUNT(*) AS SoLuong FROM TAIKHOAN WHERE MATAIKHOAN = @MATAIKHOAN";
+                string sql = "SELECT COUNT(*) AS SoLuong FROM Users WHERE UserID = @MATAIKHOAN";
                 SqlParameter[] p = { new SqlParameter("@MATAIKHOAN", maTK) };
                 var dt = _dbHelper.ExecuteQuery(sql, p);
                 if (dt.Rows.Count > 0)
@@ -45,9 +46,9 @@ namespace DAL
             {
                 var list = new List<TaiKhoan>();
                 string sql = @"
-                    SELECT TOP 1 MATAIKHOAN, USERNAME, PASS, QUYEN
-                    FROM TAIKHOAN
-                    WHERE USERNAME = @USERNAME AND PASS = @PASS";
+                    SELECT TOP 1 UserID, Email, PasswordHash, Role, CreatedAt
+                    FROM Users
+                    WHERE Email = @USERNAME AND PasswordHash = @PASS";
 
                 SqlParameter[] p =
                 {
@@ -60,10 +61,11 @@ namespace DAL
                 {
                     list.Add(new TaiKhoan
                     {
-                        MATAIKHOAN = r["MATAIKHOAN"].ToString().Trim(),
-                        USERNAME = r["USERNAME"].ToString().Trim(),
-                        PASS = r["PASS"].ToString().Trim(),
-                        QUYEN = r["QUYEN"] == DBNull.Value ? 0 : Convert.ToInt32(r["QUYEN"])
+                        USERID = Convert.ToInt32(r["UserID"]),
+                        EMAIL = r["Email"].ToString().Trim(),
+                        PASSWORDHASH = r["PasswordHash"].ToString().Trim(),
+                        ROLE = r["Role"].ToString().Trim(),
+                        CREATEDAT = r["CreatedAt"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(r["CreatedAt"])
                     });
                 }
 
@@ -75,11 +77,11 @@ namespace DAL
             }
         }
 
-        public int GetRoleByUsername(string username)
+        public string GetRoleByUsername(string username)
         {
             try
             {
-                string sql = "SELECT TOP 1 QUYEN FROM TAIKHOAN WHERE USERNAME = @USERNAME";
+                string sql = "SELECT TOP 1 Role FROM Users WHERE UserID = @USERNAME";
                 SqlParameter[] p =
                 {
                     new SqlParameter("@USERNAME", username)
@@ -87,13 +89,13 @@ namespace DAL
 
                 DataTable dt = _dbHelper.ExecuteQuery(sql, p);
                 if (dt.Rows.Count > 0)
-                    return Convert.ToInt32(dt.Rows[0]["QUYEN"]);
+                    return dt.Rows[0]["Role"].ToString();
 
-                return 0;
+                return "";
             }
             catch (Exception)
             {
-                return 0;
+                return "";
             }
         }
     }

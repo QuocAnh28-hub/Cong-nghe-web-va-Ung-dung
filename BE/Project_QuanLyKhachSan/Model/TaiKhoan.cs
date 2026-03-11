@@ -2,9 +2,10 @@
 {
     public class TaiKhoan
     {
-        public string MATAIKHOAN { get; set; }
-        public string USERNAME { get; set; }
-        public string PASS { get; set; }
-        public int QUYEN { get; set; }
+        public int USERID { get; set; }
+        public string EMAIL { get; set; }
+        public string PASSWORDHASH { get; set; }
+        public string ROLE { get; set; }
+        public DateTime CREATEDAT { get; set; }
     }
 }
