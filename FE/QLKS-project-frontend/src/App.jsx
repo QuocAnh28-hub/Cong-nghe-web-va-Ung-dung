@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import QLkhachsan from './components/QLkhachsan'
 import './App.css'
+import Login from './Components/Login'
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
     <>
-      <QLkhachsan></QLkhachsan>
+      <Login></Login>
+
+      {/* <QLkhachsan></QLkhachsan> */}
     </>
   )
 }
