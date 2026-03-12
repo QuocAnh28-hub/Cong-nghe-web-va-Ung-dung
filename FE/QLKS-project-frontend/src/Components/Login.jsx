@@ -4,11 +4,11 @@ import "../style/Login.css";
 class Login extends Component {
   constructor(props) {
     super(props);
+
     this.state = {
       email: "",
       password: "",
-      message: "",
-      role: ""
+      message: ""
     };
   }
 
@@ -34,24 +34,30 @@ class Login extends Component {
       const result = await response.json();
 
       if (result.success) {
-        // Lưu token
+
+        // lưu token
         localStorage.setItem("token", result.token);
 
-        this.setState({
-          message: "Đăng nhập thành công!",
-          role: result.data.role
-        });
+        // lưu trạng thái login
+        localStorage.setItem("isLogin", "true");
+
+        // lưu role
+        localStorage.setItem("role", result.data.role);
 
         alert("Đăng nhập thành công!");
+
+        // chuyển trang
+        window.location.href = "/";
+
       } else {
         this.setState({
           message: "Sai tài khoản hoặc mật khẩu"
         });
       }
+
     } catch (error) {
-      console.error(error);
       this.setState({
-        message: "Lỗi kết nối API"
+        message: "Không kết nối được API"
       });
     }
   };
@@ -60,6 +66,7 @@ class Login extends Component {
     return (
       <div className="dangnhap">
         <div className="dangnhap-container">
+
           <i className="fa-regular fa-building logo-hotel-login"></i>
 
           <div className="dangnhap-top">
@@ -68,34 +75,33 @@ class Login extends Component {
           </div>
 
           <form className="dangnhap-form" onSubmit={this.handleSubmit}>
-            <label>Email</label>
+
+            <label htmlFor="email">Email</label>
             <input
               type="email"
               id="email"
               placeholder="Nhập email"
               onChange={this.handleChange}
+              required
             />
 
-            <label>Mật khẩu</label>
+            <label htmlFor="password">Mật khẩu</label>
             <input
               type="password"
               id="password"
               placeholder="Nhập mật khẩu"
               onChange={this.handleChange}
+              required
             />
 
             <button className="dangnhap-button" type="submit">
               Đăng nhập
             </button>
+
           </form>
 
-          {/* Hiển thị thông báo */}
-          <p>{this.state.message}</p>
+          <p style={{ color: "red" }}>{this.state.message}</p>
 
-          {/* Hiển thị quyền */}
-          {this.state.role && (
-            <p>Quyền tài khoản: <b>{this.state.role}</b></p>
-          )}
         </div>
       </div>
     );

@@ -11,6 +11,7 @@ import Khachhang from "./Khachhang";
 import Dichvu from "./Dichvu";
 import Hoadon from "./Hoadon";
 import Baocao from "./Baocao";
+import Nhanvien from "./Nhanvien";
 
 class Navigation extends Component {
   render() {
@@ -85,6 +86,12 @@ class Navigation extends Component {
             onClick={() => changePage(Baocao)}
           >
             <i className="fa-solid fa-chart-column"></i>Báo cáo
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === Nhanvien ? "active" : ""}`}
+            onClick={() => changePage(Nhanvien)}
+          >
+            <i className="fa-solid fa-user"></i>Nhân viên
           </button>
         </div>
       </>
