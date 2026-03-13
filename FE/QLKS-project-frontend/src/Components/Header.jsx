@@ -62,7 +62,7 @@ class Header extends Component {
 
         <i className="fa-regular fa-building logo-hotel"></i>
 
-        <h2>QUẢN LÝ KHÁCH SẠN</h2>
+        <h2>QUẢN LÝ KHÁCH SẠN QA</h2>
 
         <div className="header-right-text">
           <h5>{Name}</h5>

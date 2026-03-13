@@ -1,0 +1,85 @@
+.nhanvien{
+    width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.table-card{
+    width: 100%;
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:Arial;
+}
+
+thead{
+  background:#3a7bd5;
+  color:white;
+}
+
+th{
+  padding:14px;
+  text-align:center;
+}
+
+td{
+  padding:12px;
+  text-align:center;
+  border-bottom:1px solid #ddd;
+}
+
+.button{
+    padding:8px 12px;
+    margin:0 5px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+.update{
+    background:#c2b116;
+    color:white;
+}
+
+.update:hover{
+    background:#9c8e11;
+}
+
+.showpass{
+    background:#2196F3;
+    color:white;
+}
+
+.showpass:hover{
+    background:#217bc4;
+}
+
+.delete{
+    background:#f44336;
+    color:white;
+}
+
+.delete:hover{
+    background:#d32f2f;
+}
+
+.nhanVienFunc{
+    margin-top:20px;
+    text-align:center;
+}
+
+.addnew{
+    background:#36cb11;
+    color:white;
+}
+
+.addnew:hover{
+    background:#2da80e;
+}
