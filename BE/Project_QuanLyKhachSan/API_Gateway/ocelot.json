@@ -30,34 +30,10 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "localhost",
-          "Port": 7249
-        }
-      ],
-      "UpstreamPathTemplate": "/api-khachhang/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH" ]
-    },
-    {
-      "DownstreamPathTemplate": "/api/{everything}",
-      "DownstreamScheme": "https",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
           "Port": 7070
         }
       ],
       "UpstreamPathTemplate": "/api-letan/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH" ]
-    },
-    {
-      "DownstreamPathTemplate": "/api/{everything}",
-      "DownstreamScheme": "https",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
-          "Port": 7285
-        }
-      ],
-      "UpstreamPathTemplate": "/api-quanly/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH" ]
     }
   ],
