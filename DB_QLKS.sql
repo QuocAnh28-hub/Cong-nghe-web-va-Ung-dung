@@ -214,4 +214,22 @@ EXEC sp_CreateReceptionist
     @Role = 'RECEPTIONIST',
     @Phone = '0123456789'
 
---
+--Thêm lo?i phòng m?i
+CREATE alter PROCEDURE sp_CreateRoomType
+    @Name NVARCHAR(100),
+    @Description NVARCHAR(MAX),
+    @Capacity INT,
+    @DefaultPrice DECIMAL(12,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO RoomTypes(Name, Description, Capacity, DefaultPrice)
+    VALUES (@Name, @Description, @Capacity, @DefaultPrice);
+END
+
+EXEC sp_CreateRoomType
+    @Name = N'Phòng Half-Luxury',
+    @Description = N'Phòng cao c?p c?a kính',
+    @Capacity = 2,
+    @DefaultPrice = 1200000
