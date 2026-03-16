@@ -178,3 +178,40 @@ CREATE TABLE Payments (
     PaymentDate DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID)
 )
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----------------------------------Stored procedure-----------------------------
+--Thêm nhân viên m?i
+CREATE PROCEDURE sp_CreateReceptionist
+    @Email NVARCHAR(150),
+    @PasswordHash NVARCHAR(255),
+    @FullName NVARCHAR(150),
+    @Role NVARCHAR(20),
+    @Phone NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @UserID INT;
+
+    -- Thêm vào b?ng Users
+    INSERT INTO Users (Email, PasswordHash, Role, CreatedAt)
+    VALUES (@Email, @PasswordHash, @Role, GETDATE());
+
+    -- L?y UserID v?a t?o
+    SET @UserID = SCOPE_IDENTITY();
+
+    -- Thêm vào b?ng Receptionists
+    INSERT INTO Receptionists (FullName, Phone, UserID)
+    VALUES (@FullName, @Phone, @UserID);
+END
+
+EXEC sp_CreateReceptionist
+    @Email = 'reception1@gmail.com',
+    @PasswordHash = '123456',
+    @FullName = N'Nguy?n V?n A',
+    @Role = 'RECEPTIONIST',
+    @Phone = '0123456789'
+
+--
