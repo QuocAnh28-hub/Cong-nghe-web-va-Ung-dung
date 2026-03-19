@@ -25,6 +25,7 @@
   gap: 10px;
   cursor: pointer;
   text-align: left;
+  box-sizing: border-box;
 }
 .navigations-btn:hover {
   background-color: #e4e4e4;

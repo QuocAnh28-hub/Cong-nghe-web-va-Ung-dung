@@ -1,12 +1,27 @@
 .nhanvien{
     width: 100%;
-  display: flex;
   justify-content: center;
   padding: 20px;
 }
 
-.table-card{
+#nhanvien-header{
     width: 100%;
+    background-color: #36cb11;
+    height:150px;
+    margin-bottom: 20px;
+}
+
+#info{
+    width: 70%;
+    float: left;
+}
+
+#nhanvien-header button{
+    width: 30%;
+}
+
+.table-card{
+    width: 100%vh;
     background: white;
     border-radius: 10px;
     padding: 20px;

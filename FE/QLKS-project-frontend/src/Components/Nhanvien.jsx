@@ -11,6 +11,14 @@ class Nhanvien extends Component {
 
     return (
       <div className="nhanvien">
+        <div id="nhanvien-header">
+          <div id="info">
+            <h1>Quản lý nhân viên</h1>
+            <p>Quản lý tài khoản nhân viên khách sạn</p>
+          </div>
+          <button>+ Thêm nhân viên</button>
+        </div>
+        
         <div className="table-card">
 
           <table>

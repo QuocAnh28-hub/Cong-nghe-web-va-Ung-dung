@@ -1,0 +1,223 @@
+.lichphong {
+  padding: 16px;
+  min-height: calc(100vh - 80px);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.lichphong-header-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.lichphong-title {
+  flex: 1 1 260px;
+}
+
+.lichphong-title h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.lichphong-title p {
+  margin: 6px 0 12px;
+  color: #6a737d;
+}
+.lichphong-filter {
+  float: right;
+}
+
+.lichphong-filter select {
+  margin-left: 8px;
+  padding: 10px 10px;
+  border: 1px solid #ccd0d5;
+  border-radius: 8px;
+  background-color: #fff;
+}
+.lichphong-main {
+  padding: 20px;
+  background-color: #f8f8f8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+}
+
+.lichphong-range {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: transparent;
+  margin-bottom: 20px;
+}
+
+.nav-btn {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: none;
+  background: #fff;
+  color: #333;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.nav-btn:hover {
+  background-color: #ffffff00;
+  transform: translateY(-1px);
+}
+
+.month-label {
+  font-weight: 700;
+  min-width: 120px;
+  text-align: center;
+}
+
+.lichphong-table-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  position: relative;
+  border: 1px solid #e6eaf1;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.lichphong-table {
+  width: max-content;
+  min-width: 2200px;
+  border-collapse: collapse;
+  border: 1px solid #e1e4e8;
+  table-layout: fixed;
+  border-radius: 16px;
+}
+
+.lichphong-table th,
+.lichphong-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lichphong-table thead th {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.lichphong-table th:first-child,
+.lichphong-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #f9fafb;
+}
+
+.lichphong-table th:first-child {
+  z-index: 4;
+}
+
+.lichphong-table th,
+.lichphong-table td {
+  border: 1px solid #e8eaed;
+  text-align: center;
+  min-width: 80px;
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.lichphong-table th {
+  background-color: #f4f6f8;
+  font-weight: 700;
+  color: black;
+}
+
+.room-cell {
+  text-align: left;
+  padding: 8px;
+  white-space: nowrap;
+}
+
+.room-type {
+  color: #6a737d;
+  font-size: 12px;
+}
+
+.room-schedule-table,
+.room-card,
+.room-card-title {
+  display: none;
+}
+
+.room-schedule-table th,
+.room-schedule-table td {
+  border: 1px solid #e8eaed;
+  text-align: center;
+  min-width: 70px;
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.room-schedule-table th {
+  background-color: #f4f6f8;
+  font-weight: 600;
+}
+
+.room-schedule-table td {
+  color: #333;
+}
+
+.room-schedule-table td.status-empty {
+  color: #1c7a1c;
+}
+
+.room-schedule-table td.status-booked {
+  color: #1156b5;
+}
+
+.room-schedule-table td.status-occupied {
+  color: #c02020;
+}
+
+.room-schedule-table td.status-cleaned {
+  color: #8a6d00;
+}
+
+.room-schedule-table td.status-maintenance {
+  color: #5a5a5a;
+}
+
+.lichphong-legend {
+  background-color: rgb(241, 241, 241);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #4a4a4a;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.legend-item i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.lichphong-empty {
+  padding: 18px;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  color: #7a7a7a;
+}

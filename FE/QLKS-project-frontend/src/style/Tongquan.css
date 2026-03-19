@@ -1,89 +1,126 @@
 .tongquan {
-  padding: 0 20px;
+  padding: 16px;
+  min-height: calc(100vh - 80px);
+  box-sizing: border-box;
   width: 100%;
-  font-family: "Times New Roman", Times, serif;
-}
-
-.tongquan-top p {
-  color: rgb(118, 118, 118);
 }
 
 .tongquan-top {
-  line-height: 0.3;
+  margin-bottom: 20px;
+}
+
+.tongquan-top h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.tongquan-top p {
+  margin: 6px 0 12px;
+  color: #6a737d;
 }
 
 .tongquan-mid {
-  width: 100%;
-  margin-top: 3%;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* chia đều */
+  gap: 20px;
+  margin-top: 20px;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .card {
-  background: white;
+  width: 100%;
+  min-width: 0;
+  background: #ffffff;
   border-radius: 16px;
-  width: 20%;
-  height: 18vh;
-  padding: 15px 15px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 18px;
   position: relative;
+  box-sizing: border-box;
 }
+
+.card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
 .card i {
   position: absolute;
-  right: 10px;
-  top: 10px;
-  width: 50px;
-  height: 50px;
-  font-size: 15pt;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.card h3 {
-  margin-top: 10px;
-  font-size: 16px;
+  right: 16px;
+  top: 16px;
+  font-size: 1.2rem;
+  color: #6b7280;
 }
 
 .card .number {
-  font-size: 28px;
-  margin-top: 36px;
-  margin-bottom: 0px;
-  font-weight: 680;
+  margin: 10px 0 6px;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
 }
 
 .card span {
-  font-size: 10pt;
-  font-weight: lighter;
+  display: block;
+  color: #6b7280;
+  font-size: 0.9rem;
 }
 
 .tongquan-low {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  margin-top: 3%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 20px;
 }
 
 .activity {
-  width: 45%;
+  width: 100%;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
-  height: 28vh;
-  padding: 10px 15px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  background-color: rgb(255, 255, 255);
-  line-height: 20%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 18px;
+  min-height: 26vh;
+  box-sizing: border-box;
+}
+
+.activity h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #111827;
+  font-weight: 700;
 }
 
 .act {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 100%;
+  justify-content: space-between;
+  margin-top: 12px;
 }
+
+.act-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .act i {
-  margin-right: 3%;
+  font-size: 1rem;
+  color: #111827;
 }
+
+.act p {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
 .act span {
-  margin-left: auto;
+  font-weight: 700;
+  color: #111827;
 }
 
 .green::before,
@@ -91,17 +128,58 @@
 .orange::before {
   content: "";
   display: inline-block;
+  margin-right: 8px;
   width: 10px;
-  height: 12px;
+  height: 10px;
   border-radius: 50%;
-  margin-right: 10px;
 }
+
+@media (max-width: 1100px) {
+  .tongquan-mid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tongquan-low {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .tongquan-mid,
+  .tongquan-low {
+    grid-template-columns: 1fr;
+  }
+  .card,
+  .activity {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 .green::before {
-  background: green;
+  background: #22c55e;
 }
+
 .blue::before {
-  background: blue;
+  background: #3b82f6;
 }
+
 .orange::before {
-  background: orange;
+  background: #f97316;
+}
+
+@media (max-width: 900px) {
+  .tongquan {
+    padding: 16px;
+  }
+
+  .card,
+  .activity {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .tongquan-top h1 {
+    font-size: 2rem;
+  }
 }

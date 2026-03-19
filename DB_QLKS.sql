@@ -1,4 +1,4 @@
-CREATE DATABASE QuanLyKhachSan
+﻿CREATE DATABASE QuanLyKhachSan
 
 use QuanLyKhachSan
 
@@ -182,7 +182,7 @@ CREATE TABLE Payments (
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -----------------------------------Stored procedure-----------------------------
---Th�m nh�n vi�n m?i
+--Thêm nhân viên mới
 CREATE PROCEDURE sp_CreateReceptionist
     @Email NVARCHAR(150),
     @PasswordHash NVARCHAR(255),
@@ -195,14 +195,14 @@ BEGIN
 
     DECLARE @UserID INT;
 
-    -- Th�m v�o b?ng Users
+    -- Thêm vào bảng Users
     INSERT INTO Users (Email, PasswordHash, Role, CreatedAt)
     VALUES (@Email, @PasswordHash, @Role, GETDATE());
 
-    -- L?y UserID v?a t?o
+    -- Lấy UserID vừa tạo
     SET @UserID = SCOPE_IDENTITY();
 
-    -- Th�m v�o b?ng Receptionists
+    -- Thêm vào bảng Receptionists
     INSERT INTO Receptionists (FullName, Phone, UserID)
     VALUES (@FullName, @Phone, @UserID);
 END
@@ -210,11 +210,11 @@ END
 EXEC sp_CreateReceptionist
     @Email = 'reception1@gmail.com',
     @PasswordHash = '123456',
-    @FullName = N'Nguy?n V?n A',
+    @FullName = N'Nguyễn Văn A',
     @Role = 'RECEPTIONIST',
     @Phone = '0123456789'
 
---Th�m lo?i ph�ng m?i
+--Thêm loại phòng mới
 CREATE alter PROCEDURE sp_CreateRoomType
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX),
@@ -229,7 +229,7 @@ BEGIN
 END
 
 EXEC sp_CreateRoomType
-    @Name = N'Ph�ng Half-Luxury',
-    @Description = N'Ph�ng cao c?p c?a k�nh',
+    @Name = N'Phòng Half-Luxury',
+    @Description = N'Phòng cao cấp cửa kính',
     @Capacity = 2,
     @DefaultPrice = 1200000

@@ -33,7 +33,9 @@
 }
 .header h2 {
   margin-left: 5px;
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
 .header-right-text {
@@ -64,7 +66,6 @@
 .btn-logout:hover {
   background-color: rgb(199, 199, 199);
 }
-.btn-logout i {
-  color: black;
+.anticon-logout {
   font-size: large;
 }
