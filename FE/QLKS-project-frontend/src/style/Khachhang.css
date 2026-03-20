@@ -1,0 +1,226 @@
+body {
+	background: #f7f7f8;
+}
+
+.khachhang-page {
+	width: 100%;
+	margin: 0 auto;
+	padding: 20px;
+	min-height: 100vh;
+	box-sizing: border-box;
+}
+.khachhang-header-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 24px;
+	flex-wrap: wrap;
+}
+.khachhang-title {
+	font-size: 2.3rem;
+	font-weight: bold;
+	margin-bottom: 0.2em;
+}
+.khachhang-desc {
+	color: #666;
+	font-size: 1.1rem;
+}
+.add-btn {
+	background: #2563eb;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	padding: 10px 20px;
+	font-size: 1rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+.add-btn:hover {
+	background: #1749b1;
+}
+
+.khachhang-table-card {
+	background: #fff;
+	border-radius: 16px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	padding: 18px 12px 24px 12px;
+}
+.khachhang-table-toolbar {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+.khachhang-search {
+	flex: 1;
+	padding: 10px 14px;
+	border: 1.5px solid #e5e7eb;
+	border-radius: 8px;
+	font-size: 1rem;
+	background: #f9fafb;
+	transition: border 0.18s;
+}
+.khachhang-search:focus {
+	border: 1.5px solid #2563eb;
+	outline: none;
+	background: #fff;
+}
+
+.khachhang-table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 1rem;
+}
+.khachhang-table thead tr {
+	background: #fff;
+	color: #959595;
+}
+.khachhang-table th {
+	font-weight: 700;
+	font-size: 1.05rem;
+	border-bottom: 2px solid #e5e7eb;
+	padding: 14px 16px;
+	text-align: left;
+}
+.khachhang-table td {
+	padding: 14px 16px;
+	text-align: left;
+	border-bottom: 1px solid #f0f0f0;
+}
+.khachhang-table tbody tr {
+	background: #fff;
+	transition: background 0.15s;
+}
+.khachhang-table tbody tr:hover {
+	background: #f3f6fd;
+}
+
+.icon-btn {
+	background: #f3f4f6;
+	border: none;
+	border-radius: 6px;
+	padding: 6px 10px;
+	margin-right: 6px;
+	cursor: pointer;
+	font-size: 1.1em;
+	transition: background 0.18s;
+	outline: none;
+}
+.icon-btn.edit {
+	color: #2563eb;
+}
+.icon-btn.edit:hover {
+	background: #dbeafe;
+}
+
+/* Modal styles */
+.modal-overlay {
+	position: fixed;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background: rgba(0,0,0,0.18);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.modal-content {
+	background: #fff;
+	border-radius: 16px;
+	box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+	padding: 20px 16px 16px 16px;
+	max-width: 420px;
+	width: 100%;
+	position: relative;
+	animation: modalIn 0.18s;
+	box-sizing: border-box;
+}
+@keyframes modalIn {
+	from { transform: translateY(-30px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+.modal-close {
+	position: absolute;
+	top: 18px;
+	right: 22px;
+	background: none;
+	border: none;
+	font-size: 2rem;
+	color: #888;
+	cursor: pointer;
+	transition: color 0.18s;
+}
+.modal-close:hover {
+	color: #ef4444;
+}
+.modal-content h2 {
+	margin-top: 0;
+	margin-bottom: 18px;
+	font-size: 1.5rem;
+	font-weight: 600;
+	text-align: left;
+}
+.add-customer-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.add-customer-form label {
+	font-weight: 500;
+	color: #222;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.add-customer-form input,
+.add-customer-form textarea {
+	padding: 10px 12px;
+	border: 1.5px solid #d1d5db;
+	border-radius: 8px;
+	font-size: 1rem;
+	background: #f9fafb;
+	transition: border 0.18s;
+	width: 100%;
+	box-sizing: border-box;
+	max-width: 100%;
+}
+.add-customer-form input:focus,
+.add-customer-form textarea:focus {
+	border: 1.5px solid #2563eb;
+	outline: none;
+	background: #fff;
+}
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12px;
+	margin-top: 10px;
+}
+.cancel-btn {
+	background: #fff;
+	color: #222;
+	border: 1.5px solid #d1d5db;
+	border-radius: 8px;
+	padding: 8px 22px;
+	font-size: 1rem;
+	cursor: pointer;
+	transition: background 0.18s, border 0.18s;
+}
+.cancel-btn:hover {
+	background: #f3f4f6;
+	border: 1.5px solid #bbb;
+}
+.save-btn {
+	background: #2563eb;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	padding: 8px 22px;
+	font-size: 1rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.18s;
+}
+.save-btn:hover {
+	background: #1749b1;
+}

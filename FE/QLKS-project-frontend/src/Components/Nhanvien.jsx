@@ -1,63 +1,196 @@
-import React, { Component } from "react";
+
+import React, { useState } from "react";
 import "../style/Nhanvien.css";
 
-class Nhanvien extends Component {
-  render() {
-    const listNhanVien = [
-      { maNV: "NV001", tenNV: "Nguyễn Văn A", sDT: "0123456789", maTK: "TK001" },
-      { maNV: "NV002", tenNV: "Nguyễn Văn B", sDT: "0123456789", maTK: "TK002" },
-      { maNV: "NV003", tenNV: "Nguyễn Văn C", sDT: "0123456789", maTK: "TK003" }
-    ];
+const listNhanVien = [
+  {
+    username: "admin",
+    fullName: "Nguyễn Văn Admin",
+    role: "Quản trị viên",
+    email: "admin@hotel.com",
+    phone: "0901234567",
+    createdAt: "15/3/2026",
+  },
+  {
+    username: "letan1",
+    fullName: "Trần Thị Lễ Tân",
+    role: "Lễ tân",
+    email: "letan1@hotel.com",
+    phone: "0902234567",
+    createdAt: "15/3/2026",
+  },
+  {
+    username: "letan2",
+    fullName: "Lê Văn Tân",
+    role: "Lễ tân",
+    email: "letan2@hotel.com",
+    phone: "0903234567",
+    createdAt: "15/3/2026",
+  },
+];
 
+const getRoleBadge = (role) => {
+  if (role === "Quản trị viên") {
     return (
-      <div className="nhanvien">
-        <div id="nhanvien-header">
-          <div id="info">
-            <h1>Quản lý nhân viên</h1>
-            <p>Quản lý tài khoản nhân viên khách sạn</p>
-          </div>
-          <button>+ Thêm nhân viên</button>
-        </div>
-        
-        <div className="table-card">
-
-          <table>
-
-            <thead>
-              <tr>
-                <th>Mã nhân viên</th>
-                <th>Tên nhân viên</th>
-                <th>Số điện thoại</th>
-                <th>Mã tài khoản</th>
-                <th></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {listNhanVien.map((nv, index) => (
-                <tr key={index}>
-                  <td>{nv.maNV}</td>
-                  <td>{nv.tenNV}</td>
-                  <td>{nv.sDT}</td>
-                  <td>{nv.maTK}</td>
-                  <td>
-                    <button className="button update">Update</button>
-                    <button className="button showpass">ShowPass</button>
-                    <button className="button delete">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-          <div className="nhanVienFunc">
-            <button className="button addnew">Thêm nhân viên</button>
-          </div>
-
-        </div>
-      </div>
+      <span className="badge admin">
+        <span role="img" aria-label="admin"><i class="fa-solid fa-shield"></i></span> Quản trị viên
+      </span>
     );
   }
-}
+  return (
+    <span className="badge letan">
+      <span role="img" aria-label="letan"><i class="fa-solid fa-circle-user"></i></span> Lễ tân
+    </span>
+  );
+};
+
+
+const Nhanvien = () => {
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    username: "",
+    password: "",
+    fullName: "",
+    role: "Lễ tân",
+    email: "",
+    phone: "",
+  });
+
+  const handleOpenModal = () => setShowModal(true);
+  const handleCloseModal = () => setShowModal(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Xử lý lưu dữ liệu ở đây
+    handleCloseModal();
+  };
+
+  return (
+    <div className="nhanvien">
+      <div className="nhanvien-header">
+        <div className="info">
+          <h1>Quản lý Nhân viên</h1>
+          <p>Quản lý tài khoản nhân viên khách sạn</p>
+        </div>
+        <button className="add-btn" onClick={handleOpenModal}>+ Thêm nhân viên</button>
+      </div>
+      <div className="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên đăng nhập</th>
+              <th>Họ và tên</th>
+              <th>Vai trò</th>
+              <th>Email</th>
+              <th>Số điện thoại</th>
+              <th>Ngày tạo</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listNhanVien.map((nv, idx) => (
+              <tr key={idx}>
+                <td>{nv.username}</td>
+                <td>{nv.fullName}</td>
+                <td>{getRoleBadge(nv.role)}</td>
+                <td>{nv.email}</td>
+                <td>{nv.phone}</td>
+                <td>{nv.createdAt}</td>
+                <td>
+                  <button className="icon-btn edit" title="Sửa">
+                    <span role="img" aria-label="edit"><i class="fa-regular fa-pen-to-square"></i></span>
+                  </button>
+                  <button className="icon-btn delete" title="Xóa">
+                    <span role="img" aria-label="delete"><i class="fa-regular fa-trash-can"></i></span>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal thêm nhân viên */}
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button className="modal-close" onClick={handleCloseModal} title="Đóng">&times;</button>
+            <h2>Thêm nhân viên mới</h2>
+            <form className="add-staff-form" onSubmit={handleSubmit}>
+              <label>
+                Tên đăng nhập *
+                <input
+                  type="text"
+                  name="username"
+                  value={form.username}
+                  onChange={handleChange}
+                  required
+                  autoFocus
+                />
+              </label>
+              <label>
+                Mật khẩu *
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  placeholder="Nhập mật khẩu"
+                />
+              </label>
+              <label>
+                Họ và tên *
+                <input
+                  type="text"
+                  name="fullName"
+                  value={form.fullName}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
+                Vai trò *
+                <select name="role" value={form.role} onChange={handleChange} required>
+                  <option value="Lễ tân">Lễ tân</option>
+                  <option value="Quản trị viên">Quản trị viên</option>
+                </select>
+              </label>
+              <label>
+                Email *
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
+                Số điện thoại *
+                <input
+                  type="tel"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <div className="modal-actions">
+                <button type="button" className="cancel-btn" onClick={handleCloseModal}>Hủy</button>
+                <button type="submit" className="save-btn">Lưu</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Nhanvien;
