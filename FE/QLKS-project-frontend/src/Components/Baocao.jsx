@@ -10,8 +10,8 @@ const Baocao = () => {
           <p className="baocao-desc">Công suất phòng và doanh thu</p>
         </div>
         <div className="baocao-month-picker">
-          <label>Chọn tháng</label>
-          <input type="text" value="Tháng Ba 2026" readOnly />
+            <label>Chọn tháng</label>
+						<input type="month"/>
         </div>
       </div>
 

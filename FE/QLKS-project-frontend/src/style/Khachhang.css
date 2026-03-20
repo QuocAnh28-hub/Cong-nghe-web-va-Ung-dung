@@ -16,6 +16,17 @@ body {
 	margin-bottom: 24px;
 	flex-wrap: wrap;
 }
+
+.khachhang-header-row h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.khachhang-header-row p {
+  margin: 6px 0 12px;
+  color: #6a737d;
+}
+
 .khachhang-title {
 	font-size: 2.3rem;
 	font-weight: bold;

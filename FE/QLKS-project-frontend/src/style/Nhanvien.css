@@ -17,13 +17,12 @@ body {
     margin-bottom: 24px;
 }
 .nhanvien-header .info h1 {
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-bottom: 0.2em;
+    margin: 0;
+    font-size: 32px;
 }
 .nhanvien-header .info p {
-    color: #666;
-    font-size: 1.1rem;
+    margin: 6px 0 12px;
+    color: #6a737d;
 }
 .add-btn {
     background: #2563eb;

@@ -106,9 +106,19 @@ body {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
-	margin-bottom: 24px;
 	flex-wrap: wrap;
 }
+
+.baocao-header-row h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.baocao-header-row p {
+  margin: 6px 0 12px;
+  color: #6a737d;
+}
+
 .baocao-title {
 	font-size: 2.5rem;
 	font-weight: bold;
