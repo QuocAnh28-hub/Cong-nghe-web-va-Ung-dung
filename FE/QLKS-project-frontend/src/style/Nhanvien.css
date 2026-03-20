@@ -1,3 +1,6 @@
+tbody tr td {
+    border-bottom: 1px solid #e9e9e9;
+}
 .nhanvien{
     width: 100%;
   justify-content: center;
@@ -34,14 +37,14 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
-    margin-top: 50px;
+    margin-top: 0px;
 }
 .add-btn:hover {
     background: #1749b1;
 }
 
 .table-card {
-    background: #fff;
+    background: #f8f8f8;
     border-radius: 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     padding: 16px 8px 24px 8px;
@@ -49,9 +52,9 @@ body {
 }
 table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     font-size: 1rem;
+    border: none;
 }
 thead tr {
     background: #fff;
@@ -60,9 +63,7 @@ thead tr {
 th {
     font-weight: 700;
     font-size: 1.05rem;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 1px solid #dfdfdf;
 }
 th:not(:first-child):not(:last-child) {
     border-radius: 0;
@@ -71,16 +72,11 @@ th, td {
     padding: 14px 16px;
     text-align: left;
 }
-th:first-child, td:first-child {
-    border-top-left-radius: 8px;
-}
-th:last-child, td:last-child {
-    border-top-right-radius: 8px;
-}
+
 tbody tr {
-    background: #fff;
-    border-bottom: 1px solid #f0f0f0;
+    background: #f8f8f8;
     transition: background 0.15s;
+    border-bottom: none;
 }
 tbody tr:hover {
     background: #f3f6fd;
@@ -259,7 +255,7 @@ tbody tr:hover {
 
 .table-card{
     width: 100%vh;
-    background: white;
+    background: #f8f8f8;
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
@@ -272,7 +268,7 @@ table{
 }
 
 thead{
-  background:#3a7bd5;
+  background:#ffffff;
   color:white;
 }
 
@@ -282,9 +278,9 @@ th{
 }
 
 td{
-  padding:12px;
-  text-align:center;
-  border-bottom:1px solid #ddd;
+    padding:12px;
+    text-align:center;
+    border-bottom:1px solid #e2e2e2;
 }
 
 .button{

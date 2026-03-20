@@ -46,14 +46,14 @@ body {
 	font-weight: 500;
 	cursor: pointer;
 	transition: background 0.2s;
-    margin-top: 60px;
+    margin-top: 20px;
 }
 .add-btn:hover {
 	background: #1749b1;
 }
 
 .dichvu-table-card {
-	background: #fff;
+	background: #f8f8f8;
 	border-radius: 16px;
 	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 	padding: 18px 12px 24px 12px;
@@ -104,17 +104,17 @@ body {
 .dichvu-table th {
 	font-weight: 700;
 	font-size: 1.05rem;
-	border-bottom: 2px solid #e5e7eb;
+	border-bottom: 1px solid #e5e7eb;
 	padding: 14px 16px;
 	text-align: left;
 }
 .dichvu-table td {
 	padding: 14px 16px;
 	text-align: left;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid #eaeaea;
 }
 .dichvu-table tbody tr {
-	background: #fff;
+	background: #f8f8f8;
 	transition: background 0.15s;
 }
 .dichvu-table tbody tr:hover {
