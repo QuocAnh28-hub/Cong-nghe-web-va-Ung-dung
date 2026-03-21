@@ -23,7 +23,13 @@ class Navigation extends Component {
             className={`navigations-btn ${currentPage === Tongquan ? "active" : ""}`}
             onClick={() => changePage(Tongquan)}
           >
-            <i className="fa-solid fa-table-cells-large"></i>Tổng quan
+            <i class="fa-solid fa-magnifying-glass-chart"></i>Tổng quan
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === NhanTraphong ? "active" : ""}`}
+            onClick={() => changePage(NhanTraphong)}
+          >
+            <i class="fa-solid fa-right-from-bracket"></i>Nhận/Trả phòng
           </button>
           <button
             className={`navigations-btn ${currentPage === Lichphong ? "active" : ""}`}
@@ -33,65 +39,58 @@ class Navigation extends Component {
             Lịch phòng
           </button>
           <button
-            className={`navigations-btn ${currentPage === Quanlyphong ? "active" : ""}`}
-            onClick={() => changePage(Quanlyphong)}
-          >
-            <i className="fa-regular fa-building"></i>Quản lý phòng
-          </button>
-          <button
-            className={`navigations-btn ${currentPage === Loaiphong ? "active" : ""}`}
-            onClick={() => changePage(Loaiphong)}
-          >
-            <i className="fa-solid fa-bed"></i>Loại phòng
-          </button>
-          <button
-            className={`navigations-btn ${currentPage === Quanlygia ? "active" : ""}`}
-            onClick={() => changePage(Quanlygia)}
-          >
-            <i className="fa-solid fa-dollar-sign"></i>Quản lý giá
-          </button>
-          <button
             className={`navigations-btn ${currentPage === Datphong ? "active" : ""}`}
             onClick={() => changePage(Datphong)}
           >
-            <i className="fa-solid fa-clipboard-list"></i>Đặt phòng
-          </button>
-          <button
-            className={`navigations-btn ${currentPage === NhanTraphong ? "active" : ""}`}
-            onClick={() => changePage(NhanTraphong)}
-          >
-            <i className="fa-solid fa-arrow-right-from-bracket"></i>Nhận/Trả
-            phòng
-          </button>
-          <button
-            className={`navigations-btn ${currentPage === Khachhang ? "active" : ""}`}
-            onClick={() => changePage(Khachhang)}
-          >
-            <i className="fa-solid fa-users"></i>Khách hàng
+            <i class="fa-solid fa-calendar-check"></i>Đặt phòng
           </button>
           <button
             className={`navigations-btn ${currentPage === Dichvu ? "active" : ""}`}
             onClick={() => changePage(Dichvu)}
           >
-            <i className="fa-solid fa-gear"></i>Dịch vụ
+            <i class="fa-solid fa-utensils"></i>Dịch vụ
           </button>
           <button
             className={`navigations-btn ${currentPage === Hoadon ? "active" : ""}`}
             onClick={() => changePage(Hoadon)}
           >
-            <i className="fa-regular fa-file-lines"></i>Hoá đơn
+            <i class="fa-solid fa-file-invoice-dollar"></i>Hoá đơn
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === Khachhang ? "active" : ""}`}
+            onClick={() => changePage(Khachhang)}
+          >
+            <i class="fa-solid fa-user-tie"></i>Khách hàng
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === Quanlygia ? "active" : ""}`}
+            onClick={() => changePage(Quanlygia)}
+          >
+            <i class="fa-solid fa-file-invoice-dollar"></i>Quản lý giá
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === Quanlyphong ? "active" : ""}`}
+            onClick={() => changePage(Quanlyphong)}
+          >
+            <i class="fa-solid fa-house"></i>Quản lý phòng
+          </button>
+          <button
+            className={`navigations-btn ${currentPage === Loaiphong ? "active" : ""}`}
+            onClick={() => changePage(Loaiphong)}
+          >
+            <i class="fa-solid fa-couch"></i>Loại phòng
           </button>
           <button
             className={`navigations-btn ${currentPage === Baocao ? "active" : ""}`}
             onClick={() => changePage(Baocao)}
           >
-            <i className="fa-solid fa-chart-column"></i>Báo cáo
+            <i class="fa-solid fa-chart-simple"></i>Báo cáo
           </button>
           <button
             className={`navigations-btn ${currentPage === Nhanvien ? "active" : ""}`}
             onClick={() => changePage(Nhanvien)}
           >
-            <i className="fa-solid fa-user"></i>Nhân viên
+            <i class="fa-solid fa-person-military-pointing"></i>Nhân viên
           </button>
         </div>
       </>

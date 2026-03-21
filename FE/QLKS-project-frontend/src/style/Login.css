@@ -3,13 +3,18 @@
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #ffffff;
+  background-color: #00e1ff;
   font-family: "Segoe UI", Arial, sans-serif;
+  background-image: url("../img/park-hyatt-saigon.webp");
+  background-size: cover;
+  background-position: center;
 }
 
 .dangnhap-container {
   width: 370px;
-  background-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid #e0e0e0;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -22,15 +27,15 @@
 }
 
 .dangnhap-top h3 {
-  font-size: 16px;
+  font-size: 25px;
   font-weight: 700;
-  color: #111;
+  color: rgb(32, 32, 32);
   margin-bottom: 5px;
 }
 
 .dangnhap-top p {
-  font-size: 14px;
-  color: #777;
+  font-size: 16px;
+  color: #595959;
   margin: 0;
 }
 
@@ -39,7 +44,7 @@
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 5px;
-  color: #000;
+  color: #252525;
 }
 
 .dangnhap-form input,
@@ -82,7 +87,7 @@
 
 .dangnhap-button {
   width: 100%;
-  background-color: #000;
+  background-color: #01a2b4;
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -95,7 +100,7 @@
 }
 
 .dangnhap-button:hover {
-  background-color: #333;
+  background-color: #10658f;
 }
 
 .dangnhap-form label:not(:first-of-type) {
@@ -103,8 +108,8 @@
 }
 
 .logo-hotel-login {
-  color: blue;
-  font-size: 68px;
+  color: rgb(32, 32, 32);
+  font-size: 86px;
   display: flex;
   justify-content: center;
 }

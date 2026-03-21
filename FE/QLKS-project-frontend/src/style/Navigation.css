@@ -6,7 +6,7 @@
   height: calc(100vh - 50px);
   z-index: 1000;
   overflow: auto;
-  background-color: #ccc;
+  background-color: rgb(228, 244, 251);
   padding-top: 0.5%;
 }
 .navigations-btn {
@@ -26,9 +26,10 @@
   cursor: pointer;
   text-align: left;
   box-sizing: border-box;
+  font-weight: bolder;
 }
 .navigations-btn:hover {
-  background-color: #e4e4e4;
+  background-color: #ffffff;
 }
 .navigations-btn i {
   width: 10%;
@@ -36,6 +37,6 @@
 }
 
 .navigations-btn.active {
-  background-color: #e4e4e4e8;
-  color: rgba(0, 0, 255, 0.7);
+  background-color: #ffffffe8;
+  color: rgba(0, 159, 187, 0.7);
 }

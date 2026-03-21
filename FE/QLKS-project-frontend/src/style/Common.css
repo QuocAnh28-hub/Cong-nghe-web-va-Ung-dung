@@ -4,9 +4,10 @@
 .feature-header h1 {
   margin: 0;
   font-size: 32px;
+  color: rgb(0, 95, 132);
 }
 
 .feature-header p {
   margin: 6px 0 12px;
-  color: #6a737d;
+  color: rgb(107, 107, 107);
 }

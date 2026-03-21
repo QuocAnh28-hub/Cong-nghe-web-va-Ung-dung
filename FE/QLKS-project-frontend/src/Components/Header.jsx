@@ -30,9 +30,9 @@ class Header extends Component {
           <i className="fa-solid fa-list"></i>
         </button>
 
-        <i className="fa-regular fa-building logo-hotel"></i>
+        <i className="fa-solid fa-hotel logo-hotel"></i>
 
-        <h2>QUẢN LÝ KHÁCH SẠN QA</h2>
+        <h2>HOTEL MANAGERMENT</h2>
 
         <div className="header-right-text">
           <h5>{Name}</h5>

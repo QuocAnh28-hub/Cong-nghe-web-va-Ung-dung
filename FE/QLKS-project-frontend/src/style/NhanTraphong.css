@@ -89,6 +89,7 @@ tbody tr:hover {
 tbody td {
   padding: 12px 12px;
   border-bottom: 1px solid #f3f5fa;
+  text-align: left;
 }
 
 .icon-action,
