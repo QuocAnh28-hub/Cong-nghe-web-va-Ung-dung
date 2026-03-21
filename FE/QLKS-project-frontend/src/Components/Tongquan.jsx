@@ -32,14 +32,13 @@ class Tongquan extends Component {
     return (
       <div className="tongquan">
 
-        {/* Header */}
         <Header 
           Name={this.state.name}
           Role={this.state.role}
         />
 
         <div className="tongquan-top">
-          <h2>Tổng quan</h2>
+          <h1>Tổng quan</h1>
           <p>Chào mừng đến với hệ thống quản lý khách sạn</p>
         </div>
 

@@ -146,7 +146,7 @@ class NhanTraphong extends Component {
         <div className="nhan-modal" onClick={(e) => e.stopPropagation()}>
           <div className="nhan-modal-title-row">
             <h2>
-              {modalType === "walkin" && "Check-in Walk-in"}
+              {modalType === "walkin" && "Check-in"}
               {modalType === "checkin" && "Check-in khách hàng"}
               {modalType === "transfer" && "Chuyển phòng"}
               {modalType === "checkout" && "Check-out khách hàng"}
@@ -379,7 +379,7 @@ class NhanTraphong extends Component {
             className="btn btn-primary"
             onClick={() => this.openModal("walkin")}
           >
-            Walk-in
+            Check-in
           </button>
         </div>
 
