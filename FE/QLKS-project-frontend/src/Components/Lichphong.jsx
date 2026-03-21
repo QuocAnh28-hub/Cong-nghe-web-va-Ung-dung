@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/Lichphong.css";
+import { FeatureHeader } from "./Common";
 
 const ROOM_TYPES = [
   "Tất cả loại phòng",
@@ -163,10 +164,12 @@ class Lichphong extends Component {
     return (
       <div className="lichphong">
         <div className="lichphong-header-wrap">
-          <div className="lichphong-title">
-            <h1>Lịch phòng</h1>
-            <p>Xem tình trạng phòng theo lịch</p>
-          </div>
+          
+          <FeatureHeader
+            title="Lịch phòng"
+            description="Xem tình trạng phòng theo lịch"
+          />
+
           <div className="lichphong-filter">
             <select value={selectedType} onChange={this.handleRoomTypeChange}>
               {ROOM_TYPES.map((t) => (

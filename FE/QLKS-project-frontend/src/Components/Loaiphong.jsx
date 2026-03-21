@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/Loaiphong.css";
+import { FeatureHeader } from "./Common";
 
 class Loaiphong extends Component {
   state = {
@@ -147,10 +148,10 @@ class Loaiphong extends Component {
     return (
       <div className="loaiphong">
         <div className="lp-top">
-          <div>
-            <h1>Quản lý Loại phòng</h1>
-            <p>Quản lý các loại phòng trong khách sạn</p>
-          </div>
+          <FeatureHeader
+            title="Quản lý Loại phòng"
+            description="Quản lý các loại phòng trong khách sạn"
+          />
           <button className="btn-primary" onClick={this.openAddModal}>
             + Thêm loại phòng
           </button>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../style/Khachhang.css";
+import { FeatureHeader } from "./Common";
 
 const KH_LIST = [
   { name: "Phạm Văn An", phone: "0911111111", cmnd: "001234567890", email: "pva@gmail.com", address: "Hà Nội", stay: 0, note: "" },
@@ -35,10 +36,10 @@ const Khachhang = () => {
   return (
     <div className="khachhang-page">
       <div className="khachhang-header-row">
-        <div>
-          <h1 className="khachhang-title">Quản lý Khách hàng</h1>
-          <p className="khachhang-desc">Quản lý thông tin khách hàng</p>
-        </div>
+        <FeatureHeader
+          title="Quản lý Khách hàng"
+          description="Quản lý thông tin khách hàng"
+        />
         <button className="add-btn" onClick={handleOpenModal}>+ Thêm khách hàng</button>
       </div>
       <div className="khachhang-table-card">

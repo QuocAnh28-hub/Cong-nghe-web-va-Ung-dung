@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/NhanTraphong.css";
+import { FeatureHeader } from "./Common";
 
 class NhanTraphong extends Component {
   state = {
@@ -371,10 +372,10 @@ class NhanTraphong extends Component {
     return (
       <div className="nhantraphong">
         <div className="page-header">
-          <div>
-            <h1>Nhận/Trả phòng</h1>
-            <p>Quản lý check-in và check-out khách hàng</p>
-          </div>
+          <FeatureHeader
+            title="Nhận/Trả phòng"
+            description="Quản lý check-in và check-out khách hàng"
+          />
           <button
             className="btn btn-primary"
             onClick={() => this.openModal("walkin")}

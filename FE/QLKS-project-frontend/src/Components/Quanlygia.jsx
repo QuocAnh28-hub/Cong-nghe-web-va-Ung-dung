@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/Quanlygia.css";
+import { FeatureHeader } from "./Common";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
 
@@ -170,10 +171,10 @@ class Quanlygia extends Component {
     return (
       <div className="qlgia-page">
         <div className="qlgia-top">
-          <div>
-            <h1>Quản lý Giá phòng</h1>
-            <p>Quản lý giá theo ngày và theo mùa</p>
-          </div>
+          <FeatureHeader
+            title="Quản lý Giá phòng"
+            description="Quản lý giá theo ngày và theo mùa"
+          />
           <button
             className="qlgia-btn-primary"
             onClick={this.openAddPriceModal}

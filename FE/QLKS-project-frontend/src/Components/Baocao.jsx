@@ -1,14 +1,15 @@
 import React from "react";
 import "../style/Baocao.css";
+import { FeatureHeader } from "./Common";
 
 const Baocao = () => {
   return (
     <div className="baocao-page">
       <div className="baocao-header-row">
-        <div>
-          <h1 className="baocao-title">Báo cáo</h1>
-          <p className="baocao-desc">Công suất phòng và doanh thu</p>
-        </div>
+        <FeatureHeader
+          title="Quản lý Báo cáo"
+          description="Xem báo cáo công suất phòng và doanh thu"
+        />
         <div className="baocao-month-picker">
             <label>Chọn tháng</label>
 						<input type="month"/>

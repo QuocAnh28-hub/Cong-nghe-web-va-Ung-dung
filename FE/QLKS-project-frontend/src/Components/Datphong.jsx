@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/Datphong.css";
+import { FeatureHeader } from "./Common";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Tất cả trạng thái" },
@@ -221,10 +222,10 @@ class Datphong extends Component {
     return (
       <div className="datphong">
         <div className="datphong__header">
-          <div>
-            <h1>Đặt phòng</h1>
-            <p>Quản lý đặt phòng khách sạn</p>
-          </div>
+          <FeatureHeader
+            title="Đặt phòng"
+            description="Quản lý đặt phòng khách sạn"
+          />
           <button className="btn btn-primary" onClick={this.openModal}>
             + Thêm đặt phòng
           </button>

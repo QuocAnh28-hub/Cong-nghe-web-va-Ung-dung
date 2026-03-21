@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import "../style/Tongquan.css";
 import Header from "./Header";
+import { FeatureHeader } from "./Common";
 
 class Tongquan extends Component {
   constructor(props) {
@@ -37,10 +38,10 @@ class Tongquan extends Component {
           Role={this.state.role}
         />
 
-        <div className="tongquan-top">
-          <h1>Tổng quan</h1>
-          <p>Chào mừng đến với hệ thống quản lý khách sạn</p>
-        </div>
+        <FeatureHeader
+          title="Tổng quan"
+          description="Chào mừng đến với hệ thống quản lý khách sạn"
+        />
 
         <div className="tongquan-mid">
 

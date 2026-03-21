@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import "../style/Quanlyphong.css";
+import { FeatureHeader } from "./Common";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
 const ROOM_STATUS = ["Trống", "Đang dùng", "Cần dọn", "Bảo trì"];
@@ -133,10 +134,10 @@ class Quanlyphong extends Component {
     return (
       <div className="quanlyphong">
         <div className="qp-top">
-          <div>
-            <h1>Quản lý Phòng</h1>
-            <p>Quản lý thông tin các phòng trong khách sạn</p>
-          </div>
+          <FeatureHeader
+            title="Quản lý Phòng"
+            description="Quản lý thông tin các phòng trong khách sạn"
+          />
           <button className="btn-primary" onClick={this.openAddModal}>
             + Thêm phòng
           </button>

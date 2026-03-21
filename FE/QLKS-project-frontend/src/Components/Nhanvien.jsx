@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import "../style/Nhanvien.css";
+import { FeatureHeader } from "./Common";
 
 const listNhanVien = [
   {
@@ -73,10 +74,10 @@ const Nhanvien = () => {
   return (
     <div className="nhanvien">
       <div className="nhanvien-header">
-        <div className="info">
-          <h1>Quản lý Nhân viên</h1>
-          <p>Quản lý tài khoản nhân viên khách sạn</p>
-        </div>
+        <FeatureHeader
+          title="Quản lý Nhân viên"
+          description="Quản lý tài khoản nhân viên khách sạn"
+        />
         <button className="add-btn" onClick={handleOpenModal}>+ Thêm nhân viên</button>
       </div>
       <div className="table-card">

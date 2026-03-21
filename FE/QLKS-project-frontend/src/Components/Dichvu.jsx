@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../style/Dichvu.css";
+import { FeatureHeader } from "./Common";
 
 const DICHVU_LIST = [
   { name: "Giặt ủi", category: "Vệ sinh", price: 50000, desc: "Dịch vụ giặt ủi quần áo" },
@@ -51,10 +52,10 @@ const Dichvu = () => {
   return (
     <div className="dichvu-page">
       <div className="dichvu-header-row">
-        <div>
-          <h1 className="dichvu-title">Quản lý Dịch vụ</h1>
-          <p className="dichvu-desc">Quản lý các dịch vụ khách sạn</p>
-        </div>
+        <FeatureHeader
+          title="Quản lý Dịch vụ"
+          description="Quản lý các dịch vụ khách sạn"
+        />
         <button className="add-btn" onClick={handleOpenModal}>+ Thêm dịch vụ</button>
       </div>
       <div className="dichvu-table-card">
