@@ -12,6 +12,7 @@ builder.Services.AddCors(options =>
             .SetIsOriginAllowed(origin => true)
             .AllowAnyHeader()
             .AllowAnyMethod()
+            .AllowCredentials()
     //if use cookies
     // .AllowCredentials()
     );
@@ -76,6 +77,8 @@ app.Use(async (ctx, next) =>
     }
     await next();
 });
+
+app.UseCors(PermissiveDevCors);
 
 app.UseAuthentication();
 app.UseAuthorization();

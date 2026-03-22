@@ -11,10 +11,12 @@ namespace DAL
     public class TaiKhoan_DAL
     {
         private readonly DatabaseHelper _dbHelper;
+        private readonly DataBase_Connect _dbcn;
 
         public TaiKhoan_DAL(IConfiguration configuration)
         {
             _dbHelper = new DatabaseHelper(configuration);
+            _dbcn = new DataBase_Connect(configuration);
         }
 
         // ===== Helpers =====

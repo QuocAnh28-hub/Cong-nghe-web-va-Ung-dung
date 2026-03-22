@@ -233,3 +233,40 @@ EXEC sp_CreateRoomType
     @Description = N'Phòng cao cấp cửa kính',
     @Capacity = 2,
     @DefaultPrice = 1200000
+
+--Đăng ký tài khoản từ khách hàng
+CREATE alter PROCEDURE sp_RegisterCustomer
+    @FullName NVARCHAR(150),
+    @Phone NVARCHAR(20),
+    @Email NVARCHAR(150),
+    @PasswordHash NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Kiểm tra email đã tồn tại chưa
+    IF EXISTS (SELECT 1 FROM Users WHERE Email = @Email)
+    BEGIN
+        RAISERROR('Email đã tồn tại!', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @UserID INT;
+
+    -- Thêm vào bảng Users
+    INSERT INTO Users (Email, PasswordHash, Role, CreatedAt)
+    VALUES (@Email, @PasswordHash, 'CUSTOMER', GETDATE());
+
+    -- Lấy UserID vừa tạo
+    SET @UserID = SCOPE_IDENTITY();
+
+    -- Thêm vào bảng Customers
+    INSERT INTO Customers (FullName, Phone, UserID)
+    VALUES (@FullName, @Phone, @UserID);
+END
+
+EXEC sp_RegisterCustomer 
+    @FullName = N'Nguyễn Văn B',
+    @Phone = '0123456788',
+    @Email = 'vanb@gmail.com',
+    @PasswordHash = '123';
