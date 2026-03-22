@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./Components/Login";
 import QLKhachSan from "./Components/QLKhachSan";
+import TrangKhachHang from "./Components/TrangKhachHang";
 
 function PrivateRoute({ children }) {
   const isLogin = localStorage.getItem("isLogin");
@@ -22,6 +23,16 @@ function App() {
           element={
             <PrivateRoute>
               <QLKhachSan />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Trang khách hàng */}
+        <Route
+          path="/trangkhachhang"
+          element={
+            <PrivateRoute>
+              <TrangKhachHang />
             </PrivateRoute>
           }
         />

@@ -128,7 +128,19 @@ class Login extends Component {
         localStorage.setItem("phone", result.data.phone);
 
         // chuyển trang
-        window.location.href = "/";
+        if (result.success) {
+          // chuyển trang theo role
+          const role = result.data.role.trim().toLowerCase();
+          if (role === "customer") {
+            window.location.href = "/trangkhachhang";
+          } else if (role === "admin" || role === "receptionist") {
+            window.location.href = "/";
+          } else {
+            // fallback nếu role không hợp lệ
+            this.setState({ message: "Role không hợp lệ" });
+          }
+        }
+
 
       } else {
         this.setState({
