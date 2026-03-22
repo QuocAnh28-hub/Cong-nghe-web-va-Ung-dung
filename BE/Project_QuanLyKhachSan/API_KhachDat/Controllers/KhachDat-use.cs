@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 
 namespace API_KhachDat.Controllers
 {
-    [EnableCors("AllowLocalDev")]
     [Route("api/KhachDat")]
     [ApiController]
     public class KhachDat_use : Controller

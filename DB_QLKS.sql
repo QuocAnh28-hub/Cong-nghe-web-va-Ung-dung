@@ -182,7 +182,7 @@ CREATE TABLE Payments (
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -----------------------------------Stored procedure-----------------------------
---Thêm nhân viên mới
+--Thêm nhân viên mới------------------------------------------------------------
 CREATE PROCEDURE sp_CreateReceptionist
     @Email NVARCHAR(150),
     @PasswordHash NVARCHAR(255),
@@ -208,13 +208,13 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'reception1@gmail.com',
-    @PasswordHash = '123456',
-    @FullName = N'Nguyễn Văn A',
-    @Role = 'RECEPTIONIST',
-    @Phone = '0123456789'
+    @Email = 'dohuuquocanh21dk@gmail.com',
+    @PasswordHash = '123',
+    @FullName = N'Đỗ Hữu Quốc Ánh',
+    @Role = 'ADMIN',
+    @Phone = '03972795272'
 
---Thêm loại phòng mới
+--Thêm loại phòng mới------------------------------------------------------------------
 CREATE alter PROCEDURE sp_CreateRoomType
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX),
@@ -234,7 +234,7 @@ EXEC sp_CreateRoomType
     @Capacity = 2,
     @DefaultPrice = 1200000
 
---Đăng ký tài khoản từ khách hàng
+--Đăng ký tài khoản từ khách hàng---------------------------------------------------------
 CREATE alter PROCEDURE sp_RegisterCustomer
     @FullName NVARCHAR(150),
     @Phone NVARCHAR(20),
@@ -270,3 +270,83 @@ EXEC sp_RegisterCustomer
     @Phone = '0123456788',
     @Email = 'vanb@gmail.com',
     @PasswordHash = '123';
+
+--Đăng nhập và lấy các thông tin--------------------------------------------------
+CREATE PROCEDURE GetAccountInfo
+    @Email NVARCHAR(255),
+    @PasswordHash NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Lấy thông tin từ Customers
+    SELECT 
+        u.Email,
+        u.PasswordHash,
+        u.Role,
+        c.FullName,
+        c.Phone
+    FROM Users u
+    INNER JOIN Customers c ON u.UserID = c.UserID
+    WHERE u.Email = @Email
+      AND u.PasswordHash = @PasswordHash;
+
+    -- Lấy thông tin từ Receptionists
+    SELECT 
+        u.Email,
+        u.PasswordHash,
+        u.Role,
+        r.FullName,
+        r.Phone
+    FROM Users u
+    INNER JOIN Receptionists r ON u.UserID = r.UserID
+    WHERE u.Email = @Email
+      AND u.PasswordHash = @PasswordHash;
+END;
+
+EXEC GetAccountInfo @Email = 'vanb@gmail.com', @PasswordHash = '123';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+delete from RoomTypes
+
+select * from Customers
+select * from Guests
+select * from InvoiceDetails
+select * from Invoices
+select * from MinibarItems
+select * from MinibarUsages
+select * from Payments
+select * from Penalties
+select * from Rates
+select * from Receptionists
+select * from ReservationRooms
+select * from Reservations
+select * from Rooms
+select * from RoomStayHistory
+select * from RoomTypes
+select * from Services
+select * from ServiceUsages
+select * from Stays
+select * from Users
