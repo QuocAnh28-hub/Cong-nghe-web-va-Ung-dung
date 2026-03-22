@@ -16,10 +16,10 @@ namespace BLL
         }
 
         // Đăng nhập
-        public List<TaiKhoan> DangNhap(string username, string password)
+        public List<Login> DangNhap(string username, string password)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-                return new List<TaiKhoan>();
+                return new List<Login>();
 
             return tk_dal.Login(username, password);
         }

@@ -42,15 +42,12 @@ namespace DAL
 
         // ===== LOGIN =====
         // Trả về 0 hoặc 1 bản ghi phù hợp với username/password
-        public List<TaiKhoan> Login(string username, string password)
+        public List<Login> Login(string username, string password)
         {
             try
             {
-                var list = new List<TaiKhoan>();
-                string sql = @"
-                    SELECT TOP 1 UserID, Email, PasswordHash, Role, CreatedAt
-                    FROM Users
-                    WHERE Email = @USERNAME AND PasswordHash = @PASS";
+                var list = new List<Login>();
+                string sql = @"EXEC GetAccountInfo @Email = @USERNAME, @PasswordHash = @PASS";
 
                 SqlParameter[] p =
                 {
@@ -61,13 +58,13 @@ namespace DAL
                 DataTable dt = _dbHelper.ExecuteQuery(sql, p);
                 foreach (DataRow r in dt.Rows)
                 {
-                    list.Add(new TaiKhoan
+                    list.Add(new Login
                     {
-                        USERID = Convert.ToInt32(r["UserID"]),
                         EMAIL = r["Email"].ToString().Trim(),
                         PASSWORDHASH = r["PasswordHash"].ToString().Trim(),
                         ROLE = r["Role"].ToString().Trim(),
-                        CREATEDAT = r["CreatedAt"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(r["CreatedAt"])
+                        FULLNAME = r["FullName"].ToString().Trim(),
+                        PHONE = r["Phone"].ToString().Trim()
                     });
                 }
 

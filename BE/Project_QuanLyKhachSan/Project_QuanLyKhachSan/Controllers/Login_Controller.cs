@@ -57,9 +57,11 @@ namespace API_Common.Controllers
                     token,
                     data = new
                     {
-                        USERID = user.USERID.ToString(),
                         EMAIL = user.EMAIL.Trim(),
-                        ROLE = user.ROLE
+                        PASSWORDHASH = user.PASSWORDHASH.Trim(),
+                        ROLE = user.ROLE.Trim(),
+                        FULLNAME = user.FULLNAME.Trim(),
+                        PHONE = user.PHONE.Trim()
                     }
                 });
             }
@@ -70,7 +72,7 @@ namespace API_Common.Controllers
         }
 
         // Sinh JWT Token
-        private string GenerateJwtToken(TaiKhoan user)
+        private string GenerateJwtToken(Login user)
         {
             var jwtSettings = _config.GetSection("Jwt");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));

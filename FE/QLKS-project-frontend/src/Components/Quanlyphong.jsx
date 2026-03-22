@@ -145,7 +145,7 @@ class Quanlyphong extends Component {
 
         <div className="qp-main">
           <div className="qp-actions">
-            <div className="search-box">
+            <div className="qp-search-box">
               <i className="fa fa-search"></i>
               <input
                 type="text"

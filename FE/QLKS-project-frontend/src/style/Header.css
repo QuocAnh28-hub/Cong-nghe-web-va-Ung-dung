@@ -48,8 +48,9 @@
   color: rgb(218, 218, 218);
 }
 .header-right-text p {
-  font-size: 10pt;
+  font-size: 8pt;
   font-weight: lighter;
+  margin-top: 16px;
 }
 .header-right-text h5 {
   margin: 0;

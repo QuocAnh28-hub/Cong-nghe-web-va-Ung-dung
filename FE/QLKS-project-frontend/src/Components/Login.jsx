@@ -121,7 +121,11 @@ class Login extends Component {
         // lưu role
         localStorage.setItem("role", result.data.role);
 
-        alert("Đăng nhập thành công!");
+        // lưu fullname
+        localStorage.setItem("fullname", result.data.fullname);
+
+        // lưu phone
+        localStorage.setItem("phone", result.data.phone);
 
         // chuyển trang
         window.location.href = "/";

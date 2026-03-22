@@ -60,7 +60,7 @@
   flex-wrap: wrap;
 }
 
-.search-box {
+.qp-search-box {
   position: relative;
   flex: 0 0 71%;
   width: 71%;
@@ -68,7 +68,7 @@
   max-width: 71%;
 }
 
-.search-box input {
+.qp-search-box input {
   width: 100%;
   padding: 10px 12px 10px 40px;
   border-radius: 10px;
@@ -76,7 +76,7 @@
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.search-box i {
+.qp-search-box i {
   position: absolute;
   left: 12px;
   top: 50%;
