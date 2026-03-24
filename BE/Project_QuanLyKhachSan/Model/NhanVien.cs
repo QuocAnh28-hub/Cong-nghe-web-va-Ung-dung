@@ -13,5 +13,6 @@ namespace Models
         public string FULLNAME { get; set; }
         public string ROLE { get; set; }
         public string PHONE { get; set; }
+        public DateTime CREATEDAT { get; set; }
     }
 }

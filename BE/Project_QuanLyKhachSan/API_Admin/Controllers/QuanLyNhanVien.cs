@@ -28,6 +28,30 @@ namespace API_Admin.Controllers
             _bll = new QuanLyNhanVien_BLL(configuration);
         }
 
+        [HttpGet("get-all-nhanvien")]
+        public IActionResult GetAllNhanVien()
+        {
+            try
+            {
+                var data = _bll.LayTatCa()
+                    .Select(x => new
+                    {
+                        FULLNAME = x.FULLNAME?.Trim(),
+                        ROLE = x.ROLE?.Trim(),
+                        EMAIL = x.EMAIL?.Trim(),
+                        PHONE = x.PHONE?.Trim(),
+                        CREATEDAT = x.CREATEDAT
+                    })
+                    .ToList();
+
+                return Ok(new { success = true, message = "Lấy danh sách nhân viên thành công", data });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Lỗi: " + ex.Message });
+            }
+        }
+
         [HttpPost("create-nhanvien")]
         public IActionResult CreateNhanVien([FromBody] NhanVien nv)
         {

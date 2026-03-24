@@ -208,11 +208,11 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'dohuuquocanh21dk@gmail.com',
+    @Email = 'dohuuquocanhh@gmail.com',
     @PasswordHash = '123',
     @FullName = N'Đỗ Hữu Quốc Ánh',
-    @Role = 'ADMIN',
-    @Phone = '03972795272'
+    @Role = 'RECEPTIONIST',
+    @Phone = '0399999999'
 
 --Thêm loại phòng mới------------------------------------------------------------------
 CREATE alter PROCEDURE sp_CreateRoomType
@@ -279,37 +279,52 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Lấy thông tin từ Customers
     SELECT 
         u.Email,
         u.PasswordHash,
         u.Role,
         c.FullName,
-        c.Phone
+        c.Phone,
+        'Customer' AS AccountType
     FROM Users u
     INNER JOIN Customers c ON u.UserID = c.UserID
     WHERE u.Email = @Email
-      AND u.PasswordHash = @PasswordHash;
+      AND u.PasswordHash = @PasswordHash
 
-    -- Lấy thông tin từ Receptionists
+    UNION
+
     SELECT 
         u.Email,
         u.PasswordHash,
         u.Role,
         r.FullName,
-        r.Phone
+        r.Phone,
+        'Receptionist' AS AccountType
     FROM Users u
     INNER JOIN Receptionists r ON u.UserID = r.UserID
     WHERE u.Email = @Email
       AND u.PasswordHash = @PasswordHash;
 END;
 
+
 EXEC GetAccountInfo @Email = 'vanb@gmail.com', @PasswordHash = '123';
 
+--Lấy thông tin tất cả các nhân viên--------------------------------------------------
+CREATE PROCEDURE GetUserReceptionistInfo
+AS
+BEGIN
+    SELECT 
+        r.FullName,
+        u.Role,
+        u.Email,
+        r.Phone,
+        u.CreatedAt
+    FROM Users u
+    INNER JOIN Receptionists r 
+        ON u.UserID = r.UserID
+END
 
-
-
-
+EXEC GetUserReceptionistInfo
 
 
 

@@ -5,7 +5,6 @@ import { FeatureHeader } from "./Common";
 
 const listNhanVien = [
   {
-    username: "admin",
     fullName: "Nguyễn Văn Admin",
     role: "Quản trị viên",
     email: "admin@hotel.com",
@@ -13,7 +12,6 @@ const listNhanVien = [
     createdAt: "15/3/2026",
   },
   {
-    username: "letan1",
     fullName: "Trần Thị Lễ Tân",
     role: "Lễ tân",
     email: "letan1@hotel.com",
@@ -21,7 +19,6 @@ const listNhanVien = [
     createdAt: "15/3/2026",
   },
   {
-    username: "letan2",
     fullName: "Lê Văn Tân",
     role: "Lễ tân",
     email: "letan2@hotel.com",
@@ -49,7 +46,6 @@ const getRoleBadge = (role) => {
 const Nhanvien = () => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    username: "",
     password: "",
     fullName: "",
     role: "Lễ tân",
@@ -84,7 +80,6 @@ const Nhanvien = () => {
         <table>
           <thead>
             <tr>
-              <th>Tên đăng nhập</th>
               <th>Họ và tên</th>
               <th>Vai trò</th>
               <th>Email</th>
@@ -96,7 +91,6 @@ const Nhanvien = () => {
           <tbody>
             {listNhanVien.map((nv, idx) => (
               <tr key={idx}>
-                <td>{nv.username}</td>
                 <td>{nv.fullName}</td>
                 <td>{getRoleBadge(nv.role)}</td>
                 <td>{nv.email}</td>
@@ -124,28 +118,6 @@ const Nhanvien = () => {
             <h2>Thêm nhân viên mới</h2>
             <form className="add-staff-form" onSubmit={handleSubmit}>
               <label>
-                Tên đăng nhập *
-                <input
-                  type="text"
-                  name="username"
-                  value={form.username}
-                  onChange={handleChange}
-                  required
-                  autoFocus
-                />
-              </label>
-              <label>
-                Mật khẩu *
-                <input
-                  type="password"
-                  name="password"
-                  value={form.password}
-                  onChange={handleChange}
-                  required
-                  placeholder="Nhập mật khẩu"
-                />
-              </label>
-              <label>
                 Họ và tên *
                 <input
                   type="text"
@@ -163,6 +135,16 @@ const Nhanvien = () => {
                 </select>
               </label>
               <label>
+                Số điện thoại *
+                <input
+                  type="tel"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
                 Email *
                 <input
                   type="email"
@@ -173,13 +155,14 @@ const Nhanvien = () => {
                 />
               </label>
               <label>
-                Số điện thoại *
+                Mật khẩu *
                 <input
-                  type="tel"
-                  name="phone"
-                  value={form.phone}
+                  type="password"
+                  name="password"
+                  value={form.password}
                   onChange={handleChange}
                   required
+                  placeholder="Nhập mật khẩu"
                 />
               </label>
               <div className="modal-actions">

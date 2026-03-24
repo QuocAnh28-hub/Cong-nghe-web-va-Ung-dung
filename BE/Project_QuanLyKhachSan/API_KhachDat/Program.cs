@@ -57,8 +57,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors(PermissiveDevCors);
-
 app.Use(async (ctx, next) =>
 {
     if (string.Equals(ctx.Request.Method, "OPTIONS", StringComparison.OrdinalIgnoreCase))

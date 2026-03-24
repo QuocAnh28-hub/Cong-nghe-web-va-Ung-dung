@@ -18,6 +18,34 @@ namespace DAL
             _dbcn = new DataBase_Connect(configuration);
         }
 
+        // ===== Lấy tất cả nhân viên
+        public List<NhanVien> GetAll()
+        {
+            try
+            {
+                var list = new List<NhanVien>();
+                string sql = "EXEC GetUserReceptionistInfo";
+                var dt = _dbHelper.ExecuteQuery(sql);
+
+                foreach (DataRow r in dt.Rows)
+                {
+                    list.Add(new NhanVien
+                    {
+                        FULLNAME = r["FULLNAME"]?.ToString()?.Trim(),
+                        ROLE = r["ROLE"]?.ToString()?.Trim(),
+                        EMAIL = r["EMAIL"]?.ToString()?.Trim(),
+                        PHONE = r["PHONE"]?.ToString()?.Trim(),
+                        CREATEDAT = r["CREATEDAT"] != DBNull.Value ? Convert.ToDateTime(r["CREATEDAT"]) : DateTime.MinValue
+                    });
+                }
+                return list;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Lỗi khi lấy danh sách nhân viên: " + ex.Message);
+            }
+        }
+
         public DataTable Insert(NhanVien nv)
         {
             try
