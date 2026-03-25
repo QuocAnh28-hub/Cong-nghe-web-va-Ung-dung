@@ -2,14 +2,23 @@
 
 use QuanLyKhachSan
 
-SELECT * FROM USERS
 
 CREATE TABLE Users (
     UserID INT IDENTITY(1,1) PRIMARY KEY,
     Email NVARCHAR(150) NOT NULL UNIQUE,
     PasswordHash NVARCHAR(255) NOT NULL,
     Role NVARCHAR(20) NOT NULL CHECK (Role IN ('ADMIN','RECEPTIONIST','CUSTOMER')),
-    CreatedAt DATETIME DEFAULT GETDATE()
+    CreatedAt DATETIME DEFAULT GETDATE(),
+	Status NVARCHAR(20) NULL
+)
+
+CREATE TABLE Admin (
+    AdminID INT IDENTITY(1,1) PRIMARY KEY,
+    FullName NVARCHAR(150) NOT NULL,
+    Phone NVARCHAR(20),
+    UserID INT UNIQUE,
+	Status NVARCHAR(20) DEFAULT 'TRUE' CHECK (Status IN ('TRUE','FALSE')),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
 )
 
 CREATE TABLE Receptionists (
@@ -17,6 +26,7 @@ CREATE TABLE Receptionists (
     FullName NVARCHAR(150) NOT NULL,
     Phone NVARCHAR(20),
     UserID INT UNIQUE,
+	Status NVARCHAR(20) DEFAULT 'TRUE' CHECK (Status IN ('TRUE','FALSE')),
     FOREIGN KEY (UserID) REFERENCES Users(UserID)
 )
 
@@ -57,13 +67,12 @@ CREATE TABLE Rates (
 
 CREATE TABLE Reservations (
     ReservationID INT IDENTITY(1,1) PRIMARY KEY,
-    CustomerID INT NOT NULL,
+     UserID INT UNIQUE,
+    FOREIGN KEY (UserID) REFERENCES Users(UserID),
     CheckInDate DATE,
     CheckOutDate DATE,
-    Status NVARCHAR(20)
-        CHECK (Status IN ('BOOKED','CANCELLED','CHECKED_IN','COMPLETED')),
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+    Status NVARCHAR(20) CHECK (Status IN ('BOOKED','CANCELLED','CHECKED_IN','COMPLETED')),
+    CreatedAt DATETIME DEFAULT GETDATE()
 )
 
 CREATE TABLE ReservationRooms (
@@ -109,7 +118,8 @@ CREATE TABLE RoomStayHistory (
 CREATE TABLE Services (
     ServiceID INT IDENTITY(1,1) PRIMARY KEY,
     ServiceName NVARCHAR(150),
-    Price DECIMAL(12,2)
+    Price DECIMAL(12,2),
+	Status NVARCHAR(20) DEFAULT 'TRUE' CHECK (Status IN ('TRUE','FALSE'))
 )
 
 CREATE TABLE ServiceUsages (
@@ -124,8 +134,10 @@ CREATE TABLE ServiceUsages (
 
 CREATE TABLE MinibarItems (
     MinibarID INT IDENTITY(1,1) PRIMARY KEY,
+	RoomTypeID INT NOT NULL,
     ItemName NVARCHAR(150),
-    Price DECIMAL(12,2)
+    Price DECIMAL(12,2),
+	FOREIGN KEY (RoomTypeID) REFERENCES RoomTypes(RoomTypeID)
 )
 
 CREATE TABLE MinibarUsages (
@@ -144,16 +156,15 @@ CREATE TABLE Penalties (
     Amount DECIMAL(14,2) NOT NULL,
     CreatedAt DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (StayID) REFERENCES Stays(StayID)
-);
+)
 
 CREATE TABLE Invoices (
     InvoiceID INT IDENTITY(1,1) PRIMARY KEY,
     StayID INT UNIQUE,
-    IssueDate DATETIME DEFAULT GETDATE(),
+    Date DATETIME DEFAULT GETDATE(),
     TotalAmount DECIMAL(14,2),
     VAT DECIMAL(14,2),
-    Status NVARCHAR(20)
-        CHECK (Status IN ('OPEN','PAID','CANCELLED')),
+    Status NVARCHAR(20) CHECK (Status IN ('OPEN','PAID','CANCELLED')),
     FOREIGN KEY (StayID) REFERENCES Stays(StayID)
 )
 
@@ -208,14 +219,14 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'dohuuquocanhh@gmail.com',
+    @Email = 'dohuuquocanh21dk@gmail.com',
     @PasswordHash = '123',
     @FullName = N'Đỗ Hữu Quốc Ánh',
-    @Role = 'RECEPTIONIST',
-    @Phone = '0399999999'
+    @Role = 'ADMIN',
+    @Phone = '0972795272'
 
 --Thêm loại phòng mới------------------------------------------------------------------
-CREATE alter PROCEDURE sp_CreateRoomType
+CREATE PROCEDURE sp_CreateRoomType
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX),
     @Capacity INT,
@@ -235,7 +246,7 @@ EXEC sp_CreateRoomType
     @DefaultPrice = 1200000
 
 --Đăng ký tài khoản từ khách hàng---------------------------------------------------------
-CREATE alter PROCEDURE sp_RegisterCustomer
+CREATE PROCEDURE sp_RegisterCustomer
     @FullName NVARCHAR(150),
     @Phone NVARCHAR(20),
     @Email NVARCHAR(150),
@@ -279,52 +290,107 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- Lấy thông tin từ Customers
     SELECT 
         u.Email,
         u.PasswordHash,
         u.Role,
         c.FullName,
-        c.Phone,
-        'Customer' AS AccountType
+        c.Phone
     FROM Users u
     INNER JOIN Customers c ON u.UserID = c.UserID
     WHERE u.Email = @Email
-      AND u.PasswordHash = @PasswordHash
+      AND u.PasswordHash = @PasswordHash;
 
-    UNION
-
+    -- Lấy thông tin từ Receptionists
     SELECT 
         u.Email,
         u.PasswordHash,
         u.Role,
         r.FullName,
-        r.Phone,
-        'Receptionist' AS AccountType
+        r.Phone
     FROM Users u
     INNER JOIN Receptionists r ON u.UserID = r.UserID
     WHERE u.Email = @Email
       AND u.PasswordHash = @PasswordHash;
+
+	   -- Lấy thông tin từ Receptionists
+    SELECT 
+        u.Email,
+        u.PasswordHash,
+        u.Role,
+        a.FullName,
+        a.Phone
+    FROM Users u
+    INNER JOIN Admin a ON u.UserID = a.UserID
+    WHERE u.Email = @Email
+      AND u.PasswordHash = @PasswordHash;
+END;
+
+EXEC GetAccountInfo @Email = 'dohuuquocanh21dk@gmail.com', @PasswordHash = '123';
+
+
+--Thêm Loại phòng
+CREATE PROCEDURE sp_AddRoomType
+    @Name NVARCHAR(100),
+    @Description NVARCHAR(MAX) = NULL,
+    @Capacity INT = NULL,
+    @DefaultPrice DECIMAL(12,2) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO RoomTypes (Name, Description, Capacity, DefaultPrice)
+    VALUES (@Name, @Description, @Capacity, @DefaultPrice);
+
+    -- Trả về ID vừa tạo
+    SELECT SCOPE_IDENTITY() AS NewRoomTypeID;
+END;
+
+--Sửa Loại phòng
+CREATE PROCEDURE sp_UpdateRoomType
+    @RoomTypeID INT,
+    @Name NVARCHAR(100),
+    @Description NVARCHAR(MAX),
+    @Capacity INT,
+    @DefaultPrice DECIMAL(12,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE RoomTypes
+    SET 
+        Name = @Name,
+        Description = @Description,
+        Capacity = @Capacity,
+        DefaultPrice = @DefaultPrice
+    WHERE RoomTypeID = @RoomTypeID;
+
+    -- Check có update không
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RAISERROR ('RoomType không tồn tại', 16, 1);
+    END
+END;
+
+--Xoá Loại phòng
+CREATE PROCEDURE sp_DeleteRoomType
+    @RoomTypeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM RoomTypes
+    WHERE RoomTypeID = @RoomTypeID;
+
+    -- Check có xoá không
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RAISERROR ('RoomType không tồn tại', 16, 1);
+    END
 END;
 
 
-EXEC GetAccountInfo @Email = 'vanb@gmail.com', @PasswordHash = '123';
-
---Lấy thông tin tất cả các nhân viên--------------------------------------------------
-CREATE PROCEDURE GetUserReceptionistInfo
-AS
-BEGIN
-    SELECT 
-        r.FullName,
-        u.Role,
-        u.Email,
-        r.Phone,
-        u.CreatedAt
-    FROM Users u
-    INNER JOIN Receptionists r 
-        ON u.UserID = r.UserID
-END
-
-EXEC GetUserReceptionistInfo
 
 
 
@@ -344,7 +410,27 @@ EXEC GetUserReceptionistInfo
 
 
 
+
+
+delete from Customers
+delete from Guests
+delete from InvoiceDetails
+delete from Invoices
+delete from MinibarItems
+delete from MinibarUsages
+delete from Payments
+delete from Penalties
+delete from Rates
+delete from Receptionists
+delete from ReservationRooms
+delete from Reservations
+delete from Rooms
+delete from RoomStayHistory
 delete from RoomTypes
+delete from Services
+delete from ServiceUsages
+delete from Stays
+delete from Users
 
 select * from Customers
 select * from Guests
