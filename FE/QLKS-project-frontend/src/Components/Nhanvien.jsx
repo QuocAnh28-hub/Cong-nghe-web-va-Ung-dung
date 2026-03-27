@@ -31,13 +31,13 @@ const getRoleBadge = (role) => {
   if (role === "Quản trị viên") {
     return (
       <span className="badge admin">
-        <span role="img" aria-label="admin"><i class="fa-solid fa-shield"></i></span> Quản trị viên
+        <span role="img" aria-label="admin"><i class="fa-solid fa-shield"></i> Quản trị viên</span>
       </span>
     );
   }
   return (
     <span className="badge letan">
-      <span role="img" aria-label="letan"><i class="fa-solid fa-circle-user"></i></span> Lễ tân
+      <span role="img" aria-label="letan"><i class="fa-solid fa-circle-user"></i> Lễ tân</span>
     </span>
   );
 };

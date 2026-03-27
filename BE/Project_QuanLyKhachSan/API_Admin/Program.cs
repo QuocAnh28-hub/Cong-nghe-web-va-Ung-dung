@@ -4,25 +4,21 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//DỊCH VỤ CƠ BẢN
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-//CẤU HÌNH CORS (Cho phép React truy cập)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:5173")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials());
 });
 
-//CẤU HÌNH JWT AUTHENTICATION
-// Gom toàn bộ cấu hình vào section "Jwt" để quản lý tập trung
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]); // Đọc Secret Key từ cấu hình
+var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]); 
 
 builder.Services.AddAuthentication(options =>
 {
@@ -31,7 +27,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // Tắt khi dev local
+    options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {

@@ -219,11 +219,11 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'dohuuquocanh21dk@gmail.com',
+    @Email = 'dohuuquocanhh@gmail.com',
     @PasswordHash = '123',
-    @FullName = N'Đỗ Hữu Quốc Ánh',
+    @FullName = N'Đỗ Hữu Quốc Ánhh',
     @Role = 'ADMIN',
-    @Phone = '0972795272'
+    @Phone = '0395134241'
 
 --Thêm loại phòng mới------------------------------------------------------------------
 CREATE PROCEDURE sp_CreateRoomType
@@ -240,10 +240,10 @@ BEGIN
 END
 
 EXEC sp_CreateRoomType
-    @Name = N'Phòng Half-Luxury',
-    @Description = N'Phòng cao cấp cửa kính',
+    @Name = N'Phòng Luxury',
+    @Description = N'Phòng cao cấp',
     @Capacity = 2,
-    @DefaultPrice = 1200000
+    @DefaultPrice = 1500000
 
 --Đăng ký tài khoản từ khách hàng---------------------------------------------------------
 CREATE PROCEDURE sp_RegisterCustomer
@@ -283,14 +283,13 @@ EXEC sp_RegisterCustomer
     @PasswordHash = '123';
 
 --Đăng nhập và lấy các thông tin--------------------------------------------------
-CREATE PROCEDURE GetAccountInfo
+CREATE alter PROCEDURE GetAccountInfo
     @Email NVARCHAR(255),
     @PasswordHash NVARCHAR(255)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Lấy thông tin từ Customers
     SELECT 
         u.Email,
         u.PasswordHash,
@@ -300,9 +299,10 @@ BEGIN
     FROM Users u
     INNER JOIN Customers c ON u.UserID = c.UserID
     WHERE u.Email = @Email
-      AND u.PasswordHash = @PasswordHash;
+      AND u.PasswordHash = @PasswordHash
 
-    -- Lấy thông tin từ Receptionists
+    UNION ALL
+
     SELECT 
         u.Email,
         u.PasswordHash,
@@ -312,9 +312,10 @@ BEGIN
     FROM Users u
     INNER JOIN Receptionists r ON u.UserID = r.UserID
     WHERE u.Email = @Email
-      AND u.PasswordHash = @PasswordHash;
+      AND u.PasswordHash = @PasswordHash
 
-	   -- Lấy thông tin từ Receptionists
+    UNION ALL
+
     SELECT 
         u.Email,
         u.PasswordHash,
@@ -330,7 +331,7 @@ END;
 EXEC GetAccountInfo @Email = 'dohuuquocanh21dk@gmail.com', @PasswordHash = '123';
 
 
---Thêm Loại phòng
+--Thêm Loại phòng---------------------------------------------------------------------
 CREATE PROCEDURE sp_AddRoomType
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX) = NULL,
@@ -347,7 +348,7 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS NewRoomTypeID;
 END;
 
---Sửa Loại phòng
+--Sửa Loại phòng-------------------------------------------------------------------------
 CREATE PROCEDURE sp_UpdateRoomType
     @RoomTypeID INT,
     @Name NVARCHAR(100),
@@ -373,7 +374,7 @@ BEGIN
     END
 END;
 
---Xoá Loại phòng
+--Xoá Loại phòng----------------------------------------------------------------------
 CREATE PROCEDURE sp_DeleteRoomType
     @RoomTypeID INT
 AS
@@ -390,16 +391,312 @@ BEGIN
     END
 END;
 
+---------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------
+----------------Proc thêm phòng-------------------------------
+CREATE PROCEDURE AddRoom
+    @RoomNumber NVARCHAR(50),
+    @Status NVARCHAR(50),
+    @RoomTypeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    IF EXISTS (SELECT 1 FROM Rooms WHERE RoomNumber = @RoomNumber)
+    BEGIN
+        PRINT N'Phòng đã tồn tại';
+        RETURN;
+    END
 
+    INSERT INTO Rooms (RoomNumber, Status, RoomTypeID)
+    VALUES (@RoomNumber, @Status, @RoomTypeID);
 
+    PRINT N'Thêm phòng thành công';
+END;
 
+EXEC AddRoom 
+    @RoomNumber = '101',
+    @Status = 'Available',
+    @RoomTypeID = 1;
 
+-------------Proc sửa phòng-------------------------------------
+CREATE PROCEDURE UpdateRoom
+    @RoomID INT,
+    @RoomNumber NVARCHAR(50),
+    @Status NVARCHAR(50),
+    @RoomTypeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    -- Kiểm tra phòng tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Rooms WHERE RoomID = @RoomID)
+    BEGIN
+        PRINT N'Phòng không tồn tại';
+        RETURN;
+    END
 
+    -- Kiểm tra trùng RoomNumber (trừ chính nó)
+    IF EXISTS (
+        SELECT 1 
+        FROM Rooms 
+        WHERE RoomNumber = @RoomNumber 
+          AND RoomID <> @RoomID
+    )
+    BEGIN
+        PRINT N'Số phòng đã tồn tại';
+        RETURN;
+    END
 
+    -- Update
+    UPDATE Rooms
+    SET 
+        RoomNumber = @RoomNumber,
+        Status = @Status,
+        RoomTypeID = @RoomTypeID
+    WHERE RoomID = @RoomID;
 
+    PRINT N'Cập nhật phòng thành công';
+END;
 
+EXEC UpdateRoom 
+    @RoomID = 1,
+    @RoomNumber = '102',
+    @Status = 'Occupied',
+    @RoomTypeID = 1;
+
+-------------Proc load phòng--------------------------------------------------
+CREATE PROCEDURE GetRooms
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        r.RoomID,
+        r.RoomNumber,
+        r.Status,
+        r.RoomTypeID,
+        rt.Name AS RoomTypeName,
+        rt.Description,
+        rt.Capacity,
+        rt.DefaultPrice
+    FROM Rooms r
+    LEFT JOIN RoomTypes rt ON r.RoomTypeID = rt.RoomTypeID
+    ORDER BY r.RoomID DESC;
+END;
+
+EXEC GetRooms;
+
+-------------Proc Load KH--------------------------------------------------------
+CREATE PROCEDURE sp_LoadGuests
+AS
+BEGIN
+    SELECT GuestID, FullName, IdentityType, IdentityNumber
+    FROM Guests;
+END;
+
+EXEC sp_LoadGuests
+
+-------------Proc Thêm KH--------------------------------------------------------
+CREATE PROCEDURE sp_AddGuest
+    @FullName NVARCHAR(100),
+    @IdentityType NVARCHAR(50),
+    @IdentityNumber NVARCHAR(50)
+AS
+BEGIN
+    INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
+    VALUES (@FullName, @IdentityType, @IdentityNumber);
+END;
+
+EXEC sp_AddGuest
+	@FullName = 'Lê Huy Hoàng',
+    @IdentityType = 'CCCD',
+    @IdentityNumber = '123456789'
+
+-------------Proc Sửa KH---------------------------------------------------------
+CREATE PROCEDURE sp_UpdateGuest
+    @GuestID INT,
+    @FullName NVARCHAR(100),
+    @IdentityType NVARCHAR(50),
+    @IdentityNumber NVARCHAR(50)
+AS
+BEGIN
+    UPDATE Guests
+    SET FullName = @FullName,
+        IdentityType = @IdentityType,
+        IdentityNumber = @IdentityNumber
+    WHERE GuestID = @GuestID;
+END;
+
+EXEC sp_UpdateGuest
+    @GuestID = 1,
+    @FullName = 'Lê Huy Hoàng VIP',
+    @IdentityType = 'CCCD',
+    @IdentityNumber = '123456789'
+
+-------------Proc Load DV--------------------------------------------------------
+CREATE PROC sp_GetServices
+AS
+BEGIN
+    SELECT 
+        ServiceID,
+        ServiceName,
+        Price,
+        Status
+    FROM Services
+END
+
+EXEC sp_GetServices
+
+-------------Proc Load DV đang hoạt động----------------------------------------
+CREATE PROC sp_GetActiveServices
+AS
+BEGIN
+    SELECT *
+    FROM Services
+    WHERE Status = 'TRUE'
+END
+
+EXEC sp_GetActiveServices
+
+-------------Proc Thêm DV--------------------------------------------------------
+CREATE PROC sp_InsertService
+    @ServiceName NVARCHAR(150),
+    @Price DECIMAL(12,2),
+    @Status NVARCHAR(20) = 'TRUE'
+AS
+BEGIN
+    INSERT INTO Services (ServiceName, Price, Status)
+    VALUES (@ServiceName, @Price, @Status)
+END
+
+EXEC sp_InsertService
+    @ServiceName = 'Nước suối',
+    @Price = 15000,
+    @Status = 'TRUE'
+
+-------------Proc Sửa DV---------------------------------------------------------
+CREATE PROC sp_UpdateService
+    @ServiceID INT,
+    @ServiceName NVARCHAR(150),
+    @Price DECIMAL(12,2),
+    @Status NVARCHAR(20)
+AS
+BEGIN
+    UPDATE Services
+    SET 
+        ServiceName = @ServiceName,
+        Price = @Price,
+        Status = @Status
+    WHERE ServiceID = @ServiceID
+END
+
+EXEC sp_UpdateService
+	@ServiceID = 1,
+    @ServiceName = N'Nước suối',
+    @Price = 15000,
+    @Status = 'TRUE'
+
+-------------Proc Xoá DV---------------------------------------------------------
+CREATE PROC sp_DeleteService
+    @ServiceID INT
+AS
+BEGIN
+    UPDATE Services
+    SET Status = 'FALSE'
+    WHERE ServiceID = @ServiceID
+END
+
+EXEC sp_DeleteService
+	@ServiceID = 1
+
+-------------Proc Load Nhân viên-------------------------------------------------
+CREATE PROCEDURE GetUserReceptionistInfo
+AS
+BEGIN
+    SELECT 
+        r.FullName,
+        u.Role,
+        u.Email,
+        r.Phone,
+        u.CreatedAt
+    FROM Users u
+    INNER JOIN Receptionists r 
+        ON u.UserID = r.UserID
+END
+
+EXEC GetUserReceptionistInfo
+
+-------------Proc Load Nhân viên-------------------------------------------------
+CREATE alter PROCEDURE sp_GetActiveReceptionists
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        u.UserID,
+        u.Email,
+        u.Role,
+        u.CreatedAt,
+        r.FullName,
+        r.Phone
+    FROM Users u
+    INNER JOIN Receptionists r ON u.UserID = r.UserID
+    WHERE r.Status = 'TRUE'
+END
+
+EXEC sp_GetActiveReceptionists
+
+-------------Proc Sửa NV---------------------------------------------------------
+CREATE PROCEDURE sp_UpdateReceptionist
+    @UserID INT,
+    @Email NVARCHAR(150),
+    @PasswordHash NVARCHAR(255),
+    @FullName NVARCHAR(150),
+    @Role NVARCHAR(20),
+    @Phone NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Cập nhật bảng Users
+    UPDATE Users
+    SET 
+        Email = @Email,
+        PasswordHash = @PasswordHash,
+        Role = @Role
+    WHERE UserID = @UserID;
+
+    -- Cập nhật bảng Receptionists
+    UPDATE Receptionists
+    SET 
+        FullName = @FullName,
+        Phone = @Phone
+    WHERE UserID = @UserID;
+END
+
+EXEC sp_UpdateReceptionist
+    @UserID = 5,
+    @Email = N'dohuuquocanhh@gmail.com',
+    @PasswordHash = '123',
+    @FullName = N'Manager Quốc Ánh',
+    @Role = 'ADMIN',
+    @Phone = '0395134241'
+
+-------------Proc Xoá NV---------------------------------------------------------
+CREATE alter PROCEDURE sp_DeleteReceptionist
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Receptionists
+    SET Status = 'FALSE'
+    WHERE UserID = @UserID;
+END
+
+EXEC sp_DeleteReceptionist
+    @UserID = 5
 
 
 
