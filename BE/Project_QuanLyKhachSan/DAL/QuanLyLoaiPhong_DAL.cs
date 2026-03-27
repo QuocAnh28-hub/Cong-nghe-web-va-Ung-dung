@@ -18,6 +18,33 @@ namespace DAL
             _dbcn = new DataBase_Connect(configuration);
         }
 
+        public List<RoomTypes> GetAll()
+        {
+            try
+            {
+                var list = new List<RoomTypes>();
+                string sql = "select * from RoomTypes";
+                var dt = _dbHelper.ExecuteQuery(sql);
+
+                foreach (DataRow r in dt.Rows)
+                {
+                    list.Add(new RoomTypes
+                    {
+                        ROOMTYPEID = r["ROOMTYPEID"] == DBNull.Value ? 0 : Convert.ToInt32(r["ROOMTYPEID"]),
+                        NAME = r["NAME"]?.ToString()?.Trim(),
+                        DESCRIPTION = r["DESCRIPTION"]?.ToString()?.Trim(),
+                        CAPACITY = r["CAPACITY"] == DBNull.Value ? 0 : Convert.ToInt32(r["CAPACITY"]),
+                        DEFAULTPRICE = r["DEFAULTPRICE"] == DBNull.Value ? 0 : Convert.ToDecimal(r["DEFAULTPRICE"])
+                    });
+                }
+                return list;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Lỗi khi lấy danh sách nhân viên: " + ex.Message);
+            }
+        }
+
         public DataTable Insert(RoomTypes rt)
         {
             try

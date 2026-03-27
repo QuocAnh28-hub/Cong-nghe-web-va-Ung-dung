@@ -28,6 +28,30 @@ namespace API_LeTan.Controllers
             _bll = new QuanLyLoaiPhong_BLL(configuration);
         }
 
+        [HttpGet("get-all-loaiphong")]
+        public IActionResult GetAllLoaiPhong()
+        {
+            try
+            {
+                var data = _bll.LayTatCa()
+                    .Select(x => new
+                    {
+                        ROOMTYPEID = x.ROOMTYPEID,
+                        NAME = x.NAME?.Trim(),
+                        DESCRIPTION = x.DESCRIPTION?.Trim(),
+                        CAPACITY = x.CAPACITY,
+                        DEFAULTPRICE = x.DEFAULTPRICE
+                    })
+                    .ToList();
+
+                return Ok(new { success = true, message = "Lấy danh sách loại phòng thành công", data });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Lỗi: " + ex.Message });
+            }
+        }
+
         [HttpPost("create-loaiphong")]
         public IActionResult CreateLoaiPhong([FromBody] RoomTypes rt)
         {
