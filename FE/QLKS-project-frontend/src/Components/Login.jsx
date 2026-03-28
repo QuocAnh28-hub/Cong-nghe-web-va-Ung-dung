@@ -101,53 +101,38 @@ class Login extends Component {
     const { email, password } = this.state;
 
     try {
-      const response = await fetch(
-        `https://localhost:7297/api-common/Login/login?username=${email}&pass=${password}`,
-        {
-          method: "POST"
-        }
-      );
+      const response = await fetch("http://localhost:3000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          Email: email,
+          PasswordHash: password
+        })
+      });
 
       const result = await response.json();
 
-      if (result.success) {
-
-        // lưu token
-        localStorage.setItem("token", result.token);
-
-        // lưu trạng thái login
+      if (response.ok && result.account) {
         localStorage.setItem("isLogin", "true");
+        localStorage.setItem("role", result.account.Role);
+        localStorage.setItem("fullname", result.account.FullName);
+        localStorage.setItem("phone", result.account.Phone);
 
-        // lưu role
-        localStorage.setItem("role", result.data.role);
-
-        // lưu fullname
-        localStorage.setItem("fullname", result.data.fullname);
-
-        // lưu phone
-        localStorage.setItem("phone", result.data.phone);
-
-        // chuyển trang
-        if (result.success) {
-          // chuyển trang theo role
-          const role = result.data.role.trim().toLowerCase();
-          if (role === "customer") {
-            window.location.href = "/trangkhachhang";
-          } else if (role === "admin" || role === "receptionist") {
-            window.location.href = "/";
-          } else {
-            // fallback nếu role không hợp lệ
-            this.setState({ message: "Role không hợp lệ" });
-          }
+        const role = result.account.Role.trim().toLowerCase();
+        if (role === "customer") {
+          window.location.href = "/trangkhachhang";
+        } else if (role === "admin" || role === "receptionist") {
+          window.location.href = "/";
+        } else {
+          this.setState({ message: "Role không hợp lệ" });
         }
-
-
       } else {
         this.setState({
-          message: "Sai tài khoản hoặc mật khẩu"
+          message: result.message || "Sai tài khoản hoặc mật khẩu"
         });
       }
-
     } catch (error) {
       this.setState({
         message: "Không kết nối được API"

@@ -4,40 +4,7 @@ import { FeatureHeader } from "./Common";
 
 class Loaiphong extends Component {
   state = {
-    types: [
-      {
-        id: 1,
-        name: "Standard",
-        description: "Phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản",
-        capacity: 2,
-        price: 800000,
-        amenities: ["WiFi", "TV", "Điều hòa"],
-      },
-      {
-        id: 2,
-        name: "Deluxe",
-        description: "Phòng cao cấp với view đẹp và không gian rộng rãi",
-        capacity: 3,
-        price: 1200000,
-        amenities: ["WiFi", "Smart TV", "Điều hòa"],
-      },
-      {
-        id: 3,
-        name: "Suite",
-        description: "Phòng hạng sang với phòng khách riêng biệt",
-        capacity: 4,
-        price: 2000000,
-        amenities: ["WiFi", "Smart TV 55\"", "Điều hòa"],
-      },
-      {
-        id: 4,
-        name: "Family",
-        description: "Phòng gia đình rộng rãi cho 4-6 người",
-        capacity: 6,
-        price: 1800000,
-        amenities: ["WiFi", "TV", "Điều hòa"],
-      },
-    ],
+    types: [],
     search: "",
     isModalOpen: false,
     modalMode: "add",
@@ -47,8 +14,33 @@ class Loaiphong extends Component {
       description: "",
       capacity: "",
       price: "",
-      amenities: "",
     },
+  };
+
+  componentDidMount() {
+    this.loadRoomTypes();
+  }
+
+  loadRoomTypes = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/room-types");
+      if (!response.ok) {
+        throw new Error(`API lỗi: ${response.status}`);
+      }
+      const data = await response.json();
+      const types = Array.isArray(data)
+        ? data.map((item) => ({
+            id: item.RoomTypeID,
+            name: item.Name,
+            description: item.Description,
+            capacity: item.Capacity,
+            price: item.DefaultPrice,
+          }))
+        : [];
+      this.setState({ types });
+    } catch (error) {
+      console.error("Không load được loại phòng:", error);
+    }
   };
 
   getFilteredTypes = () => {
@@ -58,8 +50,7 @@ class Loaiphong extends Component {
     return types.filter(
       (type) =>
         type.name.toLowerCase().includes(q) ||
-        type.description.toLowerCase().includes(q) ||
-        type.amenities.join(" ").toLowerCase().includes(q),
+        type.description.toLowerCase().includes(q),
     );
   };
 
@@ -67,7 +58,7 @@ class Loaiphong extends Component {
     this.setState({
       isModalOpen: true,
       modalMode: "add",
-      currentType: { id: null, name: "", description: "", capacity: "", price: "", amenities: "" },
+      currentType: { id: null, name: "", description: "", capacity: "", price: ""},
     });
   };
 
@@ -81,7 +72,6 @@ class Loaiphong extends Component {
         description: typeItem.description,
         capacity: typeItem.capacity,
         price: typeItem.price,
-        amenities: typeItem.amenities.join(", "),
       },
     });
   };
@@ -100,7 +90,7 @@ class Loaiphong extends Component {
   handleSubmit = (e) => {
     e.preventDefault();
     const { types, modalMode, currentType } = this.state;
-    const { name, description, capacity, price, amenities, id } = currentType;
+    const { name, description, capacity, price, id } = currentType;
 
     if (!name || !description || !capacity || !price) {
       alert("Vui lòng điền đủ các trường bắt buộc.");
@@ -120,10 +110,6 @@ class Loaiphong extends Component {
       description: description.trim(),
       capacity: capacityNum,
       price: priceNum,
-      amenities: amenities
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
     };
 
     if (modalMode === "add") {
@@ -179,7 +165,6 @@ class Loaiphong extends Component {
                   <th>Mô tả</th>
                   <th>Sức chứa</th>
                   <th>Giá cơ bản</th>
-                  <th>Tiện nghi</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
@@ -190,16 +175,6 @@ class Loaiphong extends Component {
                     <td>{typeItem.description}</td>
                     <td>{typeItem.capacity} người</td>
                     <td>{typeItem.price.toLocaleString()}đ</td>
-                    <td>
-                      {typeItem.amenities.slice(0, 3).map((amenity) => (
-                        <span key={amenity} className="tag-pill">
-                          {amenity}
-                        </span>
-                      ))}
-                      {typeItem.amenities.length > 3 && (
-                        <span className="tag-pill">+{typeItem.amenities.length - 3}</span>
-                      )}
-                    </td>
                     <td>
                       <button className="btn-edit" onClick={() => this.openEditModal(typeItem)}>
                         <i className="fa fa-edit"></i>
@@ -248,11 +223,6 @@ class Loaiphong extends Component {
                 <label>
                   Giá cơ bản (VNĐ) *
                   <input className="modal-input" type="number" value={currentType.price} onChange={this.handleChange("price")} />
-                </label>
-
-                <label>
-                  Tiện nghi (phân cách bằng dấu phẩy)
-                  <input className="modal-input" type="text" value={currentType.amenities} onChange={this.handleChange("amenities")} />
                 </label>
 
                 <div className="modal-buttons">
