@@ -756,6 +756,73 @@ END
 
 EXEC sp_GetCustomerSummary
 
+--Load customers--------------------------------------------------------------------
+CREATE PROCEDURE sp_Customers_GetAll
+AS
+BEGIN
+    SELECT 
+        CustomerID,
+        FullName,
+        Phone,
+        UserID
+    FROM Customers
+END
+
+EXEC sp_Customers_GetAll
+
+--Thêm customers--------------------------------------------------------------------
+CREATE PROCEDURE sp_Customers_Insert
+    @FullName NVARCHAR(255),
+    @Phone NVARCHAR(20),
+    @UserID INT
+AS
+BEGIN
+    INSERT INTO Customers (FullName, Phone, UserID)
+    VALUES (@FullName, @Phone, @UserID)
+END
+
+EXEC sp_Customers_Insert
+    @FullName = 'test',
+    @Phone = '0988888888888',
+    @UserID = 5
+
+--Sửa customers--------------------------------------------------------------------
+CREATE PROCEDURE sp_Customers_Update
+    @CustomerID INT,
+    @FullName NVARCHAR(255),
+    @Phone NVARCHAR(20),
+    @UserID INT
+AS
+BEGIN
+    UPDATE Customers
+    SET 
+        FullName = @FullName,
+        Phone = @Phone,
+        UserID = @UserID
+    WHERE CustomerID = @CustomerID
+END
+
+EXEC sp_Customers_Update
+    @CustomerID = 2,
+    @FullName = 'test change',
+    @Phone = '0888888888',
+    @UserID = 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
