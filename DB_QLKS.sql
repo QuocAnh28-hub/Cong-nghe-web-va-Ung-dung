@@ -698,9 +698,63 @@ END
 EXEC sp_DeleteReceptionist
     @UserID = 5
 
+--Load tổng số phòng, số phòng trống, số phòng đang dùng---------------------------
+CREATE PROCEDURE sp_GetRoomStatistics
+AS
+BEGIN
+    SELECT 
+        COUNT(*) AS TotalRooms,
+        SUM(CASE WHEN Status = 'AVAILABLE' THEN 1 ELSE 0 END) AS AvailableRooms,
+        SUM(CASE WHEN Status = 'OCCUPIED' THEN 1 ELSE 0 END) AS OccupiedRooms
+    FROM Rooms
+END
 
+EXEC sp_GetRoomStatistics
 
+--Công suất phòng (tỷ lệ % phòng đang được sử dụng)--------------------------------
+CREATE PROCEDURE sp_GetOccupancyRate
+AS
+BEGIN
+    SELECT 
+        CAST(
+            100.0 * SUM(CASE WHEN Status = 'OCCUPIED' THEN 1 ELSE 0 END)
+            / NULLIF(COUNT(*), 0)
+        AS DECIMAL(5,2)) AS OccupancyRate
+    FROM Rooms
+END
 
+EXEC sp_GetOccupancyRate
+
+--Trạng thái phòng(Phòng trống: n, Đang sử dụng: n, Cần dọn dẹp: n)----------------
+ALTER TABLE Rooms
+ADD CONSTRAINT CK_Rooms_Status 
+CHECK (Status IN ('AVAILABLE','OCCUPIED','MAINTENANCE','DIRTY'))--sửa lại trạng thái Rooms
+
+CREATE PROCEDURE sp_GetRoomStatusSummary
+AS
+BEGIN
+    SELECT 
+        SUM(CASE WHEN Status = 'AVAILABLE' THEN 1 ELSE 0 END) AS AvailableRooms,
+        SUM(CASE WHEN Status = 'OCCUPIED' THEN 1 ELSE 0 END) AS OccupiedRooms,
+        SUM(CASE WHEN Status = 'DIRTY' THEN 1 ELSE 0 END) AS DirtyRooms
+    FROM Rooms
+END
+
+EXEC sp_GetRoomStatusSummary
+
+--Thông tin khách: Tổng khách hàng: n, Đang lưu trú: n------------------------------
+CREATE PROCEDURE sp_GetCustomerSummary
+AS
+BEGIN
+    SELECT 
+        (SELECT COUNT(*) FROM Customers) AS TotalCustomers,
+
+        (SELECT COUNT(DISTINCT GuestID) 
+         FROM Stays 
+         WHERE Status = 'CHECKED_IN') AS StayingGuests
+END
+
+EXEC sp_GetCustomerSummary
 
 
 
