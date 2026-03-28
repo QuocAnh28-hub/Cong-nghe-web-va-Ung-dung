@@ -910,6 +910,153 @@ END
 
 EXEC usp_DeleteSeasonalRate @RateID = 1;
 
+--- Số lượng CheckIn,CheckOut hôm nay----------------------------------------------------------
+CREATE PROCEDURE sp_TodayCheckIn_Reservation_CheckOut_Stay
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        -- Check-in hôm nay (dựa trên lịch đặt phòng)
+        (SELECT COUNT(*) 
+         FROM Reservations
+         WHERE CheckInDate = CAST(GETDATE() AS DATE)
+           AND Status IN ('BOOKED','CHECKED_IN')
+        ) AS TodayCheckIn,
+
+        -- Check-out hôm nay (dựa trên thực tế)
+        (SELECT COUNT(*) 
+         FROM Stays
+         WHERE CAST(ActualCheckOut AS DATE) = CAST(GETDATE() AS DATE)
+           AND Status = 'COMPLETED'
+        ) AS TodayCheckOut
+END
+
+EXEC sp_TodayCheckIn_Reservation_CheckOut_Stay
+
+---	Doanh thu tháng này------------------------------------------------------------------------
+CREATE PROCEDURE sp_RevenueThisMonth_WithStayCount
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        COUNT(DISTINCT i.StayID) AS TotalStays,
+        ISNULL(SUM(ISNULL(i.TotalAmount,0) + ISNULL(i.VAT,0)), 0) AS TotalRevenue
+    FROM Invoices i
+    WHERE i.Status = 'PAID'
+      AND MONTH(i.Date) = MONTH(GETDATE())
+      AND YEAR(i.Date) = YEAR(GETDATE())
+END
+
+EXEC sp_RevenueThisMonth_WithStayCount
+
+---	Lịch theo từng ngày của từng phòng---------------------------------------------------------
+CREATE PROCEDURE sp_GetRoomCalendar_Advanced
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @StartDate DATE = DATEFROMPARTS(@Year, @Month, 1)
+    DECLARE @EndDate DATE = EOMONTH(@StartDate)
+
+    -- Tạo danh sách ngày
+    ;WITH Dates AS (
+        SELECT @StartDate AS [Date]
+        UNION ALL
+        SELECT DATEADD(DAY, 1, [Date])
+        FROM Dates
+        WHERE [Date] < @EndDate
+    ),
+
+    -- Phòng đang sử dụng
+    Occupied AS (
+        SELECT 
+            rsh.RoomID,
+            CAST(d.Date AS DATE) AS [Date]
+        FROM RoomStayHistory rsh
+        JOIN Stays s ON s.StayID = rsh.StayID
+        JOIN Dates d ON d.Date >= CAST(rsh.CheckInTime AS DATE)
+                    AND d.Date < CAST(ISNULL(rsh.CheckOutTime, GETDATE()) AS DATE)
+        WHERE s.Status = 'CHECKED_IN'
+    ),
+
+    -- Tổng số phòng đã đặt theo RoomType
+    BookedByType AS (
+        SELECT 
+            rr.RoomTypeID,
+            d.Date,
+            SUM(rr.Quantity) AS TotalBooked
+        FROM Reservations re
+        JOIN ReservationRooms rr ON rr.ReservationID = re.ReservationID
+        JOIN Dates d ON d.Date >= re.CheckInDate
+                    AND d.Date < re.CheckOutDate
+        WHERE re.Status = 'BOOKED'
+        GROUP BY rr.RoomTypeID, d.Date
+    ),
+
+    -- Số phòng đang occupied theo RoomType
+    OccupiedCount AS (
+        SELECT 
+            r.RoomTypeID,
+            o.Date,
+            COUNT(*) AS TotalOccupied
+        FROM Occupied o
+        JOIN Rooms r ON r.RoomID = o.RoomID
+        GROUP BY r.RoomTypeID, o.Date
+    ),
+
+    -- Tổng số phòng mỗi loại
+    TotalRooms AS (
+        SELECT RoomTypeID, COUNT(*) AS TotalRooms
+        FROM Rooms
+        GROUP BY RoomTypeID
+    )
+
+    SELECT 
+        r.RoomID,
+        r.RoomNumber,
+        rt.Name AS RoomType,
+        d.Date,
+
+        CASE 
+            -- Đang ở
+            WHEN o.RoomID IS NOT NULL THEN 'OCCUPIED'
+
+            -- Đã đặt (có slot)
+            WHEN 
+                ISNULL(b.TotalBooked,0) > ISNULL(oc.TotalOccupied,0)
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY r.RoomTypeID, d.Date 
+                    ORDER BY r.RoomID
+                ) <= (ISNULL(b.TotalBooked,0) - ISNULL(oc.TotalOccupied,0))
+            THEN 'BOOKED'
+
+            -- Trống
+            ELSE 'AVAILABLE'
+        END AS Status
+
+    FROM Rooms r
+    JOIN RoomTypes rt ON r.RoomTypeID = rt.RoomTypeID
+    CROSS JOIN Dates d
+
+    LEFT JOIN Occupied o 
+        ON o.RoomID = r.RoomID AND o.Date = d.Date
+
+    LEFT JOIN BookedByType b 
+        ON b.RoomTypeID = r.RoomTypeID AND b.Date = d.Date
+
+    LEFT JOIN OccupiedCount oc 
+        ON oc.RoomTypeID = r.RoomTypeID AND oc.Date = d.Date
+
+    ORDER BY r.RoomNumber, d.Date
+
+    OPTION (MAXRECURSION 1000)
+END
+
+EXEC sp_GetRoomCalendar_Advanced 3,2026
 
 
 
