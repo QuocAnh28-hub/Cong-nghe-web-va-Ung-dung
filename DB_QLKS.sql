@@ -67,7 +67,7 @@ CREATE TABLE Rates (
 
 CREATE TABLE Reservations (
     ReservationID INT IDENTITY(1,1) PRIMARY KEY,
-     UserID INT UNIQUE,
+     UserID INT,
     FOREIGN KEY (UserID) REFERENCES Users(UserID),
     CheckInDate DATE,
     CheckOutDate DATE,
@@ -160,7 +160,7 @@ CREATE TABLE Penalties (
 
 CREATE TABLE Invoices (
     InvoiceID INT IDENTITY(1,1) PRIMARY KEY,
-    StayID INT UNIQUE,
+    StayID INT,
     Date DATETIME DEFAULT GETDATE(),
     TotalAmount DECIMAL(14,2),
     VAT DECIMAL(14,2),
@@ -808,6 +808,107 @@ EXEC sp_Customers_Update
     @Phone = '0888888888',
     @UserID = 5
 
+---------------------------------------------------------------------------------------------------------------
+--------------------------------22222222222222222222222222222222222222222--------------------------------------
+---------------------------------------------------------------------------------------------------------------
+--Load giá theo ngày(giá mặc định)-------------------------------------------------------------
+CREATE PROCEDURE sp_GetDefaultRate
+AS
+BEGIN
+    SELECT 
+		RoomTypeID,
+        DefaultPrice
+    FROM RoomTypes
+END
+
+EXEC sp_GetDefaultRate
+
+--Load giá theo mùa----------------------------------------------------------------------------
+CREATE PROCEDURE sp_GetSeasonRate
+AS
+BEGIN
+    SELECT *
+    FROM Rates
+END
+
+EXEC sp_GetSeasonRate
+
+--Sửa giá theo ngày(Bỏ chức năng thêm,xoá giá theo ngày trên web)------------------------------
+CREATE PROCEDURE dbo.usp_UpdateRoomTypePrice
+    @RoomTypeID INT,
+    @NewPrice DECIMAL(12, 2)
+AS
+BEGIN
+    SET NOCOUNT ON
+    UPDATE RoomTypes
+    SET DefaultPrice = @NewPrice
+    WHERE RoomTypeID = @RoomTypeID
+END
+
+EXEC dbo.usp_UpdateRoomTypePrice @RoomTypeID = 1, @NewPrice = 1400000;
+
+--Thêm giá theo mùa(từ ngày-đến ngày)----------------------------------------------------------
+CREATE PROCEDURE usp_InsertRate
+    @RoomTypeID INT,
+    @Price DECIMAL(10, 2),
+    @StartDate DATE,
+    @EndDate DATE,
+    @Season NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO Rates (RoomTypeID, Price, StartDate, EndDate, Season)
+    VALUES (@RoomTypeID, @Price, @StartDate, @EndDate, @Season);
+END;
+
+EXEC usp_InsertRate 
+    @RoomTypeID = 1,
+    @Price = 1600000,
+    @StartDate = '2026-06-01',
+    @EndDate = '2026-08-31',
+    @Season = N'Cao điểm';
+--Sửa giá theo mùa-----------------------------------------------------------------------------
+CREATE PROCEDURE usp_UpdateSeasonalRate
+    @RateID INT,
+    @RoomTypeID INT = NULL,
+    @Price DECIMAL(10,2) = NULL,
+    @StartDate DATE = NULL,
+    @EndDate DATE = NULL,
+    @Season NVARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Rates
+    SET 
+        RoomTypeID = COALESCE(@RoomTypeID, RoomTypeID),
+        Price = COALESCE(@Price, Price),
+        StartDate = COALESCE(@StartDate, StartDate),
+        EndDate = COALESCE(@EndDate, EndDate),
+        Season = COALESCE(@Season, Season)
+    WHERE RateID = @RateID;
+END
+
+EXEC usp_UpdateSeasonalRate 
+    @RateID = 1,
+    @RoomTypeID = 1,
+    @Price = 2200000.00,
+    @StartDate = '2026-06-02',
+    @EndDate = '2026-08-30',
+	@Season = N'Mùa cao điểm'
+
+--Xoá giá theo mùa-----------------------------------------------------------------------------
+CREATE PROCEDURE usp_DeleteSeasonalRate
+    @RateID INT
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    DELETE FROM Rates WHERE RateID = @RateID
+
+END
+
+EXEC usp_DeleteSeasonalRate @RateID = 1;
 
 
 
