@@ -1058,9 +1058,111 @@ END
 
 EXEC sp_GetRoomCalendar_Advanced 3,2026
 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------3333333333333333333333333333333333333333333333333333333333------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+--Công suất phòng (%phòng được sử dụng)--------------------------------------------------------------
+CREATE PROCEDURE sp_GetRoomUsageByDate
+    @FromDate DATE,
+    @ToDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    DECLARE @TotalUsage INT;
 
+    SELECT 
+        @TotalUsage = COUNT(ID)
+    FROM RoomStayHistory
+    WHERE 
+        CheckInTime >= @FromDate
+        AND CheckInTime < DATEADD(DAY, 1, @ToDate);
 
+    SELECT 
+        rt.Name AS N'Loại phòng',         -- thêm loại phòng
+        r.RoomNumber AS N'Số phòng',
+        COUNT(rsh.ID) AS N'Lượt dùng',
+
+        CASE 
+            WHEN @TotalUsage = 0 THEN 0
+            ELSE CAST(COUNT(rsh.ID) * 100.0 / @TotalUsage AS DECIMAL(5,2))
+        END AS N'Tỷ lệ (%)'
+
+    FROM Rooms r
+    LEFT JOIN RoomTypes rt 
+        ON r.RoomTypeID = rt.RoomTypeID   -- join loại phòng
+
+    LEFT JOIN RoomStayHistory rsh 
+        ON r.RoomID = rsh.RoomID
+        AND rsh.CheckInTime >= @FromDate
+        AND rsh.CheckInTime < DATEADD(DAY, 1, @ToDate)
+
+    GROUP BY 
+        rt.Name,
+        r.RoomNumber
+
+    ORDER BY COUNT(rsh.ID) DESC;
+END
+
+EXEC sp_GetRoomUsageByDate
+    @FromDate = '2026-02-02',
+    @ToDate = '2026-02-28'
+
+--Doanh thu------------------------------------------------------------------------------------------
+CREATE PROCEDURE sp_GetRevenueReportByDate
+    @FromDate DATE,
+    @ToDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @TotalRevenue DECIMAL(18,2) = 0;
+
+    SELECT 
+        @TotalRevenue = ISNULL(SUM(p.Amount), 0)
+    FROM Payments p
+    WHERE 
+        p.PaymentDate >= @FromDate
+        AND p.PaymentDate < DATEADD(DAY, 1, @ToDate);
+
+    DECLARE @TotalVAT DECIMAL(18,2) = 0;
+
+    SELECT 
+        @TotalVAT = ISNULL(SUM(i.VAT), 0)
+    FROM Invoices i
+    WHERE 
+        i.Date >= @FromDate
+        AND i.Date < DATEADD(DAY, 1, @ToDate);
+
+    SELECT 
+        @TotalRevenue AS N'Tổng thu',
+        @TotalVAT AS N'Tổng thuế VAT',
+        (@TotalRevenue - @TotalVAT) AS N'Thu nhập sau thuế';
+END
+
+EXEC sp_GetRevenueReportByDate
+    @FromDate = '2026-02-01',
+    @ToDate   = '2026-02-28'
+
+--Số lượt đặt phòng----------------------------------------------------------------------------------
+CREATE PROCEDURE sp_GetReservationCountByDate
+    @FromDate DATE,
+    @ToDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        COUNT(*) AS N'Số lần đặt phòng'
+    FROM Reservations
+    WHERE 
+        CreatedAt >= @FromDate
+        AND CreatedAt < DATEADD(DAY, 1, @ToDate);
+END
+
+EXEC sp_GetReservationCountByDate
+    @FromDate = '2026-02-01',
+    @ToDate   = '2026-02-28';
 
 
 
