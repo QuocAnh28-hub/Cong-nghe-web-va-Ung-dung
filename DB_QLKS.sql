@@ -194,11 +194,10 @@ CREATE TABLE Payments (
 --------------------------------------------------------------------------------
 -----------------------------------Stored procedure-----------------------------
 --Thêm nhân viên mới------------------------------------------------------------
-CREATE PROCEDURE sp_CreateReceptionist
+CREATE PROCEDURE sp_CreateReceptionist 
     @Email NVARCHAR(150),
     @PasswordHash NVARCHAR(255),
     @FullName NVARCHAR(150),
-    @Role NVARCHAR(20),
     @Phone NVARCHAR(20)
 AS
 BEGIN
@@ -206,9 +205,9 @@ BEGIN
 
     DECLARE @UserID INT;
 
-    -- Thêm vào bảng Users
+    -- Thêm vào bảng Users với Role mặc định
     INSERT INTO Users (Email, PasswordHash, Role, CreatedAt)
-    VALUES (@Email, @PasswordHash, @Role, GETDATE());
+    VALUES (@Email, @PasswordHash, 'RECEPTIONIST', GETDATE());
 
     -- Lấy UserID vừa tạo
     SET @UserID = SCOPE_IDENTITY();
@@ -219,11 +218,10 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'dohuuquocanhh@gmail.com',
+    @Email = 'nhanvien112@gmail.com',
     @PasswordHash = '123',
-    @FullName = N'Đỗ Hữu Quốc Ánhh',
-    @Role = 'ADMIN',
-    @Phone = '0395134241'
+    @FullName = N'Nguyễn Văn An',
+    @Phone = '0388888888'
 
 --Thêm loại phòng mới------------------------------------------------------------------
 CREATE PROCEDURE sp_CreateRoomType
@@ -627,8 +625,8 @@ END
 
 EXEC GetUserReceptionistInfo
 
--------------Proc Load Nhân viên-------------------------------------------------
-CREATE alter PROCEDURE sp_GetActiveReceptionists
+-------------Proc Load Nhân viên còn đi làm---------------------------------------
+CREATE PROCEDURE sp_GetActiveReceptionists
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -653,18 +651,16 @@ CREATE PROCEDURE sp_UpdateReceptionist
     @Email NVARCHAR(150),
     @PasswordHash NVARCHAR(255),
     @FullName NVARCHAR(150),
-    @Role NVARCHAR(20),
     @Phone NVARCHAR(20)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Cập nhật bảng Users
+    -- Cập nhật bảng Users (KHÔNG đụng tới Role)
     UPDATE Users
     SET 
         Email = @Email,
-        PasswordHash = @PasswordHash,
-        Role = @Role
+        PasswordHash = @PasswordHash
     WHERE UserID = @UserID;
 
     -- Cập nhật bảng Receptionists
@@ -676,12 +672,11 @@ BEGIN
 END
 
 EXEC sp_UpdateReceptionist
-    @UserID = 5,
-    @Email = N'dohuuquocanhh@gmail.com',
+    @UserID = 26,
+    @Email = N'nhanvien111@gmail.com',
     @PasswordHash = '123',
-    @FullName = N'Manager Quốc Ánh',
-    @Role = 'ADMIN',
-    @Phone = '0395134241'
+    @FullName = N'Đỗ Tiến Đạt',
+    @Phone = '0399999999'
 
 -------------Proc Xoá NV---------------------------------------------------------
 CREATE alter PROCEDURE sp_DeleteReceptionist
