@@ -4,6 +4,12 @@ import { FeatureHeader } from "./Common";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
 
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat("vi-VN").format(date);
+};
+
 class Quanlygia extends Component {
   state = {
     tab: "daily",
@@ -14,45 +20,71 @@ class Quanlygia extends Component {
       id: null,
       roomType: "",
       amount: "",
-      period: "",
       seasonName: "",
+      dateRange: "",
     },
-    dailyPrices: [
-      { id: 1, roomType: "Standard", amount: 800000 },
-      { id: 2, roomType: "Deluxe", amount: 1200000 },
-      { id: 3, roomType: "Suite", amount: 2000000 },
-      { id: 4, roomType: "Family", amount: 1800000 },
-    ],
-    seasonalPrices: [
-      {
-        id: 1,
-        roomType: "Standard",
-        seasonName: "Tết Nguyên Đán 2026",
-        dateRange: "25/1/2026 - 5/2/2026",
-        amount: 1200000,
-      },
-      {
-        id: 2,
-        roomType: "Deluxe",
-        seasonName: "Tết Nguyên Đán 2026",
-        dateRange: "25/1/2026 - 5/2/2026",
-        amount: 1800000,
-      },
-      {
-        id: 3,
-        roomType: "Suite",
-        seasonName: "Tết Nguyên Đán 2026",
-        dateRange: "25/1/2026 - 5/2/2026",
-        amount: 3000000,
-      },
-      {
-        id: 4,
-        roomType: "Family",
-        seasonName: "Tết Nguyên Đán 2026",
-        dateRange: "25/1/2026 - 5/2/2026",
-        amount: 2700000,
-      },
-    ],
+    dailyPrices: [],
+    seasonalPrices: [],
+    roomTypes: [],
+    loading: false,
+    error: null,
+  };
+
+  componentDidMount() {
+    this.fetchRates();
+  }
+
+  fetchRates = async () => {
+    this.setState({ loading: true, error: null });
+
+    try {
+      const response = await fetch("http://localhost:3000/api/rates");
+      if (!response.ok) {
+        throw new Error(`Lỗi tải dữ liệu: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const dailyPrices = [];
+      const seasonalPrices = [];
+      const roomTypes = new Set();
+
+      data.forEach((item) => {
+        if (item.RoomTypeName) {
+          roomTypes.add(item.RoomTypeName);
+        }
+
+        const seasonValue = String(item.Season || "").toLowerCase();
+        const isDaily = seasonValue === "normal" || (!item.StartDate && !item.EndDate);
+
+        if (isDaily) {
+          dailyPrices.push({
+            id: item.RateID,
+            roomType: item.RoomTypeName,
+            amount: item.DefaultPrice ?? 0,
+          });
+        } else {
+          seasonalPrices.push({
+            id: item.RateID,
+            roomType: item.RoomTypeName,
+            seasonName: item.Season || "",
+            dateRange: item.StartDate || item.EndDate
+              ? `${formatDate(item.StartDate)} - ${formatDate(item.EndDate)}`
+              : "",
+            defaultPrice: item.DefaultPrice ?? 0,
+            amount: item.Price ?? 0,
+          });
+        }
+      });
+
+      this.setState({
+        dailyPrices,
+        seasonalPrices,
+        roomTypes: [...roomTypes],
+        loading: false,
+      });
+    } catch (error) {
+      this.setState({ error: error.message, loading: false });
+    }
   };
 
   switchTab = (tab) => {
@@ -67,7 +99,6 @@ class Quanlygia extends Component {
         id: null,
         roomType: "",
         amount: "",
-        period: "",
         seasonName: "",
         dateRange: "",
       },
@@ -165,8 +196,10 @@ class Quanlygia extends Component {
   };
 
   render() {
-    const { tab, isModalOpen, modalMode, currentPrice, search } = this.state;
+    const { tab, isModalOpen, modalMode, currentPrice, search, loading, error, roomTypes } =
+      this.state;
     const list = this.filterPrices();
+    const typeOptions = roomTypes.length ? roomTypes : ROOM_TYPES;
 
     return (
       <div className="qlgia-page">
@@ -188,13 +221,13 @@ class Quanlygia extends Component {
             className={tab === "daily" ? "qlgia-tab active" : "qlgia-tab"}
             onClick={() => this.switchTab("daily")}
           >
-            <i class="fa-solid fa-dollar-sign"></i> Giá theo ngày
+            <i className="fa-solid fa-dollar-sign"></i> Giá theo ngày
           </button>
           <button
             className={tab === "seasonal" ? "qlgia-tab active" : "qlgia-tab"}
             onClick={() => this.switchTab("seasonal")}
           >
-            <i class="fa-regular fa-calendar"></i> Giá theo mùa
+            <i className="fa-regular fa-calendar"></i> Giá theo mùa
           </button>
         </div>
         <div className="qlgia-main">
@@ -216,17 +249,27 @@ class Quanlygia extends Component {
                   <th>Loại phòng</th>
                   {tab === "seasonal" && <th>Tên mùa</th>}
                   {tab === "seasonal" && <th>Thời gian</th>}
+                  {tab === "seasonal" && <th>Giá mặc định</th>}
                   <th>Giá</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {list.length === 0 ? (
+                {loading ? (
                   <tr>
-                    <td
-                      colSpan={tab === "seasonal" ? 5 : 3}
-                      className="qlgia-empty"
-                    >
+                    <td colSpan={tab === "seasonal" ? 6 : 3} className="qlgia-empty">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={tab === "seasonal" ? 6 : 3} className="qlgia-empty">
+                      {error}
+                    </td>
+                  </tr>
+                ) : list.length === 0 ? (
+                  <tr>
+                    <td colSpan={tab === "seasonal" ? 6 : 3} className="qlgia-empty">
                       Không có dữ liệu
                     </td>
                   </tr>
@@ -236,6 +279,9 @@ class Quanlygia extends Component {
                       <td>{item.roomType}</td>
                       {tab === "seasonal" && <td>{item.seasonName}</td>}
                       {tab === "seasonal" && <td>{item.dateRange}</td>}
+                      {tab === "seasonal" && (
+                        <td>{item.defaultPrice.toLocaleString()}đ</td>
+                      )}
                       <td>{item.amount.toLocaleString()}đ</td>
                       <td>
                         <button
@@ -277,7 +323,7 @@ class Quanlygia extends Component {
                     onChange={this.handleInput("roomType")}
                   >
                     <option value="">Chọn loại phòng</option>
-                    {ROOM_TYPES.map((rt) => (
+                    {typeOptions.map((rt) => (
                       <option key={rt} value={rt}>
                         {rt}
                       </option>

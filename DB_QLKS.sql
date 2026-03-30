@@ -828,6 +828,7 @@ BEGIN
         r.RoomTypeID,
         rt.Name AS RoomTypeName,
         r.Season,
+		rt.DefaultPrice,
         r.Price,
         r.StartDate,
         r.EndDate
@@ -894,12 +895,12 @@ BEGIN
 END
 
 EXEC usp_UpdateSeasonalRate 
-    @RateID = 1,
-    @RoomTypeID = 1,
-    @Price = 2200000.00,
-    @StartDate = '2026-06-02',
-    @EndDate = '2026-08-30',
-	@Season = N'Mùa cao điểm'
+    @RateID = 6,
+    @RoomTypeID = 12,
+    @Price = 800000.00,
+    @StartDate = '2026-11-28',
+    @EndDate = '2026-12-30',
+	@Season = N'Ưu đãi cuối năm'
 
 --Xoá giá theo mùa-----------------------------------------------------------------------------
 CREATE PROCEDURE usp_DeleteSeasonalRate
