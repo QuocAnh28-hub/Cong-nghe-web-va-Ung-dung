@@ -2,68 +2,80 @@ import React, { Component } from "react";
 import "../style/Quanlyphong.css";
 import { FeatureHeader } from "./Common";
 
+const STATUS_OPTIONS = [
+  { value: "AVAILABLE", label: "Trống" },
+  { value: "OCCUPIED", label: "Đang dùng" },
+  { value: "DIRTY", label: "Cần dọn" },
+  { value: "MAINTENANCE", label: "Bảo trì" },
+];
+
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
-const ROOM_STATUS = ["Trống", "Đang dùng", "Cần dọn", "Bảo trì"];
+
+const getStatusLabel = (status) => {
+  const item = STATUS_OPTIONS.find((option) => option.value === status);
+  return item ? item.label : status;
+};
+
+const getStatusClass = (status) => status.toLowerCase();
 
 class Quanlyphong extends Component {
   state = {
-    rooms: [
-      {
-        id: 101,
-        number: "101",
-        type: "Suite",
-        floor: "Tầng 1",
-        status: "Trống",
-        note: "",
-      },
-      {
-        id: 102,
-        number: "102",
-        type: "Family",
-        floor: "Tầng 1",
-        status: "Trống",
-        note: "",
-      },
-      {
-        id: 103,
-        number: "103",
-        type: "Standard",
-        floor: "Tầng 1",
-        status: "Trống",
-        note: "",
-      },
-      {
-        id: 104,
-        number: "104",
-        type: "Deluxe",
-        floor: "Tầng 1",
-        status: "Trống",
-        note: "",
-      },
-    ],
+    rooms: [],
     search: "",
     statusFilter: "Tất cả trạng thái",
     isModalOpen: false,
     modalMode: "add",
     currentRoom: {
-      id: null,
-      number: "",
-      type: "",
-      floor: "",
-      status: "Trống",
-      note: "",
+      RoomID: null,
+      RoomNumber: "",
+      RoomTypeName: "",
+      Status: "AVAILABLE",
+      Description: "",
+      Capacity: 1,
+      DefaultPrice: 0,
     },
+    loading: false,
+    error: null,
+  };
+
+  componentDidMount() {
+    this.fetchRooms();
+  }
+
+  fetchRooms = async () => {
+    this.setState({ loading: true, error: null });
+
+    try {
+      const response = await fetch("http://localhost:3000/api/rooms");
+      if (!response.ok) {
+        throw new Error(`Lỗi tải dữ liệu: ${response.status}`);
+      }
+      const data = await response.json();
+      const rooms = data.map((item) => ({
+        RoomID: item.RoomID,
+        RoomNumber: item.RoomNumber,
+        RoomTypeName: item.RoomTypeName,
+        Status: item.Status,
+        Description: item.Description || "",
+        Capacity: item.Capacity || 1,
+        DefaultPrice: item.DefaultPrice || 0,
+      }));
+      this.setState({ rooms, loading: false });
+    } catch (error) {
+      this.setState({ error: error.message, loading: false });
+    }
   };
 
   getFilteredRooms() {
     const { rooms, search, statusFilter } = this.state;
     return rooms.filter((room) => {
-      const matchName = room.number
+      const matchNumber = room.RoomNumber
         .toLowerCase()
         .includes(search.toLowerCase());
       const matchStatus =
-        statusFilter === "Tất cả trạng thái" || room.status === statusFilter;
-      return matchName && matchStatus;
+        statusFilter === "Tất cả trạng thái" ||
+        getStatusLabel(room.Status) === statusFilter;
+      return matchNumber && matchStatus;
     });
   }
 
@@ -72,12 +84,13 @@ class Quanlyphong extends Component {
       isModalOpen: true,
       modalMode: "add",
       currentRoom: {
-        id: null,
-        number: "",
-        type: "",
-        floor: "",
-        status: "Trống",
-        note: "",
+        RoomID: null,
+        RoomNumber: "",
+        RoomTypeName: "",
+        Status: "AVAILABLE",
+        Description: "",
+        Capacity: 1,
+        DefaultPrice: 0,
       },
     });
   };
@@ -95,7 +108,7 @@ class Quanlyphong extends Component {
   };
 
   handleChange = (field) => (event) => {
-    const value = event.target.value;
+    const value = event.target.type === "number" ? Number(event.target.value) : event.target.value;
     this.setState((prev) => ({
       currentRoom: { ...prev.currentRoom, [field]: value },
     }));
@@ -105,21 +118,21 @@ class Quanlyphong extends Component {
     event.preventDefault();
     const { rooms, modalMode, currentRoom } = this.state;
 
-    if (!currentRoom.number || !currentRoom.type || !currentRoom.floor) {
-      alert("Vui lòng điền đủ Số phòng, Loại phòng, Tầng!");
+    if (!currentRoom.RoomNumber || !currentRoom.RoomTypeName) {
+      alert("Vui lòng điền đầy đủ Số phòng và Loại phòng.");
       return;
     }
 
     if (modalMode === "add") {
-      const nextId = rooms.reduce((max, room) => Math.max(max, room.id), 0) + 1;
+      const nextId = rooms.reduce((max, room) => Math.max(max, room.RoomID || 0), 0) + 1;
       this.setState({
-        rooms: [...rooms, { ...currentRoom, id: nextId }],
+        rooms: [...rooms, { ...currentRoom, RoomID: nextId }],
         isModalOpen: false,
       });
     } else {
       this.setState({
         rooms: rooms.map((room) =>
-          room.id === currentRoom.id ? { ...currentRoom } : room,
+          room.RoomID === currentRoom.RoomID ? { ...currentRoom } : room,
         ),
         isModalOpen: false,
       });
@@ -127,8 +140,15 @@ class Quanlyphong extends Component {
   };
 
   render() {
-    const { search, statusFilter, isModalOpen, modalMode, currentRoom } =
-      this.state;
+    const {
+      search,
+      statusFilter,
+      isModalOpen,
+      modalMode,
+      currentRoom,
+      loading,
+      error,
+    } = this.state;
     const rooms = this.getFilteredRooms();
 
     return (
@@ -159,8 +179,10 @@ class Quanlyphong extends Component {
               onChange={(e) => this.setState({ statusFilter: e.target.value })}
             >
               <option>Tất cả trạng thái</option>
-              {ROOM_STATUS.map((status) => (
-                <option key={status}>{status}</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.label}>
+                  {option.label}
+                </option>
               ))}
             </select>
           </div>
@@ -171,42 +193,53 @@ class Quanlyphong extends Component {
                 <tr>
                   <th>Số phòng</th>
                   <th>Loại phòng</th>
-                  <th>Tầng</th>
                   <th>Trạng thái</th>
-                  <th>Ghi chú</th>
+                  <th>Sức chứa</th>
+                  <th>Giá</th>
+                  <th>Mô tả</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {rooms.map((room) => (
-                  <tr key={room.id}>
-                    <td>{room.number}</td>
-                    <td>{room.type}</td>
-                    <td>{room.floor}</td>
-                    <td>
-                      <span
-                        className={`status-pill status-${room.status.replace(/\s/g, "").toLowerCase()}`}
-                      >
-                        {room.status}
-                      </span>
-                    </td>
-                    <td>{room.note || "-"}</td>
-                    <td>
-                      <button
-                        className="btn-edit"
-                        onClick={() => this.openEditModal(room)}
-                      >
-                        <i className="fa fa-edit"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {rooms.length === 0 && (
+                {loading ? (
                   <tr>
-                    <td colSpan="6" className="empty-row">
+                    <td colSpan="7">Đang tải dữ liệu phòng...</td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan="7">{error}</td>
+                  </tr>
+                ) : rooms.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="empty-row">
                       Không có phòng phù hợp
                     </td>
                   </tr>
+                ) : (
+                  rooms.map((room) => (
+                    <tr key={room.RoomID}>
+                      <td>{room.RoomNumber}</td>
+                      <td>{room.RoomTypeName}</td>
+                      <td>
+                        <span
+                          className={`status-pill status-${getStatusClass(room.Status)}`}
+                        >
+                          {getStatusLabel(room.Status)}
+                        </span>
+                      </td>
+                      <td>{room.Capacity}</td>
+                      <td>{room.DefaultPrice.toLocaleString("vi-VN")} đ</td>
+                      <td>{room.Description || "-"}</td>
+                      <td>
+                        <button
+                          className="btn-edit"
+                          onClick={() => this.openEditModal(room)}
+                        >
+                          <i className="fa fa-edit"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -232,15 +265,15 @@ class Quanlyphong extends Component {
                   <input
                     className="modal-input"
                     type="text"
-                    value={currentRoom.number}
-                    onChange={this.handleChange("number")}
+                    value={currentRoom.RoomNumber}
+                    onChange={this.handleChange("RoomNumber")}
                   />
                 </label>
                 <label>
                   Loại phòng *
                   <select
-                    value={currentRoom.type}
-                    onChange={this.handleChange("type")}
+                    value={currentRoom.RoomTypeName}
+                    onChange={this.handleChange("RoomTypeName")}
                   >
                     <option value="">Chọn loại phòng</option>
                     {ROOM_TYPES.map((type) => (
@@ -251,31 +284,41 @@ class Quanlyphong extends Component {
                   </select>
                 </label>
                 <label>
-                  Tầng *
-                  <input
-                    type="text"
-                    value={currentRoom.floor}
-                    onChange={this.handleChange("floor")}
-                  />
-                </label>
-                <label>
                   Trạng thái
                   <select
-                    value={currentRoom.status}
-                    onChange={this.handleChange("status")}
+                    value={currentRoom.Status}
+                    onChange={this.handleChange("Status")}
                   >
-                    {ROOM_STATUS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label>
-                  Ghi chú
+                  Sức chứa
+                  <input
+                    type="number"
+                    min="1"
+                    value={currentRoom.Capacity}
+                    onChange={this.handleChange("Capacity")}
+                  />
+                </label>
+                <label>
+                  Giá phòng
+                  <input
+                    type="number"
+                    min="0"
+                    value={currentRoom.DefaultPrice}
+                    onChange={this.handleChange("DefaultPrice")}
+                  />
+                </label>
+                <label>
+                  Mô tả
                   <textarea
-                    value={currentRoom.note}
-                    onChange={this.handleChange("note")}
+                    value={currentRoom.Description}
+                    onChange={this.handleChange("Description")}
                   />
                 </label>
                 <div className="modal-buttons">

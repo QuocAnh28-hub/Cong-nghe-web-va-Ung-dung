@@ -1,43 +1,19 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../style/Nhanvien.css";
 import { FeatureHeader } from "./Common";
-
-const listNhanVien = [
-  {
-    fullName: "Nguyễn Văn Admin",
-    role: "Quản trị viên",
-    email: "admin@hotel.com",
-    phone: "0901234567",
-    createdAt: "15/3/2026",
-  },
-  {
-    fullName: "Trần Thị Lễ Tân",
-    role: "Lễ tân",
-    email: "letan1@hotel.com",
-    phone: "0902234567",
-    createdAt: "15/3/2026",
-  },
-  {
-    fullName: "Lê Văn Tân",
-    role: "Lễ tân",
-    email: "letan2@hotel.com",
-    phone: "0903234567",
-    createdAt: "15/3/2026",
-  },
-];
 
 const getRoleBadge = (role) => {
   if (role === "Quản trị viên") {
     return (
       <span className="badge admin">
-        <span role="img" aria-label="admin"><i class="fa-solid fa-shield"></i> Quản trị viên</span>
+        <span role="img" aria-label="admin"><i className="fa-solid fa-shield"></i> Quản trị viên</span>
       </span>
     );
   }
   return (
     <span className="badge letan">
-      <span role="img" aria-label="letan"><i class="fa-solid fa-circle-user"></i> Lễ tân</span>
+      <span role="img" aria-label="letan"><i className="fa-solid fa-circle-user"></i> Lễ tân</span>
     </span>
   );
 };
@@ -52,6 +28,44 @@ const Nhanvien = () => {
     email: "",
     phone: "",
   });
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("http://localhost:3000/api/receptionists");
+        if (!response.ok) {
+          throw new Error(`Lỗi tải dữ liệu: ${response.status}`);
+        }
+        const data = await response.json();
+        const normalized = data.map((item) => ({
+          fullName: item.FullName || "",
+          role:
+            item.Role === "RECEPTIONIST"
+              ? "Lễ tân"
+              : item.Role === "ADMIN"
+              ? "Quản trị viên"
+              : item.Role || "",
+          email: item.Email || "",
+          phone: item.Phone || "",
+          createdAt: item.CreatedAt
+            ? new Date(item.CreatedAt).toLocaleDateString("vi-VN")
+            : "",
+        }));
+        setEmployees(normalized);
+      } catch (err) {
+        setError(err.message || "Lỗi khi tải dữ liệu nhân viên");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
 
   const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => setShowModal(false);
@@ -89,23 +103,37 @@ const Nhanvien = () => {
             </tr>
           </thead>
           <tbody>
-            {listNhanVien.map((nv, idx) => (
-              <tr key={idx}>
-                <td>{nv.fullName}</td>
-                <td>{getRoleBadge(nv.role)}</td>
-                <td>{nv.email}</td>
-                <td>{nv.phone}</td>
-                <td>{nv.createdAt}</td>
-                <td>
-                  <button className="icon-btn edit" title="Sửa">
-                    <span role="img" aria-label="edit"><i class="fa-regular fa-pen-to-square"></i></span>
-                  </button>
-                  <button className="icon-btn delete" title="Xóa">
-                    <span role="img" aria-label="delete"><i class="fa-regular fa-trash-can"></i></span>
-                  </button>
-                </td>
+            {loading ? (
+              <tr>
+                <td colSpan="6">Đang tải dữ liệu nhân viên...</td>
               </tr>
-            ))}
+            ) : error ? (
+              <tr>
+                <td colSpan="6">{error}</td>
+              </tr>
+            ) : employees.length === 0 ? (
+              <tr>
+                <td colSpan="6">Không có nhân viên nào.</td>
+              </tr>
+            ) : (
+              employees.map((nv, idx) => (
+                <tr key={idx}>
+                  <td>{nv.fullName}</td>
+                  <td>{getRoleBadge(nv.role)}</td>
+                  <td>{nv.email}</td>
+                  <td>{nv.phone}</td>
+                  <td>{nv.createdAt}</td>
+                  <td>
+                    <button className="icon-btn edit" title="Sửa">
+                      <span role="img" aria-label="edit"><i className="fa-regular fa-pen-to-square"></i></span>
+                    </button>
+                    <button className="icon-btn delete" title="Xóa">
+                      <span role="img" aria-label="delete"><i className="fa-regular fa-trash-can"></i></span>
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
