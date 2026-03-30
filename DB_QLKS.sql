@@ -218,10 +218,10 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'nhanvien112@gmail.com',
+    @Email = 'nhanvien116@gmail.com',
     @PasswordHash = '123',
-    @FullName = N'Nguyễn Văn An',
-    @Phone = '0388888888'
+    @FullName = N'Thân Đức Huy',
+    @Phone = '0366666666'
 
 --Thêm loại phòng mới------------------------------------------------------------------
 CREATE PROCEDURE sp_CreateRoomType
@@ -679,7 +679,7 @@ EXEC sp_UpdateReceptionist
     @Phone = '0399999999'
 
 -------------Proc Xoá NV---------------------------------------------------------
-CREATE alter PROCEDURE sp_DeleteReceptionist
+CREATE PROCEDURE sp_DeleteReceptionist
     @UserID INT
 AS
 BEGIN
@@ -812,6 +812,7 @@ AS
 BEGIN
     SELECT 
 		RoomTypeID,
+		Name,
         DefaultPrice
     FROM RoomTypes
 END
@@ -822,8 +823,16 @@ EXEC sp_GetDefaultRate
 CREATE PROCEDURE sp_GetSeasonRate
 AS
 BEGIN
-    SELECT *
-    FROM Rates
+    SELECT 
+        r.RateID,
+        r.RoomTypeID,
+        rt.Name AS RoomTypeName,
+        r.Season,
+        r.Price,
+        r.StartDate,
+        r.EndDate
+    FROM Rates r
+    INNER JOIN RoomTypes rt ON r.RoomTypeID = rt.RoomTypeID
 END
 
 EXEC sp_GetSeasonRate
