@@ -34,6 +34,7 @@ CREATE TABLE Customers (
     CustomerID INT IDENTITY(1,1) PRIMARY KEY,
     FullName NVARCHAR(150) NOT NULL,
     Phone NVARCHAR(20),
+	CCCD NVARCHAR(20)
     UserID INT UNIQUE,
     FOREIGN KEY (UserID) REFERENCES Users(UserID)
 )
@@ -98,10 +99,11 @@ CREATE TABLE Stays (
     GuestID INT NOT NULL,
     ActualCheckIn DATETIME,
     ActualCheckOut DATETIME,
-    Status NVARCHAR(20)
-        CHECK (Status IN ('CHECKED_IN','COMPLETED')),
+    Status NVARCHAR(20),
+    CHECK (Status IN ('CHECKED_IN','COMPLETED')),
     FOREIGN KEY (ReservationID) REFERENCES Reservations(ReservationID),
-    FOREIGN KEY (GuestID) REFERENCES Guests(GuestID)
+    FOREIGN KEY (GuestID) REFERENCES Guests(GuestID),
+	ExpectedCheckOut DATETIME
 )
 
 CREATE TABLE RoomStayHistory (
@@ -1316,7 +1318,1179 @@ END
 
 EXEC sp_GetInvoiceHistory
 
+----------------------------------------------------------------------------------------------------------------------
+-----------------555555555555555555-----------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+---	Thêm lịch đặt của khách cũ (dựa theo thông tin khách hàng đã lưu)---------------------------------------------
+CREATE PROCEDURE sp_CreateReservation
+    @UserID INT,
+    @RoomTypeID INT,
+    @Quantity INT,
+    @CheckInDate DATE,
+    @CheckOutDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- 1. Kiểm tra ngày hợp lệ
+        IF (@CheckInDate >= @CheckOutDate)
+        BEGIN
+            RAISERROR(N'Ngày không hợp lệ', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 2. Tổng số phòng của loại này
+        DECLARE @TotalRooms INT;
+        SELECT @TotalRooms = COUNT(*)
+        FROM Rooms
+        WHERE RoomTypeID = @RoomTypeID;
+
+        -- 3. Số phòng đã được đặt trong khoảng thời gian
+        DECLARE @BookedRooms INT;
+        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+        FROM ReservationRooms rr
+        JOIN Reservations r ON rr.ReservationID = r.ReservationID
+        WHERE rr.RoomTypeID = @RoomTypeID
+        AND r.Status IN ('BOOKED','CHECKED_IN')
+        AND (
+            r.CheckInDate < @CheckOutDate AND 
+            r.CheckOutDate > @CheckInDate
+        );
+
+        -- 4. Kiểm tra đủ phòng không
+        IF (@TotalRooms - @BookedRooms < @Quantity)
+        BEGIN
+            RAISERROR(N'Không đủ phòng trống', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 5. Lấy giá tại thời điểm đặt (Rates)
+        DECLARE @Price DECIMAL(10,2);
+
+        SELECT TOP 1 @Price = Price
+        FROM Rates
+        WHERE RoomTypeID = @RoomTypeID
+        AND @CheckInDate BETWEEN StartDate AND EndDate
+        ORDER BY StartDate DESC;
+
+        -- nếu không có giá thì lấy default
+        IF @Price IS NULL
+        BEGIN
+            SELECT @Price = DefaultPrice
+            FROM RoomTypes
+            WHERE RoomTypeID = @RoomTypeID;
+        END
+
+        -- 6. Tạo Reservation
+        INSERT INTO Reservations(UserID, CheckInDate, CheckOutDate, Status)
+        VALUES (@UserID, @CheckInDate, @CheckOutDate, 'BOOKED');
+
+        DECLARE @ReservationID INT = SCOPE_IDENTITY();
+
+        -- 7. Tạo ReservationRooms
+        INSERT INTO ReservationRooms(ReservationID, RoomTypeID, Quantity, PriceAtBooking)
+        VALUES (@ReservationID, @RoomTypeID, @Quantity, @Price);
+
+        COMMIT;
+
+        -- 8. Trả kết quả
+        SELECT 
+            @ReservationID AS ReservationID,
+            @Price AS PricePerRoom,
+            (@Price * @Quantity) AS TotalPrice;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END
+EXEC sp_CreateReservation
+    @UserID = 5,
+    @RoomTypeID = 1,  -- Deluxe
+    @Quantity = 5,
+    @CheckInDate = '2026-04-10',
+    @CheckOutDate = '2026-04-12';
+
+-----Thêm lịch đặt khách mới (Lưu thông tin khách hàng mới)-------------------------------------
+CREATE PROCEDURE sp_CreateReservation_WithNewCustomer
+    @FullName NVARCHAR(150),
+    @Phone NVARCHAR(20),
+    @CCCD NVARCHAR(20),
+    @Email NVARCHAR(150),
+
+    @RoomTypeID INT,
+    @Quantity INT,
+    @CheckInDate DATE,
+    @CheckOutDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -------------------------------------------------
+        -- 1. Validate ngày
+        -------------------------------------------------
+        IF (@CheckInDate >= @CheckOutDate)
+        BEGIN
+            RAISERROR(N'Ngày không hợp lệ', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 2. TẠO USER
+        -------------------------------------------------
+        DECLARE @UserID INT;
+
+        INSERT INTO Users(Email, PasswordHash, Role, Status)
+        VALUES (
+            @Email,
+            '123', -- hoặc NULL / random
+            'CUSTOMER',
+            'ACTIVE'
+        );
+
+        SET @UserID = SCOPE_IDENTITY();
+
+        -------------------------------------------------
+        -- 3. TẠO CUSTOMER
+        -------------------------------------------------
+        DECLARE @CustomerID INT;
+
+        INSERT INTO Customers(FullName, Phone, CCCD, UserID)
+        VALUES (@FullName, @Phone, @CCCD, @UserID);
+
+        SET @CustomerID = SCOPE_IDENTITY();
+
+        -------------------------------------------------
+        -- 4. CHECK PHÒNG TRỐNG
+        -------------------------------------------------
+        DECLARE @TotalRooms INT;
+        SELECT @TotalRooms = COUNT(*)
+        FROM Rooms
+        WHERE RoomTypeID = @RoomTypeID;
+
+        DECLARE @BookedRooms INT;
+        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+        FROM ReservationRooms rr
+        JOIN Reservations r ON rr.ReservationID = r.ReservationID
+        WHERE rr.RoomTypeID = @RoomTypeID
+        AND r.Status IN ('BOOKED','CHECKED_IN')
+        AND (
+            r.CheckInDate < @CheckOutDate AND 
+            r.CheckOutDate > @CheckInDate
+        );
+
+        IF (@TotalRooms - @BookedRooms < @Quantity)
+        BEGIN
+            RAISERROR(N'Không đủ phòng trống', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 5. LẤY GIÁ
+        -------------------------------------------------
+        DECLARE @Price DECIMAL(10,2);
+
+        SELECT TOP 1 @Price = Price
+        FROM Rates
+        WHERE RoomTypeID = @RoomTypeID
+        AND @CheckInDate BETWEEN StartDate AND EndDate
+        ORDER BY StartDate DESC;
+
+        IF @Price IS NULL
+        BEGIN
+            SELECT @Price = DefaultPrice
+            FROM RoomTypes
+            WHERE RoomTypeID = @RoomTypeID;
+        END
+
+        -------------------------------------------------
+        -- 6. TẠO RESERVATION
+        -------------------------------------------------
+        DECLARE @ReservationID INT;
+
+        INSERT INTO Reservations(UserID, CheckInDate, CheckOutDate, Status)
+        VALUES (@UserID, @CheckInDate, @CheckOutDate, 'BOOKED');
+
+        SET @ReservationID = SCOPE_IDENTITY();
+
+        -------------------------------------------------
+        -- 7. TẠO RESERVATION ROOMS
+        -------------------------------------------------
+        INSERT INTO ReservationRooms(ReservationID, RoomTypeID, Quantity, PriceAtBooking)
+        VALUES (@ReservationID, @RoomTypeID, @Quantity, @Price);
+
+        -------------------------------------------------
+        COMMIT;
+
+        -------------------------------------------------
+        -- 8. RETURN
+        -------------------------------------------------
+        SELECT 
+            @UserID AS UserID,
+            @CustomerID AS CustomerID,
+            @ReservationID AS ReservationID,
+            @Price AS PricePerRoom,
+            (@Price * @Quantity) AS TotalPrice;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@Err, 16, 1);
+    END CATCH
+END
+EXEC sp_CreateReservation_WithNewCustomer
+    @FullName = N'Đỗ Hữu Quốc Anh',
+    @Phone = '0901234567',
+    @CCCD = '012345678901',
+    @Email = 'dhqa@gmail.com',
+
+    @RoomTypeID = 2,
+    @Quantity = 2,
+    @CheckInDate = '2026-04-10',
+    @CheckOutDate = '2026-04-12';
+
+
+---Load lịch đặt phòng của khách hàng--------------------------------
+CREATE PROCEDURE sp_GetReservationHistory_ByUser
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        r.ReservationID,
+        r.CheckInDate,
+        r.CheckOutDate,
+        r.Status,
+        r.CreatedAt,
+
+        rt.Name AS RoomTypeName,
+        rr.Quantity,
+        rr.PriceAtBooking,
+
+        (rr.Quantity * rr.PriceAtBooking) AS TotalPrice
+
+    FROM Reservations r
+    JOIN ReservationRooms rr ON r.ReservationID = rr.ReservationID
+    JOIN RoomTypes rt ON rr.RoomTypeID = rt.RoomTypeID
+
+    WHERE r.UserID = @UserID
+
+    ORDER BY r.CreatedAt DESC;
+END
+EXEC sp_GetReservationHistory_ByUser @UserID = 1;
+
+
+----Load lịch đặt-------------------------------------------------------------------
+CREATE PROCEDURE sp_GetAllReservations
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        r.ReservationID,
+        r.UserID,
+        c.FullName,
+        c.Phone,
+
+        r.CheckInDate,
+        r.CheckOutDate,
+        r.Status,
+        r.CreatedAt,
+
+        rt.Name AS RoomTypeName,
+        rr.Quantity,
+        rr.PriceAtBooking,
+
+        (rr.Quantity * rr.PriceAtBooking) AS TotalPrice
+
+    FROM Reservations r
+    JOIN ReservationRooms rr ON r.ReservationID = rr.ReservationID
+    JOIN RoomTypes rt ON rr.RoomTypeID = rt.RoomTypeID
+    LEFT JOIN Customers c ON c.UserID = r.UserID
+
+    ORDER BY r.CheckInDate DESC;
+END
+EXEC sp_GetAllReservations;
+
+
+---Sửa thông tin lịch đặt----------------------------------------------
+CREATE PROCEDURE sp_UpdateReservation
+    @ReservationID INT,
+    @RoomTypeID INT,
+    @Quantity INT,
+    @CheckInDate DATE,
+    @CheckOutDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+		IF EXISTS (
+			SELECT 1 FROM Reservations 
+			WHERE ReservationID = @ReservationID AND Status = 'CHECKED_IN'
+			)
+		BEGIN
+			RAISERROR(N'Không thể sửa khi đã check-in', 16, 1);
+			ROLLBACK;
+			RETURN;
+		END
+        -------------------------------------------------
+        -- 1. Validate ngày
+        -------------------------------------------------
+        IF (@CheckInDate >= @CheckOutDate)
+        BEGIN
+            RAISERROR(N'Ngày không hợp lệ', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 2. Check tồn tại reservation
+        -------------------------------------------------
+        IF NOT EXISTS (SELECT 1 FROM Reservations WHERE ReservationID = @ReservationID)
+        BEGIN
+            RAISERROR(N'Không tìm thấy đặt phòng', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 3. Check phòng trống (LOẠI TRỪ chính reservation này)
+        -------------------------------------------------
+        DECLARE @TotalRooms INT;
+        SELECT @TotalRooms = COUNT(*)
+        FROM Rooms
+        WHERE RoomTypeID = @RoomTypeID;
+
+        DECLARE @BookedRooms INT;
+        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+        FROM ReservationRooms rr
+        JOIN Reservations r ON rr.ReservationID = r.ReservationID
+        WHERE rr.RoomTypeID = @RoomTypeID
+        AND r.Status IN ('BOOKED','CHECKED_IN')
+        AND r.ReservationID <> @ReservationID
+        AND (
+            r.CheckInDate < @CheckOutDate AND 
+            r.CheckOutDate > @CheckInDate
+        );
+
+        IF (@TotalRooms - @BookedRooms < @Quantity)
+        BEGIN
+            RAISERROR(N'Không đủ phòng trống để cập nhật', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 4. Lấy giá mới (nếu cần)
+        -------------------------------------------------
+        DECLARE @Price DECIMAL(10,2);
+
+        SELECT TOP 1 @Price = Price
+        FROM Rates
+        WHERE RoomTypeID = @RoomTypeID
+        AND @CheckInDate BETWEEN StartDate AND EndDate
+        ORDER BY StartDate DESC;
+
+        IF @Price IS NULL
+        BEGIN
+            SELECT @Price = DefaultPrice
+            FROM RoomTypes
+            WHERE RoomTypeID = @RoomTypeID;
+        END
+
+        -------------------------------------------------
+        -- 5. Update Reservations
+        -------------------------------------------------
+        UPDATE Reservations
+        SET 
+            CheckInDate = @CheckInDate,
+            CheckOutDate = @CheckOutDate
+        WHERE ReservationID = @ReservationID;
+
+        -------------------------------------------------
+        -- 6. Update ReservationRooms
+        -------------------------------------------------
+        UPDATE ReservationRooms
+        SET 
+            RoomTypeID = @RoomTypeID,
+            Quantity = @Quantity,
+            PriceAtBooking = @Price
+        WHERE ReservationID = @ReservationID;
+
+        -------------------------------------------------
+        COMMIT;
+
+        -------------------------------------------------
+        -- 7. Return kết quả
+        -------------------------------------------------
+        SELECT 
+            @ReservationID AS ReservationID,
+            @Price AS NewPrice,
+            (@Price * @Quantity) AS TotalPrice;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@Err, 16, 1);
+    END CATCH
+END
+EXEC sp_UpdateReservation
+    @ReservationID = 12,
+    @RoomTypeID = 2,
+    @Quantity = 3,
+    @CheckInDate = '2026-04-11',
+    @CheckOutDate = '2026-04-13';
+
+
+---Xoá (Huỷ lịch đặt)-------------------------------------------------------------------------------------------
+CREATE PROCEDURE sp_CancelReservation
+    @ReservationID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -------------------------------------------------
+        -- 1. Kiểm tra tồn tại
+        -------------------------------------------------
+        IF NOT EXISTS (
+            SELECT 1 FROM Reservations 
+            WHERE ReservationID = @ReservationID
+        )
+        BEGIN
+            RAISERROR(N'Không tìm thấy đặt phòng', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 2. Không cho huỷ nếu đã check-in
+        -------------------------------------------------
+        IF EXISTS (
+            SELECT 1 FROM Reservations 
+            WHERE ReservationID = @ReservationID 
+            AND Status = 'CHECKED_IN'
+        )
+        BEGIN
+            RAISERROR(N'Không thể huỷ khi khách đã check-in', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 3. Không huỷ nếu đã hoàn thành
+        -------------------------------------------------
+        IF EXISTS (
+            SELECT 1 FROM Reservations 
+            WHERE ReservationID = @ReservationID 
+            AND Status = 'COMPLETED'
+        )
+        BEGIN
+            RAISERROR(N'Đặt phòng đã hoàn thành, không thể huỷ', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -------------------------------------------------
+        -- 4. Cập nhật trạng thái
+        -------------------------------------------------
+        UPDATE Reservations
+        SET 
+            Status = 'CANCELLED'
+        WHERE ReservationID = @ReservationID;
+
+        -------------------------------------------------
+        COMMIT;
+
+        -------------------------------------------------
+        -- 5. Return
+        -------------------------------------------------
+        SELECT 
+            @ReservationID AS ReservationID,
+            N'Đã huỷ đặt phòng thành công' AS Message;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@Err, 16, 1);
+    END CATCH
+END
+EXEC sp_CancelReservation @ReservationID = 12;
+
+
+--------------------------------------------------------------------------------
+---------666666666666666--------------------------------------------------------
+--------------------------------------------------------------------------------
+---Load thông tin KH chờ CheckIn--------------------------------------------------------
+CREATE PROCEDURE sp_GetWaitingCheckInCustomers
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH Numbers AS (
+        SELECT TOP 100 ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
+        FROM sys.all_objects
+    ),
+    ExpandedRooms AS
+    (
+        SELECT 
+            rr.ReservationID,
+            rr.RoomTypeID,
+            rr.PriceAtBooking,
+            n.n AS RowNum
+        FROM ReservationRooms rr
+        JOIN Numbers n ON n.n <= rr.Quantity
+    )
+
+    SELECT 
+        r.ReservationID,
+        u.UserID,
+        c.CustomerID,
+        c.FullName,
+        c.Phone,
+        u.Email,
+        r.CheckInDate,
+        r.CheckOutDate,
+        er.RoomTypeID,
+        er.PriceAtBooking
+    FROM Reservations r
+    INNER JOIN Users u ON r.UserID = u.UserID
+    LEFT JOIN Customers c ON c.UserID = u.UserID  -- 🔥 FIX CHÍNH
+    INNER JOIN ExpandedRooms er ON r.ReservationID = er.ReservationID
+
+    WHERE LTRIM(RTRIM(r.Status)) = 'BOOKED'  -- 🔥 FIX STATUS
+
+    ORDER BY r.CheckInDate ASC;
+END
+EXEC sp_GetWaitingCheckInCustomers
+
+
+---Load thông tin khách hàng đang lưu trú-----------------------------------------------------
+CREATE PROCEDURE sp_GetCurrentStayingCustomers
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        r.ReservationID,
+        c.CustomerID,
+        c.FullName,
+        c.Phone,
+        u.Email,
+
+        r.CheckInDate,
+        r.CheckOutDate,
+
+        rm.RoomID,
+        rm.RoomNumber,
+
+        r.Status,
+        r.CreatedAt
+
+    FROM Reservations r
+    INNER JOIN Users u 
+        ON r.UserID = u.UserID
+
+    INNER JOIN Customers c 
+        ON c.UserID = u.UserID
+
+    LEFT JOIN ReservationRooms rr 
+        ON r.ReservationID = rr.ReservationID
+
+    LEFT JOIN Rooms rm 
+        ON rr.ID = rm.RoomID
+
+    WHERE r.Status = 'CHECKED_IN'
+
+    ORDER BY r.CheckInDate ASC;
+END
+EXEC sp_GetCurrentStayingCustomers;
+
+---CheckIn theo lịch đặt-----------------------------------------------
+CREATE PROCEDURE sp_CheckIn_ByReservation_OneRoom
+    @ReservationID INT,
+    @RoomID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+        @UserID INT,
+        @FullName NVARCHAR(150),
+        @Phone NVARCHAR(20),
+        @CCCD NVARCHAR(20),
+        @GuestID INT,
+        @StayID INT,
+        @Price DECIMAL(12,2)
+
+    -- 1. Lấy User từ Reservation
+    SELECT @UserID = UserID
+    FROM Reservations
+    WHERE ReservationID = @ReservationID
+
+    -- 2. Lấy thông tin Customer
+    SELECT 
+        @FullName = FullName,
+        @Phone = Phone,
+        @CCCD = CCCD
+    FROM Customers
+    WHERE UserID = @UserID
+
+    -- 3. Lấy giá lúc đặt
+    SELECT TOP 1 @Price = PriceAtBooking
+    FROM ReservationRooms
+    WHERE ReservationID = @ReservationID
+
+    -- 4. KIỂM TRA STAY ĐÃ TỒN TẠI CHƯA
+    SELECT TOP 1 @StayID = StayID
+    FROM Stays
+    WHERE ReservationID = @ReservationID
+      AND Status = 'CHECKED_IN'
+
+    -- 5. Nếu CHƯA có Stay → tạo mới
+    IF @StayID IS NULL
+    BEGIN
+        -- tạo Guest (snapshot)
+        INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
+        VALUES (@FullName, 'CCCD', @CCCD)
+
+        SET @GuestID = SCOPE_IDENTITY()
+
+        -- tạo Stay
+        INSERT INTO Stays (ReservationID, GuestID, ActualCheckIn, Status)
+        VALUES (@ReservationID, @GuestID, GETDATE(), 'CHECKED_IN')
+
+        SET @StayID = SCOPE_IDENTITY()
+    END
+
+    -- 6. Luôn tạo RoomStayHistory (mỗi phòng 1 dòng)
+    INSERT INTO RoomStayHistory 
+    (StayID, RoomID, CheckInTime, RateAtThatTime)
+    VALUES 
+    (@StayID, @RoomID, GETDATE(), @Price)
+
+    -- 7. Update trạng thái phòng
+    UPDATE Rooms
+    SET Status = 'OCCUPIED'
+    WHERE RoomID = @RoomID
+
+END
+
+---CheckIn theo khách WalkIn----------------------------------------------------------------
+CREATE PROCEDURE sp_CheckIn_WalkIn_OneRoom
+    @FullName NVARCHAR(150),
+    @Phone NVARCHAR(20),
+    @CCCD NVARCHAR(20),
+    @RoomID INT,
+    @ExpectedCheckOut DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+        @GuestID INT,
+        @StayID INT,
+        @Price DECIMAL(12,2),
+        @RoomTypeID INT
+
+    -- 1. Lấy RoomType
+    SELECT @RoomTypeID = RoomTypeID
+    FROM Rooms
+    WHERE RoomID = @RoomID
+
+    -- 2. Lấy giá hiện tại (Rates)
+    SELECT TOP 1 @Price = Price
+    FROM Rates
+    WHERE RoomTypeID = @RoomTypeID
+      AND GETDATE() BETWEEN StartDate AND EndDate
+    ORDER BY StartDate DESC
+
+    -- 3. Tạo Guest
+    INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
+    VALUES (@FullName, 'CCCD', @CCCD)
+
+    SET @GuestID = SCOPE_IDENTITY()
+
+    -- 4. Tạo Stay (không có Reservation)
+    INSERT INTO Stays (ReservationID, GuestID, ActualCheckIn, Status)
+    VALUES (NULL, @GuestID, GETDATE(), 'CHECKED_IN')
+
+    SET @StayID = SCOPE_IDENTITY()
+
+    -- 5. Tạo RoomStayHistory
+    INSERT INTO RoomStayHistory
+    (StayID, RoomID, CheckInTime, RateAtThatTime)
+    VALUES
+    (@StayID, @RoomID, GETDATE(), @Price)
+
+    -- 6. Update phòng
+    UPDATE Rooms
+    SET Status = 'OCCUPIED'
+    WHERE RoomID = @RoomID
+END
+
+---Chuyển phòng------------------------------------------------------------------
+CREATE PROCEDURE sp_TransferRoom
+    @StayID INT,
+    @OldRoomID INT,
+    @NewRoomID INT,
+    @NewRate DECIMAL(12,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Now DATETIME = GETDATE()
+
+    -------------------------------------------------
+    -- ❗ VALIDATE
+    -------------------------------------------------
+
+    -- 1. Phòng mới phải AVAILABLE
+    IF NOT EXISTS (
+        SELECT 1 FROM Rooms 
+        WHERE RoomID = @NewRoomID AND Status = 'AVAILABLE'
+    )
+    BEGIN
+        RAISERROR(N'Phòng mới không khả dụng', 16, 1)
+        RETURN
+    END
+
+    -- 2. Phải tồn tại phòng cũ đang ở (chưa checkout)
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM RoomStayHistory
+        WHERE StayID = @StayID 
+          AND RoomID = @OldRoomID
+          AND CheckOutTime IS NULL
+    )
+    BEGIN
+        RAISERROR(N'Không tìm thấy phòng hiện tại của khách', 16, 1)
+        RETURN
+    END
+
+    -------------------------------------------------
+    -- 🟡 BƯỚC 1: ĐÓNG PHÒNG CŨ
+    -------------------------------------------------
+
+    UPDATE RoomStayHistory
+    SET CheckOutTime = @Now
+    WHERE StayID = @StayID
+      AND RoomID = @OldRoomID
+      AND CheckOutTime IS NULL
+
+    -- Update phòng cũ → DIRTY (chuẩn nghiệp vụ)
+    UPDATE Rooms
+    SET Status = 'MAINTENANCE' -- hoặc 'DIRTY' nếu bạn có enum này
+    WHERE RoomID = @OldRoomID
+
+    -------------------------------------------------
+    -- 🟢 BƯỚC 2: TẠO PHÒNG MỚI
+    -------------------------------------------------
+
+    INSERT INTO RoomStayHistory
+    (StayID, RoomID, CheckInTime, RateAtThatTime)
+    VALUES
+    (@StayID, @NewRoomID, @Now, @NewRate)
+
+    -- Update phòng mới → OCCUPIED
+    UPDATE Rooms
+    SET Status = 'OCCUPIED'
+    WHERE RoomID = @NewRoomID
+END
+
+---Gia hạn Lưu trú------------------------------------------------------------------------
+CREATE PROCEDURE sp_ExtendStay
+    @StayID INT,
+    @NewCheckOut DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+        @ReservationID INT,
+        @CurrentCheckOut DATETIME,
+        @Now DATETIME = GETDATE()
+
+    -------------------------------------------------
+    -- 1. Lấy thông tin Stay
+    -------------------------------------------------
+    SELECT 
+        @ReservationID = ReservationID
+    FROM Stays
+    WHERE StayID = @StayID
+      AND Status = 'CHECKED_IN'
+
+    IF @ReservationID IS NULL AND NOT EXISTS (
+        SELECT 1 FROM Stays WHERE StayID = @StayID AND Status = 'CHECKED_IN'
+    )
+    BEGIN
+        RAISERROR(N'Stay không hợp lệ', 16, 1)
+        RETURN
+    END
+
+    -------------------------------------------------
+    -- 2. Lấy phòng đang ở
+    -------------------------------------------------
+    DECLARE @RoomID INT
+
+    SELECT TOP 1 @RoomID = RoomID
+    FROM RoomStayHistory
+    WHERE StayID = @StayID
+      AND CheckOutTime IS NULL
+
+    -------------------------------------------------
+    -- 3. CHECK CONFLICT
+    -------------------------------------------------
+    IF EXISTS (
+        SELECT 1
+        FROM Reservations r
+        JOIN ReservationRooms rr ON r.ReservationID = rr.ReservationID
+        JOIN Rooms rm ON rm.RoomTypeID = rr.RoomTypeID
+        WHERE rm.RoomID = @RoomID
+          AND r.Status = 'BOOKED'
+          AND r.CheckInDate < @NewCheckOut
+          AND r.CheckOutDate > @Now
+    )
+    BEGIN
+        RAISERROR(N'Phòng đã được đặt sau thời điểm này', 16, 1)
+        RETURN
+    END
+
+    -------------------------------------------------
+    -- 4. UPDATE
+    -------------------------------------------------
+
+    -- Nếu có reservation
+    IF @ReservationID IS NOT NULL
+    BEGIN
+        UPDATE Reservations
+        SET CheckOutDate = @NewCheckOut
+        WHERE ReservationID = @ReservationID
+    END
+    ELSE
+    BEGIN
+        -- Walk-in
+        UPDATE Stays
+        SET ExpectedCheckOut = @NewCheckOut
+        WHERE StayID = @StayID
+    END
+END
+
+---Thêm dịch vụ sử dụng(Gọi dịch vụ)---------------------------------------------------
+CREATE PROCEDURE sp_AddServiceUsage
+    @StayID INT,
+    @ServiceID INT,
+    @Quantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate Stay tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Stays WHERE StayID = @StayID)
+    BEGIN
+        RAISERROR (N'Stay không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate Service tồn tại và đang active
+    IF NOT EXISTS (
+        SELECT 1 FROM Services 
+        WHERE ServiceID = @ServiceID AND Status = 'TRUE'
+    )
+    BEGIN
+        RAISERROR (N'Dịch vụ không hợp lệ hoặc đã bị tắt', 16, 1)
+        RETURN
+    END
+
+    -- Validate số lượng
+    IF @Quantity <= 0
+    BEGIN
+        RAISERROR (N'Số lượng phải > 0', 16, 1)
+        RETURN
+    END
+
+    -- Insert
+    INSERT INTO ServiceUsages (StayID, ServiceID, Quantity)
+    VALUES (@StayID, @ServiceID, @Quantity)
+END
+
+---Sửa thông tin Dịch vụ đã sử dụng----------------------------------------------
+CREATE PROCEDURE sp_UpdateServiceUsage
+    @UsageID INT,
+    @Quantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate tồn tại
+    IF NOT EXISTS (SELECT 1 FROM ServiceUsages WHERE UsageID = @UsageID)
+    BEGIN
+        RAISERROR (N'Dịch vụ sử dụng không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate số lượng
+    IF @Quantity <= 0
+    BEGIN
+        RAISERROR (N'Số lượng phải > 0', 16, 1)
+        RETURN
+    END
+
+    -- Update
+    UPDATE ServiceUsages
+    SET Quantity = @Quantity
+    WHERE UsageID = @UsageID
+END
+
+---Xoá (Huỷ) dịch vụ đã sử dụng-----------------------------------------------------------------
+CREATE PROCEDURE sp_DeleteServiceUsage
+    @UsageID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate tồn tại
+    IF NOT EXISTS (SELECT 1 FROM ServiceUsages WHERE UsageID = @UsageID)
+    BEGIN
+        RAISERROR (N'Dịch vụ sử dụng không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Delete cứng
+    DELETE FROM ServiceUsages
+    WHERE UsageID = @UsageID
+END
+
+---Load Dịch vụ đã sử dụng-----------------------------------------------------
+CREATE PROCEDURE sp_GetServiceUsageByStay
+    @StayID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        su.UsageID,
+        s.ServiceName,
+        su.Quantity,
+        s.Price,
+        (su.Quantity * s.Price) AS Total,
+        su.UsedDate
+    FROM ServiceUsages su
+    INNER JOIN Services s ON su.ServiceID = s.ServiceID
+    WHERE su.StayID = @StayID
+    ORDER BY su.UsedDate DESC
+END
+
+---Thêm minibarUsages-----------------------------------------------------------
+CREATE PROCEDURE sp_AddMinibarUsage
+    @StayID INT,
+    @MinibarID INT,
+    @Quantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check Stay tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Stays WHERE StayID = @StayID)
+    BEGIN
+        RAISERROR (N'Stay không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Check Minibar tồn tại
+    IF NOT EXISTS (SELECT 1 FROM MinibarItems WHERE MinibarID = @MinibarID)
+    BEGIN
+        RAISERROR (N'Minibar item không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Check số lượng
+    IF @Quantity <= 0
+    BEGIN
+        RAISERROR (N'Số lượng phải > 0', 16, 1)
+        RETURN
+    END
+
+    INSERT INTO MinibarUsages (StayID, MinibarID, Quantity)
+    VALUES (@StayID, @MinibarID, @Quantity)
+END
+
+---Sửa MinibarUsages-------------------------------------------
+CREATE PROCEDURE sp_UpdateMinibarUsage
+    @ID INT,
+    @Quantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check tồn tại
+    IF NOT EXISTS (SELECT 1 FROM MinibarUsages WHERE ID = @ID)
+    BEGIN
+        RAISERROR (N'Minibar usage không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Check số lượng
+    IF @Quantity <= 0
+    BEGIN
+        RAISERROR (N'Số lượng phải > 0', 16, 1)
+        RETURN
+    END
+
+    UPDATE MinibarUsages
+    SET Quantity = @Quantity
+    WHERE ID = @ID
+END
+
+---Xoá MinibarUsages--------------------------------------------------------
+CREATE PROCEDURE sp_DeleteMinibarUsage
+    @ID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM MinibarUsages WHERE ID = @ID)
+    BEGIN
+        RAISERROR (N'Minibar usage không tồn tại', 16, 1)
+        RETURN
+    END
+
+    DELETE FROM MinibarUsages
+    WHERE ID = @ID
+END
+
+---Load MinibarUsages---------------------------------------
+CREATE PROCEDURE sp_GetMinibarUsageByStay
+    @StayID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        mu.ID,
+        mi.ItemName,
+        mu.Quantity,
+        mi.Price,
+        (mu.Quantity * mi.Price) AS Total
+    FROM MinibarUsages mu
+    INNER JOIN MinibarItems mi ON mu.MinibarID = mi.MinibarID
+    WHERE mu.StayID = @StayID
+END
+
+---Thêm phạt--------------------------------------------
+CREATE PROCEDURE sp_AddPenalty
+    @StayID INT,
+    @Reason NVARCHAR(255),
+    @Amount DECIMAL(14,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check Stay tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Stays WHERE StayID = @StayID)
+    BEGIN
+        RAISERROR (N'Stay không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate Amount
+    IF @Amount <= 0
+    BEGIN
+        RAISERROR (N'Số tiền phạt phải > 0', 16, 1)
+        RETURN
+    END
+
+    INSERT INTO Penalties (StayID, Reason, Amount)
+    VALUES (@StayID, @Reason, @Amount)
+END
+
+---Sửa phạt---------------------------------------------
+CREATE PROCEDURE sp_UpdatePenalty
+    @PenaltyID INT,
+    @Reason NVARCHAR(255),
+    @Amount DECIMAL(14,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Penalties WHERE PenaltyID = @PenaltyID)
+    BEGIN
+        RAISERROR (N'Penalty không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate Amount
+    IF @Amount <= 0
+    BEGIN
+        RAISERROR (N'Số tiền phạt phải > 0', 16, 1)
+        RETURN
+    END
+
+    UPDATE Penalties
+    SET 
+        Reason = @Reason,
+        Amount = @Amount
+    WHERE PenaltyID = @PenaltyID
+END
+
+---Xoá phạt---------------------------------------------
+CREATE PROCEDURE sp_DeletePenalty
+    @PenaltyID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM Penalties WHERE PenaltyID = @PenaltyID)
+    BEGIN
+        RAISERROR (N'Penalty không tồn tại', 16, 1)
+        RETURN
+    END
+
+    DELETE FROM Penalties
+    WHERE PenaltyID = @PenaltyID
+END
+
+---Load phạt----------------------------------------------------------
+CREATE PROCEDURE sp_GetPenaltyByStay
+    @StayID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        PenaltyID,
+        Reason,
+        Amount,
+        CreatedAt
+    FROM Penalties
+    WHERE StayID = @StayID
+    ORDER BY CreatedAt DESC
+END
 
 
 

@@ -250,7 +250,7 @@ class Quanlygia extends Component {
                   {tab === "seasonal" && <th>Tên mùa</th>}
                   {tab === "seasonal" && <th>Thời gian</th>}
                   {tab === "seasonal" && <th>Giá mặc định</th>}
-                  <th>Giá</th>
+                  <th>Giá hiện hành</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
