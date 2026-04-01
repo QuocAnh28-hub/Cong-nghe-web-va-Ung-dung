@@ -800,88 +800,155 @@ EXEC sp_GetCustomersFullInfo
 ALTER PROCEDURE sp_Customers_Insert
     @FullName NVARCHAR(255),
     @Phone NVARCHAR(20),
-    @UserID INT,
-    @CCCD NVARCHAR(20)
+    @CCCD NVARCHAR(20),
+    @Email NVARCHAR(150)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validate User tồn tại
-    IF NOT EXISTS (SELECT 1 FROM Users WHERE UserID = @UserID)
+    DECLARE @UserID INT
+
+    -------------------------------------------------
+    -- 1. Validate Email không trùng
+    -------------------------------------------------
+    IF EXISTS (SELECT 1 FROM Users WHERE Email = @Email)
     BEGIN
-        RAISERROR (N'User không tồn tại', 16, 1)
+        RAISERROR (N'Email đã tồn tại', 16, 1)
         RETURN
     END
 
-    -- Validate CCCD không trùng
+    -------------------------------------------------
+    -- 2. Validate CCCD không trùng
+    -------------------------------------------------
     IF EXISTS (SELECT 1 FROM Customers WHERE CCCD = @CCCD)
     BEGIN
         RAISERROR (N'CCCD đã tồn tại', 16, 1)
         RETURN
     END
 
+    -------------------------------------------------
+    -- 3. Tạo User (Role = CUSTOMER)
+    -------------------------------------------------
+    INSERT INTO Users (Email, PasswordHash, Role)
+    VALUES (@Email, '123', 'CUSTOMER')
+
+    SET @UserID = SCOPE_IDENTITY()
+
+    -------------------------------------------------
+    -- 4. Tạo Customer
+    -------------------------------------------------
     INSERT INTO Customers (FullName, Phone, UserID, CCCD)
     VALUES (@FullName, @Phone, @UserID, @CCCD)
 END
 
 EXEC sp_Customers_Insert
-    @FullName = N'test',
+    @FullName = N'Nguyễn Văn A',
     @Phone = '0988888888',
-    @UserID = 5,
-    @CCCD = '123456789012'
+    @CCCD = '123456789012',
+    @Email = 'vana@gmail.com',
+    @PasswordHash = '123456'
 
 --Sửa customers--------------------------------------------------------------------
 ALTER PROCEDURE sp_Customers_Update
     @CustomerID INT,
     @FullName NVARCHAR(255),
     @Phone NVARCHAR(20),
-    @UserID INT,
-    @CCCD NVARCHAR(20)
+    @CCCD NVARCHAR(20),
+    @Email NVARCHAR(150)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check tồn tại
-    IF NOT EXISTS (SELECT 1 FROM Customers WHERE CustomerID = @CustomerID)
-    BEGIN
-        RAISERROR (N'Customer không tồn tại', 16, 1)
-        RETURN
-    END
+    DECLARE @UserID INT
+    DECLARE @OldCCCD NVARCHAR(20)
+    DECLARE @OldEmail NVARCHAR(150)
 
-    -- Validate User tồn tại
-    IF NOT EXISTS (SELECT 1 FROM Users WHERE UserID = @UserID)
-    BEGIN
-        RAISERROR (N'User không tồn tại', 16, 1)
-        RETURN
-    END
+    BEGIN TRAN
 
-    -- Validate CCCD không trùng (trừ chính nó)
-    IF EXISTS (
-        SELECT 1 
-        FROM Customers 
-        WHERE CCCD = @CCCD 
-          AND CustomerID <> @CustomerID
-    )
-    BEGIN
-        RAISERROR (N'CCCD đã tồn tại', 16, 1)
-        RETURN
-    END
+    BEGIN TRY
 
-    UPDATE Customers
-    SET 
-        FullName = @FullName,
-        Phone = @Phone,
-        UserID = @UserID,
-        CCCD = @CCCD
-    WHERE CustomerID = @CustomerID
+        -------------------------------------------------
+        -- 1. Lấy dữ liệu cũ
+        -------------------------------------------------
+        SELECT 
+            @UserID = c.UserID,
+            @OldCCCD = c.CCCD,
+            @OldEmail = u.Email
+        FROM Customers c
+        LEFT JOIN Users u ON c.UserID = u.UserID
+        WHERE c.CustomerID = @CustomerID
+
+        IF @UserID IS NULL
+        BEGIN
+            RAISERROR (N'Customer không tồn tại', 16, 1)
+            ROLLBACK
+            RETURN
+        END
+
+        -------------------------------------------------
+        -- 2. Check CCCD (chỉ khi thay đổi)
+        -------------------------------------------------
+        IF (@CCCD IS NOT NULL AND @CCCD <> @OldCCCD)
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM Customers 
+                WHERE CCCD = @CCCD AND CustomerID <> @CustomerID
+            )
+            BEGIN
+                RAISERROR (N'CCCD đã tồn tại', 16, 1)
+                ROLLBACK
+                RETURN
+END
+        END
+
+        -------------------------------------------------
+        -- 3. Check Email (chỉ khi thay đổi)
+        -------------------------------------------------
+        IF (@Email IS NOT NULL AND @Email <> @OldEmail)
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM Users 
+                WHERE Email = @Email AND UserID <> @UserID
+            )
+            BEGIN
+                RAISERROR (N'Email đã tồn tại', 16, 1)
+                ROLLBACK
+                RETURN
+            END
+        END
+
+        -------------------------------------------------
+        -- 4. Update Customers
+        -------------------------------------------------
+        UPDATE Customers
+        SET 
+            FullName = @FullName,
+            Phone = @Phone,
+            CCCD = ISNULL(@CCCD, CCCD)
+        WHERE CustomerID = @CustomerID
+
+        -------------------------------------------------
+        -- 5. Update Users
+        -------------------------------------------------
+        UPDATE Users
+        SET Email = ISNULL(@Email, Email)
+        WHERE UserID = @UserID
+
+        COMMIT
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK
+        RAISERROR ('ERROR', 16, 1)
+    END CATCH
 END
 
 EXEC sp_Customers_Update
-    @CustomerID = 25,
-    @FullName = N'test change',
-    @Phone = '0888888888',
-    @UserID = 100,
-    @CCCD = '123456789012'
+    @CustomerID = 2,
+    @FullName = N'Nguyễn Văn B',
+    @Phone = '0909999999',
+    @CCCD = '123456789012',
+    @Email = 'newemail@gmail.com'
 
 ---------------------------------------------------------------------------------------------------------------
 --------------------------------22222222222222222222222222222222222222222--------------------------------------
