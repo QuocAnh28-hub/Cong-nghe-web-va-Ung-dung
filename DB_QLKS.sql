@@ -220,10 +220,10 @@ BEGIN
 END
 
 EXEC sp_CreateReceptionist
-    @Email = 'nhanvien116@gmail.com',
+    @Email = 'nhanvien120@gmail.com',
     @PasswordHash = '123',
-    @FullName = N'Thân Đức Huy',
-    @Phone = '0366666666'
+    @FullName = N'Trần Phạm Hà',
+    @Phone = '0333333333'
 
 --Thêm loại phòng mới------------------------------------------------------------------
 CREATE PROCEDURE sp_CreateRoomType
@@ -767,43 +767,121 @@ END
 
 EXEC sp_Customers_GetAll
 
---Thêm customers--------------------------------------------------------------------
-CREATE PROCEDURE sp_Customers_Insert
-    @FullName NVARCHAR(255),
-    @Phone NVARCHAR(20),
-    @UserID INT
+--Load khách hàng và số lần lưu trú-------------------------------------------------
+CREATE PROCEDURE sp_GetCustomersFullInfo
 AS
 BEGIN
-    INSERT INTO Customers (FullName, Phone, UserID)
-    VALUES (@FullName, @Phone, @UserID)
+    SET NOCOUNT ON;
+
+    SELECT 
+        c.CustomerID,
+        c.FullName,
+        c.Phone,
+        c.CCCD,
+        u.Email,
+        COUNT(CASE WHEN s.Status = 'COMPLETED' THEN 1 END) AS TotalStays,
+        ISNULL(SUM(i.TotalAmount),0) AS TotalSpent,
+        MAX(s.ActualCheckIn) AS LastStay
+    FROM Customers c
+    LEFT JOIN Users u ON c.UserID = u.UserID
+    LEFT JOIN Reservations r ON r.UserID = u.UserID
+    LEFT JOIN Stays s ON s.ReservationID = r.ReservationID
+    LEFT JOIN Invoices i ON i.StayID = s.StayID
+    GROUP BY 
+        c.CustomerID,
+        c.FullName,
+        c.Phone,
+        c.CCCD,
+        u.Email
+END
+EXEC sp_GetCustomersFullInfo
+
+--Thêm customers--------------------------------------------------------------------
+ALTER PROCEDURE sp_Customers_Insert
+    @FullName NVARCHAR(255),
+    @Phone NVARCHAR(20),
+    @UserID INT,
+    @CCCD NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate User tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Users WHERE UserID = @UserID)
+    BEGIN
+        RAISERROR (N'User không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate CCCD không trùng
+    IF EXISTS (SELECT 1 FROM Customers WHERE CCCD = @CCCD)
+    BEGIN
+        RAISERROR (N'CCCD đã tồn tại', 16, 1)
+        RETURN
+    END
+
+    INSERT INTO Customers (FullName, Phone, UserID, CCCD)
+    VALUES (@FullName, @Phone, @UserID, @CCCD)
 END
 
 EXEC sp_Customers_Insert
-    @FullName = 'test',
-    @Phone = '0988888888888',
-    @UserID = 5
+    @FullName = N'test',
+    @Phone = '0988888888',
+    @UserID = 5,
+    @CCCD = '123456789012'
 
 --Sửa customers--------------------------------------------------------------------
-CREATE PROCEDURE sp_Customers_Update
+ALTER PROCEDURE sp_Customers_Update
     @CustomerID INT,
     @FullName NVARCHAR(255),
     @Phone NVARCHAR(20),
-    @UserID INT
+    @UserID INT,
+    @CCCD NVARCHAR(20)
 AS
 BEGIN
+    SET NOCOUNT ON;
+
+    -- Check tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Customers WHERE CustomerID = @CustomerID)
+    BEGIN
+        RAISERROR (N'Customer không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate User tồn tại
+    IF NOT EXISTS (SELECT 1 FROM Users WHERE UserID = @UserID)
+    BEGIN
+        RAISERROR (N'User không tồn tại', 16, 1)
+        RETURN
+    END
+
+    -- Validate CCCD không trùng (trừ chính nó)
+    IF EXISTS (
+        SELECT 1 
+        FROM Customers 
+        WHERE CCCD = @CCCD 
+          AND CustomerID <> @CustomerID
+    )
+    BEGIN
+        RAISERROR (N'CCCD đã tồn tại', 16, 1)
+        RETURN
+    END
+
     UPDATE Customers
     SET 
         FullName = @FullName,
         Phone = @Phone,
-        UserID = @UserID
+        UserID = @UserID,
+        CCCD = @CCCD
     WHERE CustomerID = @CustomerID
 END
 
 EXEC sp_Customers_Update
-    @CustomerID = 2,
-    @FullName = 'test change',
+    @CustomerID = 25,
+    @FullName = N'test change',
     @Phone = '0888888888',
-    @UserID = 5
+    @UserID = 100,
+    @CCCD = '123456789012'
 
 ---------------------------------------------------------------------------------------------------------------
 --------------------------------22222222222222222222222222222222222222222--------------------------------------
