@@ -2492,7 +2492,71 @@ BEGIN
     ORDER BY CreatedAt DESC
 END
 
+-----------------------------------------------------------------------------------------------------------------------
+----------888888888888888888888888888888888888888888888----------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+---CheckOut------------------------------------------------------------------------------------------------------------
+CREATE PROCEDURE sp_CheckOutRoom
+    @StayID INT,
+    @RoomID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    DECLARE @Now DATETIME = GETDATE()
+
+    -- 1. Check phòng đang ở
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM RoomStayHistory
+        WHERE StayID = @StayID 
+          AND RoomID = @RoomID
+          AND CheckOutTime IS NULL
+    )
+    BEGIN
+        RAISERROR (N'Phòng không nằm trong stay hoặc đã checkout rồi', 16, 1)
+        RETURN
+    END
+
+    -- 2. Update checkout phòng
+    UPDATE RoomStayHistory
+    SET CheckOutTime = @Now
+    WHERE StayID = @StayID 
+      AND RoomID = @RoomID
+      AND CheckOutTime IS NULL
+
+    -- 3. Update trạng thái phòng → DIRTY
+    UPDATE Rooms
+    SET Status = 'DIRTY'
+    WHERE RoomID = @RoomID
+
+    -------------------------------------------------
+    -- 4. Check còn phòng nào chưa checkout không
+    -------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1
+        FROM RoomStayHistory
+        WHERE StayID = @StayID
+          AND CheckOutTime IS NULL
+    )
+    BEGIN
+        -- 4.1 Update Stay
+        UPDATE Stays
+        SET 
+            ActualCheckOut = @Now,
+            Status = 'COMPLETED'
+        WHERE StayID = @StayID
+
+        -- 4.2 Update Reservation (nếu có)
+        UPDATE Reservations
+        SET Status = 'COMPLETED'
+        WHERE ReservationID = (
+            SELECT ReservationID 
+            FROM Stays 
+            WHERE StayID = @StayID
+        )
+    END
+END
 
 
 
