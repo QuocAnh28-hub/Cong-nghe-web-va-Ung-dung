@@ -7,7 +7,7 @@ const Baocao = () => {
     <div className="baocao-page">
       <div className="baocao-header-row">
         <FeatureHeader
-          title="Quản lý Báo cáo"
+          title="Báo cáo thống kê"
           description="Xem báo cáo công suất phòng và doanh thu"
         />
         <div className="baocao-month-picker">

@@ -66,13 +66,13 @@ class Navigation extends Component {
             className={`navigations-btn ${currentPage === Quanlygia ? "active" : ""}`}
             onClick={() => changePage(Quanlygia)}
           >
-            <i class="fa-solid fa-file-invoice-dollar"></i>Quản lý giá
+            <i class="fa-solid fa-file-invoice-dollar"></i>Giá theo mùa
           </button>
           <button
             className={`navigations-btn ${currentPage === Quanlyphong ? "active" : ""}`}
             onClick={() => changePage(Quanlyphong)}
           >
-            <i class="fa-solid fa-house"></i>Quản lý phòng
+            <i class="fa-solid fa-house"></i>Phòng
           </button>
           <button
             className={`navigations-btn ${currentPage === Loaiphong ? "active" : ""}`}
