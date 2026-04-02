@@ -1,12 +1,15 @@
-import React, { Component } from "react";
+﻿import React, { Component } from "react";
 import "../style/Quanlygia.css";
 import { FeatureHeader } from "./Common";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
+const RATES_API_URL = "http://localhost:3000/api/rates";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
 
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("vi-VN").format(date);
 };
 
@@ -28,10 +31,38 @@ const parseDateRange = (dateRange) => {
     const [day, month, year] = parts;
     return `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   };
+
   return {
     startDate: normalize(start),
     endDate: normalize(end),
   };
+};
+
+const normalizeDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const rangesOverlap = (startA, endA, startB, endB) => startA <= endB && startB <= endA;
+
+const readErrorMessage = async (response, fallbackMessage) => {
+  try {
+    const text = await response.text();
+    if (!text) {
+      return fallbackMessage;
+    }
+
+    try {
+      const data = JSON.parse(text);
+      return data.error || data.message || fallbackMessage;
+    } catch {
+      return text;
+    }
+  } catch {
+    return fallbackMessage;
+  }
 };
 
 class Quanlygia extends Component {
@@ -54,6 +85,7 @@ class Quanlygia extends Component {
     roomTypes: [],
     loading: false,
     error: null,
+    submitLoading: false,
   };
 
   componentDidMount() {
@@ -63,10 +95,11 @@ class Quanlygia extends Component {
 
   fetchRoomTypes = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/room-types");
+      const response = await fetch(ROOM_TYPES_API_URL);
       if (!response.ok) {
         throw new Error(`Lỗi tải loại phòng: ${response.status}`);
       }
+
       const data = await response.json();
       const roomTypes = Array.isArray(data)
         ? data.map((item) => ({
@@ -75,6 +108,7 @@ class Quanlygia extends Component {
             defaultPrice: item.DefaultPrice ?? 0,
           }))
         : [];
+
       this.setState({ roomTypes });
     } catch (error) {
       console.error(error);
@@ -85,7 +119,7 @@ class Quanlygia extends Component {
     this.setState({ loading: true, error: null });
 
     try {
-      const response = await fetch("http://localhost:3000/api/rates");
+      const response = await fetch(RATES_API_URL);
       if (!response.ok) {
         throw new Error(`Lỗi tải dữ liệu: ${response.status}`);
       }
@@ -103,9 +137,10 @@ class Quanlygia extends Component {
           seasonName: item.Season || "",
           startDate,
           endDate,
-          dateRange: item.StartDate || item.EndDate
-            ? `${formatDate(startDate)} - ${formatDate(endDate)}`
-            : "",
+          dateRange:
+            item.StartDate || item.EndDate
+              ? `${formatDate(startDate)} - ${formatDate(endDate)}`
+              : "",
           defaultPrice: item.DefaultPrice ?? 0,
           amount: item.Price ?? item.DefaultPrice ?? 0,
         });
@@ -135,6 +170,7 @@ class Quanlygia extends Component {
         dateRange: "",
         defaultPrice: 0,
       },
+      error: null,
     });
   };
 
@@ -163,15 +199,17 @@ class Quanlygia extends Component {
         startDate: price.startDate || parsedRange.startDate || "",
         endDate: price.endDate || parsedRange.endDate || "",
       },
+      error: null,
     });
   };
 
   closeModal = () => {
-    this.setState({ isModalOpen: false });
+    this.setState({ isModalOpen: false, submitLoading: false });
   };
 
   handleInput = (field) => (e) => {
     const value = e.target.value;
+
     if (field === "roomTypeId") {
       const selectedRoomType = this.state.roomTypes.find(
         (rt) => String(rt.id) === value,
@@ -187,9 +225,59 @@ class Quanlygia extends Component {
       return;
     }
 
-    this.setState((prev) => ({
-      currentPrice: { ...prev.currentPrice, [field]: value },
-    }));
+    this.setState((prev) => {
+      const nextCurrentPrice = { ...prev.currentPrice, [field]: value };
+
+      if (field === "startDate" && nextCurrentPrice.endDate && value > nextCurrentPrice.endDate) {
+        nextCurrentPrice.endDate = value;
+      }
+
+      return { currentPrice: nextCurrentPrice };
+    });
+  };
+
+  validateDateRange = (currentPrice) => {
+    const startDate = normalizeDate(currentPrice.startDate);
+    const endDate = normalizeDate(currentPrice.endDate);
+
+    if (!startDate || !endDate) {
+      return "Ngày bắt đầu và ngày kết thúc không hợp lệ.";
+    }
+
+    if (startDate > endDate) {
+      return "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.";
+    }
+
+    const activeRoomTypeId = String(currentPrice.roomTypeId || "");
+    if (!activeRoomTypeId) {
+      return null;
+    }
+
+    const conflict = this.state.seasonalPrices.find((item) => {
+      if (String(item.roomTypeId) !== activeRoomTypeId) {
+        return false;
+      }
+
+      if (currentPrice.id && String(item.id) === String(currentPrice.id)) {
+        return false;
+      }
+
+      const itemStartDate = normalizeDate(item.startDate);
+      const itemEndDate = normalizeDate(item.endDate);
+      if (!itemStartDate || !itemEndDate) {
+        return false;
+      }
+
+      return rangesOverlap(startDate, endDate, itemStartDate, itemEndDate);
+    });
+
+    if (conflict) {
+      return `Khoảng thời gian bị trùng với giá "${conflict.seasonName}" (${formatDate(
+        conflict.startDate,
+      )} - ${formatDate(conflict.endDate)}).`;
+    }
+
+    return null;
   };
 
   handleSave = async (e) => {
@@ -200,17 +288,29 @@ class Quanlygia extends Component {
     const { currentPrice, modalMode } = this.state;
     const { roomTypeId, roomType, amount, seasonName, startDate, endDate } = currentPrice;
 
-    if ((!roomTypeId && !roomType) || !amount || !seasonName || !startDate || !endDate) {
+    if ((!roomTypeId && !roomType) || !amount || !seasonName.trim() || !startDate || !endDate) {
       alert("Vui lòng điền đầy đủ các trường bắt buộc.");
+      return;
+    }
+
+    const amountNumber = Number(amount);
+    if (Number.isNaN(amountNumber) || amountNumber <= 0) {
+      alert("Giá phải là số dương.");
+      return;
+    }
+
+    const dateError = this.validateDateRange(currentPrice);
+    if (dateError) {
+      alert(dateError);
       return;
     }
 
     const payload = {
       RoomTypeID: roomTypeId ? Number(roomTypeId) : roomType,
-      Price: Number(amount),
-      StartDate: startDate,
-      EndDate: endDate,
-      Season: seasonName,
+      Price: amountNumber,
+      StartDate: normalizeDate(startDate),
+      EndDate: normalizeDate(endDate),
+      Season: seasonName.trim(),
     };
 
     const requestOptions = {
@@ -220,43 +320,47 @@ class Quanlygia extends Component {
       body: JSON.stringify(payload),
     };
 
+    this.setState({ submitLoading: true });
+
     if (modalMode === "add") {
       try {
-        const response = await fetch("http://localhost:3000/api/rates", {
+        const response = await fetch(RATES_API_URL, {
           ...requestOptions,
           method: "POST",
         });
 
         if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Lỗi thêm giá: ${response.status} ${errorBody}`);
+          const errorMessage = await readErrorMessage(response, `Lỗi thêm giá: ${response.status}`);
+          throw new Error(errorMessage);
         }
 
         await response.json();
         await this.fetchRates();
-        this.setState({ isModalOpen: false });
+        this.setState({ isModalOpen: false, submitLoading: false });
         return;
       } catch (error) {
+        this.setState({ submitLoading: false });
         alert(error.message);
         return;
       }
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/rates/${currentPrice.id}`, {
+      const response = await fetch(`${RATES_API_URL}/${currentPrice.id}`, {
         ...requestOptions,
         method: "PUT",
       });
 
       if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Lỗi cập nhật giá: ${response.status} ${errorBody}`);
+        const errorMessage = await readErrorMessage(response, `Lỗi cập nhật giá: ${response.status}`);
+        throw new Error(errorMessage);
       }
 
       await response.json();
       await this.fetchRates();
-      this.setState({ isModalOpen: false });
+      this.setState({ isModalOpen: false, submitLoading: false });
     } catch (error) {
+      this.setState({ submitLoading: false });
       alert(error.message);
     }
   };
@@ -265,13 +369,13 @@ class Quanlygia extends Component {
     if (!window.confirm("Xác nhận xóa?")) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/rates/${id}`, {
+      const response = await fetch(`${RATES_API_URL}/${id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Lỗi xóa giá: ${response.status} ${errorBody}`);
+        const errorMessage = await readErrorMessage(response, `Lỗi xóa giá: ${response.status}`);
+        throw new Error(errorMessage);
       }
 
       await response.json();
@@ -296,8 +400,16 @@ class Quanlygia extends Component {
   };
 
   render() {
-    const { isModalOpen, modalMode, currentPrice, search, loading, error, roomTypes } =
-      this.state;
+    const {
+      isModalOpen,
+      modalMode,
+      currentPrice,
+      search,
+      loading,
+      error,
+      roomTypes,
+      submitLoading,
+    } = this.state;
     const list = this.filterPrices();
     const typeOptions = roomTypes.length ? roomTypes : ROOM_TYPES;
 
@@ -370,8 +482,8 @@ class Quanlygia extends Component {
                       <td>{item.roomType}</td>
                       <td>{item.seasonName}</td>
                       <td>{item.dateRange}</td>
-                      <td>{Number(item.defaultPrice).toLocaleString()}đ</td>
-                      <td>{Number(item.amount).toLocaleString()}đ</td>
+                      <td>{Number(item.defaultPrice).toLocaleString("vi-VN")}đ</td>
+                      <td>{Number(item.amount).toLocaleString("vi-VN")}đ</td>
                       <td>
                         <button
                           type="button"
@@ -444,6 +556,7 @@ class Quanlygia extends Component {
                       type="date"
                       value={currentPrice.startDate}
                       onChange={this.handleInput("startDate")}
+                      max={currentPrice.endDate || undefined}
                     />
                   </label>
                   <label>
@@ -453,6 +566,7 @@ class Quanlygia extends Component {
                       type="date"
                       value={currentPrice.endDate}
                       onChange={this.handleInput("endDate")}
+                      min={currentPrice.startDate || undefined}
                     />
                   </label>
                 </div>
@@ -462,6 +576,7 @@ class Quanlygia extends Component {
                   <input
                     className="qlgia-modal-input"
                     type="number"
+                    min="1"
                     value={currentPrice.amount}
                     onChange={this.handleInput("amount")}
                   />
@@ -479,8 +594,9 @@ class Quanlygia extends Component {
                     className="qlgia-btn-primary"
                     type="button"
                     onClick={this.handleSave}
+                    disabled={submitLoading}
                   >
-                    Lưu
+                    {submitLoading ? "Đang lưu..." : "Lưu"}
                   </button>
                 </div>
               </div>

@@ -1009,17 +1009,41 @@ CREATE PROCEDURE usp_InsertRate
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Kiểm tra ngày hợp lệ
+    IF (@StartDate > @EndDate)
+    BEGIN
+        RAISERROR(N'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc', 16, 1);
+        RETURN;
+    END
+
+    -- Kiểm tra trùng khoảng ngày
+    IF EXISTS (
+        SELECT 1
+        FROM Rates
+        WHERE RoomTypeID = @RoomTypeID
+          AND (
+                @StartDate <= EndDate
+                AND @EndDate >= StartDate
+              )
+    )
+    BEGIN
+        RAISERROR(N'Khoảng thời gian này đã tồn tại giá cho loại phòng này', 16, 1);
+        RETURN;
+    END
+
+    -- Nếu không trùng thì insert
     INSERT INTO Rates (RoomTypeID, Price, StartDate, EndDate, Season)
     VALUES (@RoomTypeID, @Price, @StartDate, @EndDate, @Season);
 END;
 
 EXEC usp_InsertRate 
-    @RoomTypeID = 1,
+    @RoomTypeID = 8,
     @Price = 1600000,
     @StartDate = '2026-06-01',
     @EndDate = '2026-08-31',
     @Season = N'Cao điểm';
---Sửa giá theo mùa-----------------------------------------------------------------------------
+--Sửa giá theo mùa----------------------------------------------------------------------------- 
 CREATE PROCEDURE usp_UpdateSeasonalRate
     @RateID INT,
     @RoomTypeID INT = NULL,
@@ -1031,22 +1055,56 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE 
+        @NewRoomTypeID INT,
+        @NewStartDate DATE,
+        @NewEndDate DATE;
+
+    SELECT 
+        @NewRoomTypeID = COALESCE(@RoomTypeID, RoomTypeID),
+        @NewStartDate  = COALESCE(@StartDate, StartDate),
+        @NewEndDate    = COALESCE(@EndDate, EndDate)
+    FROM Rates
+    WHERE RateID = @RateID;
+
+    IF (@NewStartDate > @NewEndDate)
+    BEGIN
+        RAISERROR(N'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc', 16, 1);
+        RETURN;
+    END
+
+    IF EXISTS (
+        SELECT 1
+        FROM Rates
+        WHERE RoomTypeID = @NewRoomTypeID
+          AND RateID <> @RateID
+          AND (
+                @NewStartDate <= EndDate
+                AND @NewEndDate >= StartDate
+              )
+    )
+    BEGIN
+        RAISERROR(N'Khoảng thời gian bị trùng với giá khác của loại phòng này', 16, 1);
+        RETURN;
+    END
+
     UPDATE Rates
     SET 
         RoomTypeID = COALESCE(@RoomTypeID, RoomTypeID),
-        Price = COALESCE(@Price, Price),
-        StartDate = COALESCE(@StartDate, StartDate),
-        EndDate = COALESCE(@EndDate, EndDate),
-        Season = COALESCE(@Season, Season)
+        Price      = COALESCE(@Price, Price),
+        StartDate  = COALESCE(@StartDate, StartDate),
+        EndDate    = COALESCE(@EndDate, EndDate),
+        Season     = COALESCE(@Season, Season)
     WHERE RateID = @RateID;
-END
+
+END;
 
 EXEC usp_UpdateSeasonalRate 
-    @RateID = 6,
+    @RateID = 8,
     @RoomTypeID = 12,
     @Price = 800000.00,
-    @StartDate = '2026-11-28',
-    @EndDate = '2026-12-30',
+    @StartDate = '2026-06-28',
+    @EndDate = '2026-06-30',
 	@Season = N'Ưu đãi cuối năm'
 
 --Xoá giá theo mùa-----------------------------------------------------------------------------
