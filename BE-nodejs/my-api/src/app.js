@@ -15,6 +15,7 @@ app.use(express.json());
 
 app.use("/api/room-types", roomTypeRoutes);
 app.use("/api/login", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/receptionists", receptionistRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/rates", rateRoutes);

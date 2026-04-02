@@ -1,5 +1,24 @@
-import React, { Component } from "react";
+﻿import React, { Component } from "react";
 import "../style/Login.css";
+
+const LOGIN_API_URL = "http://localhost:3000/api/login";
+const REGISTER_API_URL = "http://localhost:3000/api/auth/register";
+
+const readResponseMessage = async (response, fallbackMessage) => {
+  try {
+    const text = await response.text();
+    if (!text) return fallbackMessage;
+
+    try {
+      const data = JSON.parse(text);
+      return data.message || data.error || fallbackMessage;
+    } catch {
+      return text;
+    }
+  } catch {
+    return fallbackMessage;
+  }
+};
 
 class Login extends Component {
   constructor(props) {
@@ -18,22 +37,27 @@ class Login extends Component {
       registerMessage: "",
       isForgotPasswordPopupOpen: false,
       forgotEmail: "",
-      forgotMessage: ""
+      forgotMessage: "",
+      registerLoading: false,
     };
   }
 
   handleChange = (e) => {
     this.setState({
-      [e.target.id]: e.target.value
+      [e.target.id]: e.target.value,
     });
   };
 
   openRegisterPopup = () => {
-    this.setState({ isRegisterPopupOpen: true });
+    this.setState({ isRegisterPopupOpen: true, registerMessage: "" });
   };
 
   closeRegisterPopup = () => {
-    this.setState({ isRegisterPopupOpen: false, registerMessage: "" });
+    this.setState({
+      isRegisterPopupOpen: false,
+      registerMessage: "",
+      registerLoading: false,
+    });
   };
 
   openForgotPasswordPopup = () => {
@@ -47,8 +71,6 @@ class Login extends Component {
   handleForgotPasswordSubmit = async (e) => {
     e.preventDefault();
 
-    const { forgotEmail } = this.state;
-
     this.setState({ forgotMessage: "Đã gửi mật khẩu đến email của bạn" });
   };
 
@@ -57,41 +79,61 @@ class Login extends Component {
 
     const { hoTen, sdt, registerEmail, registerPassword, confirmPassword } = this.state;
 
+    if (!hoTen.trim() || !sdt.trim() || !registerEmail.trim() || !registerPassword) {
+      this.setState({ registerMessage: "Vui lòng điền đầy đủ thông tin đăng ký." });
+      return;
+    }
+
     if (registerPassword !== confirmPassword) {
-      this.setState({ registerMessage: "Mật khẩu xác nhận không khớp" });
+      this.setState({ registerMessage: "Mật khẩu xác nhận không khớp." });
       return;
     }
 
     try {
-      const response = await fetch("/api-khachdat/KhachDat/Register", {
+      this.setState({ registerLoading: true, registerMessage: "" });
+
+      const response = await fetch(REGISTER_API_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fullname: hoTen,
-          phone: sdt,
-          email: registerEmail,
-          passwordhash: registerPassword
-        })
+          FullName: hoTen.trim(),
+          Phone: sdt.trim(),
+          Email: registerEmail.trim(),
+          Password: registerPassword,
+        }),
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Lỗi từ server: ${response.status} ${text}`);
+        const errorMessage = await readResponseMessage(
+          response,
+          `Đăng ký thất bại (${response.status}).`,
+        );
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
 
-      if (result.success) {
-        alert("Đăng ký thành công!");
+      this.setState({
+        registerLoading: false,
+        registerMessage: result.message || "Đăng ký tài khoản thành công.",
+        hoTen: "",
+        sdt: "",
+        registerEmail: "",
+        registerPassword: "",
+        confirmPassword: "",
+      });
+
+      setTimeout(() => {
         this.closeRegisterPopup();
-      } else {
-        this.setState({ registerMessage: result.message || "Đăng ký thất bại" });
-      }
+      }, 800);
     } catch (error) {
       console.error(error);
-      this.setState({ registerMessage: "Không kết nối được API" });
+      this.setState({
+        registerLoading: false,
+        registerMessage: error.message || "Không kết nối được API đăng ký.",
+      });
     }
   };
 
@@ -101,15 +143,15 @@ class Login extends Component {
     const { email, password } = this.state;
 
     try {
-      const response = await fetch("http://localhost:3000/api/login", {
+      const response = await fetch(LOGIN_API_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           Email: email,
-          PasswordHash: password
-        })
+          PasswordHash: password,
+        }),
       });
 
       const result = await response.json();
@@ -130,12 +172,12 @@ class Login extends Component {
         }
       } else {
         this.setState({
-          message: result.message || "Sai tài khoản hoặc mật khẩu"
+          message: result.message || "Sai tài khoản hoặc mật khẩu",
         });
       }
     } catch (error) {
       this.setState({
-        message: "Không kết nối được API"
+        message: "Không kết nối được API",
       });
     }
   };
@@ -144,7 +186,6 @@ class Login extends Component {
     return (
       <div className="dangnhap">
         <div className="dangnhap-container">
-
           <i className="fa-regular fa-building logo-hotel-login"></i>
 
           <div className="dangnhap-top">
@@ -153,7 +194,6 @@ class Login extends Component {
           </div>
 
           <form className="dangnhap-form" onSubmit={this.handleSubmit}>
-
             <label htmlFor="email">Email</label>
             <input
               type="email"
@@ -172,22 +212,28 @@ class Login extends Component {
               required
             />
 
-            <button type="button" className="quenmatkhau-button" onClick={this.openForgotPasswordPopup}>
+            <button
+              type="button"
+              className="quenmatkhau-button"
+              onClick={this.openForgotPasswordPopup}
+            >
               Quên mật khẩu?
             </button>
 
-            <button type="button" className="dangky-button" onClick={this.openRegisterPopup}>
+            <button
+              type="button"
+              className="dangky-button"
+              onClick={this.openRegisterPopup}
+            >
               Đăng ký
             </button>
 
             <button className="dangnhap-button" type="submit">
               Đăng nhập
             </button>
-
           </form>
 
           <p style={{ color: "red" }}>{this.state.message}</p>
-
         </div>
 
         {this.state.isRegisterPopupOpen && (
@@ -200,6 +246,7 @@ class Login extends Component {
                   type="text"
                   id="hoTen"
                   placeholder="Nhập họ tên"
+                  value={this.state.hoTen}
                   onChange={this.handleChange}
                   required
                 />
@@ -209,6 +256,7 @@ class Login extends Component {
                   type="tel"
                   id="sdt"
                   placeholder="Nhập số điện thoại"
+                  value={this.state.sdt}
                   onChange={this.handleChange}
                   required
                 />
@@ -218,6 +266,7 @@ class Login extends Component {
                   type="email"
                   id="registerEmail"
                   placeholder="Nhập email"
+                  value={this.state.registerEmail}
                   onChange={this.handleChange}
                   required
                 />
@@ -227,6 +276,7 @@ class Login extends Component {
                   type="password"
                   id="registerPassword"
                   placeholder="Nhập mật khẩu"
+                  value={this.state.registerPassword}
                   onChange={this.handleChange}
                   required
                 />
@@ -236,18 +286,33 @@ class Login extends Component {
                   type="password"
                   id="confirmPassword"
                   placeholder="Nhập lại mật khẩu"
+                  value={this.state.confirmPassword}
                   onChange={this.handleChange}
                   required
                 />
 
-                <button type="submit" className="register-submit-button">
-                  Đăng ký
+                <button
+                  type="submit"
+                  className="register-submit-button"
+                  disabled={this.state.registerLoading}
+                >
+                  {this.state.registerLoading ? "Đang đăng ký..." : "Đăng ký"}
                 </button>
-                <button type="button" onClick={this.closeRegisterPopup} className="register-close-button">
+                <button
+                  type="button"
+                  onClick={this.closeRegisterPopup}
+                  className="register-close-button"
+                >
                   Đóng
                 </button>
               </form>
-              <p style={{ color: "red" }}>{this.state.registerMessage}</p>
+              <p
+                style={{
+                  color: this.state.registerMessage.includes("thành công") ? "green" : "red",
+                }}
+              >
+                {this.state.registerMessage}
+              </p>
             </div>
           </div>
         )}
@@ -269,7 +334,11 @@ class Login extends Component {
                 <button type="submit" className="forgot-submit-button">
                   Gửi mật khẩu
                 </button>
-                <button type="button" onClick={this.closeForgotPasswordPopup} className="forgot-close-button">
+                <button
+                  type="button"
+                  onClick={this.closeForgotPasswordPopup}
+                  className="forgot-close-button"
+                >
                   Đóng
                 </button>
               </form>

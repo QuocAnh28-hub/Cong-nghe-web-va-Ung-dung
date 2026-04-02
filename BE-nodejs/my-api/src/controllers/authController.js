@@ -1,5 +1,7 @@
 const { sql } = require("../config/db");
-const crypto = require("crypto");
+
+const isRegisterBusinessError = (message = "") =>
+  message.includes("Email da ton tai") || message.includes("Email đã tồn tại");
 
 const login = async (req, res) => {
   console.log("login called", req.body);
@@ -19,10 +21,7 @@ const login = async (req, res) => {
     // Sử dụng PasswordHash nếu có, nếu không thì hash Password thành SHA256
     let finalPasswordHash = passwordHash;
     if (!finalPasswordHash && password) {
-      finalPasswordHash = crypto
-        .createHash("sha256")
-        .update(password)
-        .digest("hex");
+      finalPasswordHash = password;
     }
 
     console.log(
@@ -61,4 +60,58 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { login };
+const register = async (req, res) => {
+  console.log("register called", req.body);
+
+  try {
+    const { FullName, Phone, Email, Password, PasswordHash } = req.body;
+    const fullName = (FullName || "").trim();
+    const phone = (Phone || "").trim();
+    const email = (Email || "").trim();
+    const rawPassword = (Password || "").trim();
+    let passwordHash = (PasswordHash || "").trim();
+
+    if (!fullName || !phone || !email) {
+      return res.status(400).json({
+        error: "FullName, Phone va Email la bat buoc",
+      });
+    }
+
+    if (!passwordHash && !rawPassword) {
+      return res.status(400).json({
+        error: "Password hoac PasswordHash la bat buoc",
+      });
+    }
+
+    if (!passwordHash) {
+      passwordHash = rawPassword;
+    }
+
+    await sql.query`
+      EXEC sp_RegisterCustomer
+        @FullName=${fullName},
+        @Phone=${phone},
+        @Email=${email},
+        @PasswordHash=${passwordHash}
+    `;
+
+    return res.status(201).json({
+      message: "Dang ky tai khoan thanh cong",
+      data: {
+        FullName: fullName,
+        Phone: phone,
+        Email: email,
+      },
+    });
+  } catch (err) {
+    console.error("register Error:", err);
+
+    if (isRegisterBusinessError(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
+module.exports = { login, register };
