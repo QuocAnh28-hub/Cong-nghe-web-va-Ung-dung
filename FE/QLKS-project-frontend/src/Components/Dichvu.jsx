@@ -1,52 +1,156 @@
-import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import "../style/Dichvu.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
-const DICHVU_LIST = [
-  { name: "Giặt ủi", category: "Vệ sinh", price: 50000, desc: "Dịch vụ giặt ủi quần áo" },
-  { name: "Ăn sáng buffet", category: "Ăn uống", price: 150000, desc: "Buffet sáng đa dạng món ăn" },
-  { name: "Massage", category: "Spa", price: 300000, desc: "Massage thư giãn 60 phút" },
-  { name: "Đưa đón sân bay", category: "Vận chuyển", price: 500000, desc: "Xe đưa đón sân bay" },
-];
-const CATEGORY_COLORS = {
-  "Ăn uống": "#60a5fa",
-  "Vệ sinh": "#a5b4fc",
-  "Spa": "#f9a8d4",
-  "Vận chuyển": "#6ee7b7",
-  "Phòng": "#fcd34d",
-  "Khác": "#cbd5e1",
-};
-const CATEGORY_LIST = [
-  "Tất cả danh mục",
-  "Ăn uống",
-  "Vệ sinh",
-  "Spa",
-  "Vận chuyển",
-  "Phòng",
-  "Khác",
-];
+const API_URL = "http://localhost:3000/api/services";
+
+const getDefaultForm = () => ({
+  ServiceName: "",
+  Price: "",
+});
+
+const mapServiceFromApi = (item) => ({
+  ServiceID: item.ServiceID,
+  ServiceName: item.ServiceName ?? "",
+  Price: Number(item.Price) || 0,
+  Status: item.Status ?? "",
+});
 
 const Dichvu = () => {
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Tất cả danh mục");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", category: "Khác", price: "", desc: "" });
+  const [services, setServices] = useState([]);
+  const [form, setForm] = useState(getDefaultForm());
+  const [editServiceId, setEditServiceId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const filteredList = DICHVU_LIST.filter(dv =>
-    (category === "Tất cả danh mục" || dv.category === category) &&
-    dv.name.toLowerCase().includes(search.toLowerCase())
+  const fetchServices = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setServices(Array.isArray(data) ? data.map(mapServiceFromApi) : []);
+    } catch (err) {
+      setError(err.message || "Không thể tải danh sách dịch vụ.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const filteredList = services.filter(
+    (service) =>
+      service.ServiceName.toLowerCase().includes(search.toLowerCase()) ||
+      String(service.ServiceID).includes(search),
   );
 
-  const handleOpenModal = () => setShowModal(true);
-  const handleCloseModal = () => setShowModal(false);
-  const handleFormChange = e => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+  const handleOpenModal = (service = null) => {
+    if (service) {
+      setForm({
+        ServiceName: service.ServiceName,
+        Price: String(service.Price),
+      });
+      setEditServiceId(service.ServiceID);
+    } else {
+      setForm(getDefaultForm());
+      setEditServiceId(null);
+    }
+
+    setShowModal(true);
   };
-  const handleSubmit = e => {
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditServiceId(null);
+    setForm(getDefaultForm());
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Xử lý thêm dịch vụ ở đây
-    handleCloseModal();
+
+    if (!form.ServiceName.trim() || form.Price === "") {
+      alert("Vui lòng nhập tên dịch vụ và giá.");
+      return;
+    }
+
+    const price = Number(form.Price);
+    if (Number.isNaN(price) || price < 0) {
+      alert("Giá dịch vụ phải là số không âm.");
+      return;
+    }
+
+    const payload = {
+      ServiceName: form.ServiceName.trim(),
+      Price: price,
+    };
+
+    const isEdit = editServiceId !== null;
+    const url = isEdit ? `${API_URL}/${editServiceId}` : API_URL;
+
+    try {
+      setSubmitLoading(true);
+      setError("");
+
+      const response = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(responseText || `API error: ${response.status}`);
+      }
+
+      await fetchServices();
+      toast.success(isEdit ? "Cập nhật dịch vụ thành công." : "Thêm dịch vụ thành công.");
+      handleCloseModal();
+    } catch (err) {
+      setError(err.message || "Không thể lưu dịch vụ.");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDelete = async (serviceId) => {
+    if (!window.confirm("Xóa dịch vụ này?")) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      const response = await fetch(`${API_URL}/${serviceId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(responseText || `API error: ${response.status}`);
+      }
+
+      await fetchServices();
+      toast.success("Xóa dịch vụ thành công.");
+    } catch (err) {
+      setError(err.message || "Không thể xóa dịch vụ.");
+    }
   };
 
   return (
@@ -56,107 +160,124 @@ const Dichvu = () => {
           title="Quản lý Dịch vụ"
           description="Quản lý các dịch vụ khách sạn"
         />
-        <button className="add-btn" onClick={handleOpenModal}>+ Thêm dịch vụ</button>
+        <button className="add-btn" type="button" onClick={() => handleOpenModal()}>
+          + Thêm dịch vụ
+        </button>
       </div>
+
+      {error && (
+        <div
+          style={{
+            backgroundColor: "#fee2e2",
+            color: "#991b1b",
+            borderRadius: "8px",
+            padding: "10px 12px",
+            marginBottom: "12px",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
       <div className="dichvu-table-card">
         <div className="dichvu-table-toolbar">
           <input
             className="dichvu-search"
-            placeholder="Tìm kiếm dịch vụ..."
+            placeholder="Tìm kiếm theo mã hoặc tên dịch vụ..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          <select
-            className="dichvu-category-filter"
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-          >
-            {CATEGORY_LIST.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
         </div>
         <table className="dichvu-table">
           <thead>
             <tr>
+              <th>Mã</th>
               <th>Tên dịch vụ</th>
-              <th>Danh mục</th>
               <th>Giá</th>
-              <th>Mô tả</th>
+              <th>Trạng thái</th>
               <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {filteredList.map((dv, idx) => (
-              <tr key={idx}>
-                <td><b>{dv.name}</b></td>
-                <td>
-                  <span className="badge" style={{background: CATEGORY_COLORS[dv.category] || '#e5e7eb'}}>{dv.category}</span>
-                </td>
-                <td>{dv.price.toLocaleString()}đ</td>
-                <td>{dv.desc}</td>
-                <td>
-                  <button className="icon-btn edit" title="Sửa"><span role="img" aria-label="edit"><i class="fa-regular fa-pen-to-square"></i></span></button>
-                  <button className="icon-btn delete" title="Xóa"><span role="img" aria-label="delete"><i class="fa-regular fa-trash-can"></i></span></button>
-                </td>
+            {loading ? (
+              <tr>
+                <td colSpan="5">Đang tải dữ liệu...</td>
               </tr>
-            ))}
+            ) : filteredList.length === 0 ? (
+              <tr>
+                <td colSpan="5">Không có dữ liệu dịch vụ.</td>
+              </tr>
+            ) : (
+              filteredList.map((service) => (
+                <tr key={service.ServiceID}>
+                  <td>{service.ServiceID}</td>
+                  <td>
+                    <b>{service.ServiceName}</b>
+                  </td>
+                  <td>{service.Price.toLocaleString("vi-VN")}đ</td>
+                  <td>{service.Status || "-"}</td>
+                  <td>
+                    <button
+                      className="icon-btn edit"
+                      type="button"
+                      title="Sửa"
+                      onClick={() => handleOpenModal(service)}
+                    >
+                      <i className="fa-regular fa-pen-to-square"></i>
+                    </button>
+                    <button
+                      className="icon-btn delete"
+                      type="button"
+                      title="Xóa"
+                      onClick={() => handleDelete(service.ServiceID)}
+                    >
+                      <i className="fa-regular fa-trash-can"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal thêm dịch vụ */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button className="modal-close" onClick={handleCloseModal} title="Đóng">&times;</button>
-            <h2>Thêm dịch vụ mới</h2>
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={handleCloseModal} title="Đóng">
+              &times;
+            </button>
+            <h2>{editServiceId !== null ? "Chỉnh sửa dịch vụ" : "Thêm dịch vụ mới"}</h2>
             <form className="add-service-form" onSubmit={handleSubmit}>
               <label>
                 Tên dịch vụ *
                 <input
                   type="text"
-                  name="name"
-                  value={form.name}
+                  name="ServiceName"
+                  value={form.ServiceName}
                   onChange={handleFormChange}
                   required
                   autoFocus
                 />
               </label>
               <label>
-                Danh mục *
-                <select name="category" value={form.category} onChange={handleFormChange} required>
-                  <option value="Ăn uống">Ăn uống</option>
-                  <option value="Vệ sinh">Vệ sinh</option>
-                  <option value="Spa">Spa</option>
-                  <option value="Vận chuyển">Vận chuyển</option>
-                  <option value="Phòng">Phòng</option>
-                  <option value="Khác">Khác</option>
-                </select>
-              </label>
-              <label>
                 Giá (VNĐ) *
                 <input
                   type="number"
-                  name="price"
-                  value={form.price}
+                  name="Price"
+                  value={form.Price}
                   onChange={handleFormChange}
                   required
                   min="0"
                 />
               </label>
-              <label>
-                Mô tả
-                <textarea
-                  name="desc"
-                  value={form.desc}
-                  onChange={handleFormChange}
-                  rows={3}
-                />
-              </label>
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={handleCloseModal}>Hủy</button>
-                <button type="submit" className="save-btn">Lưu</button>
+                <button type="button" className="cancel-btn" onClick={handleCloseModal}>
+                  Hủy
+                </button>
+                <button type="submit" className="save-btn" disabled={submitLoading}>
+                  {submitLoading ? "Đang lưu..." : "Lưu"}
+                </button>
               </div>
             </form>
           </div>
