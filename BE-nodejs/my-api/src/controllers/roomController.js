@@ -15,4 +15,93 @@ const getRooms = async (req, res) => {
   }
 };
 
-module.exports = { getRooms };
+const addRoom = async (req, res) => {
+  console.log("addRoom called", req.body);
+  try {
+    const { RoomNumber, Status, RoomTypeID } = req.body;
+    const roomTypeIdNum = Number(RoomTypeID);
+
+    if (!RoomNumber || !Status || !Number.isInteger(roomTypeIdNum) || roomTypeIdNum <= 0) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: RoomNumber, Status, RoomTypeID",
+      });
+    }
+
+    const checkDuplicate = await sql.query`
+      SELECT TOP 1 RoomID
+      FROM Rooms
+      WHERE RoomNumber = ${String(RoomNumber).trim()}
+    `;
+
+    if (checkDuplicate.recordset.length > 0) {
+      return res.status(409).json({ error: "Phong da ton tai" });
+    }
+
+    const request = new sql.Request();
+    request.input("RoomNumber", sql.NVarChar(50), String(RoomNumber).trim());
+    request.input("Status", sql.NVarChar(50), String(Status).trim());
+    request.input("RoomTypeID", sql.Int, roomTypeIdNum);
+
+    await request.execute("AddRoom");
+
+    return res.status(201).json({ message: "Them phong thanh cong" });
+  } catch (err) {
+    console.error("addRoom Error:", err);
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
+const updateRoom = async (req, res) => {
+  console.log("updateRoom called", req.params, req.body);
+  try {
+    const roomId = Number.parseInt(req.params.id, 10);
+    const { RoomNumber, Status, RoomTypeID } = req.body;
+    const roomTypeIdNum = Number(RoomTypeID);
+
+    if (!Number.isInteger(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: "RoomID khong hop le" });
+    }
+
+    if (!RoomNumber || !Status || !Number.isInteger(roomTypeIdNum) || roomTypeIdNum <= 0) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: RoomNumber, Status, RoomTypeID",
+      });
+    }
+
+    const checkRoomExists = await sql.query`
+      SELECT TOP 1 RoomID
+      FROM Rooms
+      WHERE RoomID = ${roomId}
+    `;
+
+    if (checkRoomExists.recordset.length === 0) {
+      return res.status(404).json({ error: "Phong khong ton tai" });
+    }
+
+    const checkDuplicateNumber = await sql.query`
+      SELECT TOP 1 RoomID
+      FROM Rooms
+      WHERE RoomNumber = ${String(RoomNumber).trim()}
+        AND RoomID <> ${roomId}
+    `;
+
+    if (checkDuplicateNumber.recordset.length > 0) {
+      return res.status(409).json({ error: "So phong da ton tai" });
+    }
+
+    const request = new sql.Request();
+    request.input("RoomID", sql.Int, roomId);
+    request.input("RoomNumber", sql.NVarChar(50), String(RoomNumber).trim());
+    request.input("Status", sql.NVarChar(50), String(Status).trim());
+    request.input("RoomTypeID", sql.Int, roomTypeIdNum);
+
+    await request.execute("UpdateRoom");
+
+    return res.json({ message: "Cap nhat phong thanh cong" });
+  } catch (err) {
+    console.error("updateRoom Error:", err);
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
+module.exports = { getRooms, addRoom, updateRoom };
