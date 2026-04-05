@@ -10,7 +10,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
 }
 
@@ -24,7 +24,24 @@
   color: #6a737d;
 }
 
-.btn {
+.datphong-alert {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.datphong-alert--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.datphong-alert--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dp-btn {
   border: none;
   cursor: pointer;
   border-radius: 8px;
@@ -32,64 +49,67 @@
   padding: 10px 18px;
 }
 
-.btn-primary {
+.dp-btn-primary {
+  border: 0;
+  padding: 10px 18px;
+  margin-right: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
   background: #0a6cff;
   color: #fff;
   box-shadow: 0 8px 30px rgba(10, 108, 255, 0.25);
 }
 
-.btn-secondary {
+.dp-btn-secondary {
   background: #fff;
   color: #1a1a1a;
   border: 1px solid #dbe1ea;
 }
 
 .datphong-main {
-  padding: 20px;
-  background-color: #f8f8f8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #f8f8f8;
   border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  padding: 18px 12px 24px 12px;
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
 }
+
 .datphong__filter {
   display: flex;
   gap: 14px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
-.datphong__filter input,
-.datphong__filter select,
-.datphong .field input,
-.datphong .field select,
-.datphong .field textarea {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid #dee1ea;
-  padding: 11px 12px;
-  background: #fff;
-  color: #131212;
-  font-size: 15px;
-  box-sizing: border-box;
-}
-
-.datphong__filter input {
-  flex: 1;
-}
 .datphong-search-box {
   position: relative;
-  flex: 0 0 80%;
-  width: 80%;
+  flex: 1;
+  width: 100%;
   min-width: 220px;
-  max-width: 80%;
 }
 
-.datphong-search-box input {
+.datphong-search-box input,
+.datphong__filter select {
   width: 100%;
-  padding: 10px 12px 10px 40px;
   border-radius: 10px;
   border: 1px solid #d6dde8;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
+  background: #fff;
+  font-size: 15px;
+}
+
+.datphong-search-box input {
+  padding: 10px 12px 10px 40px;
+}
+
+.datphong__filter select {
+  width: 250px;
+  min-width: 220px;
+  padding: 10px 12px;
 }
 
 .datphong-search-box i {
@@ -103,28 +123,42 @@
 
 .datphong__table-wrap {
   overflow-x: auto;
+  flex: 1 1 auto;
+  border-radius: 12px;
 }
 
 .datphong__table {
   width: 100%;
-  border-collapse: collapse;
-}
-
-.datphong__table th,
-.datphong__table td {
-  padding: 14px 14px;
-  text-align: left;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 15px;
-  border-bottom: 1px solid #eef0f5;
 }
 
-.datphong__table thead th {
-  color: #53575a;
-  background-color: transparent;
+.datphong__table thead tr {
+  background: #fff;
+  color: #4b5563;
+}
+
+.datphong__table th {
+  font-weight: 700;
+  font-size: 12pt;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.datphong__table td {
+  text-align: left;
+  border-bottom: 1px solid #ececec;
+}
+
+.datphong__table tbody tr {
+  background: #f8f8f8;
+  transition: background 0.15s;
 }
 
 .datphong__table tbody tr:hover {
-  background: #fafbff;
+  background: #f3f6fd;
 }
 
 .empty-row {
@@ -135,51 +169,105 @@
 
 .status {
   display: inline-flex;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.status-đặtphòng,
-.status-đãđặt,
-.status-booked {
-  background: rgba(91, 104, 184, 0.263);
-  color: blue;
-}
-
-.status-đãnhận,
-.status-checkedin {
-  background: #28a745;
-}
-
-.status-hoànthành,
-.status-completed {
-  background: #0f9a94;
-}
-
-.status-đãhủy,
-.status-canceled {
-  background: #d62828;
-}
-
-.status-khôngđến,
-.status-noshow {
-  background: #6f7f9a;
-}
-
-.icon-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #1e2a3c;
-  margin-right: 8px;
+  align-items: center;
+  justify-content: center;
+  min-width: 94px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
   font-weight: 700;
 }
 
-.icon-btn-delete {
-  color: #ec3131;
+.status-booked {
+  background: #e0e7ff;
+  color: #1d4ed8;
+}
+
+.status-checkedin {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-completed {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.status-canceled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-unknown {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dp-icon-btn {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-right: 6px;
+  cursor: pointer;
+  font-size: 1.1em;
+  transition: background 0.18s;
+  outline: none;
+  color: #1e2a3c;
+}
+
+.dp-icon-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.dp-icon-btn-delete {
+  color: #dc2626;
+}
+
+.dp-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.datphong-actions {
+  white-space: nowrap;
+}
+
+.datphong-pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 16px;
+  justify-content: flex-end;
+}
+
+.datphong-page-btn {
+  min-width: 30px;
+  height: 30px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.datphong-page-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.datphong-page-btn.active {
+  color: #1d4ed8;
+  background: #e8f0ff;
+  border-color: #60a5fa;
+}
+
+.datphong-page-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .modal-overlay {
@@ -198,11 +286,10 @@
 
 .modal {
   width: 100%;
-  max-width: 560px;
+  max-width: 640px;
   background: #fff;
   border-radius: 12px;
   padding: 22px;
-  margin-top: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   position: relative;
   max-height: calc(100vh - 80px);
@@ -210,16 +297,22 @@
   box-sizing: border-box;
 }
 
+.modalDatPhong {
+  margin-top: 36px;
+}
+
 .modal-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 14px;
 }
 
 .modal-title-row h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
+  color: #1f2937;
 }
 
 .close-btn {
@@ -234,7 +327,7 @@
 .customer-tabs {
   display: flex;
   gap: 8px;
-  margin: 18px 0;
+  margin: 14px 0 16px;
 }
 
 .customer-tabs button {
@@ -242,7 +335,7 @@
   border: 1px solid #dfe6f0;
   border-radius: 8px;
   background: #fff;
-  padding: 8px 12px;
+  padding: 9px 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -253,40 +346,78 @@
   border-color: #0a6cff;
 }
 
-.field {
-  margin-bottom: 14px;
+.datphong-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-.field label {
+.dp-field {
+  margin: 0;
+}
+
+.dp-field-full {
+  grid-column: 1 / -1;
+}
+
+.dp-field label {
   display: block;
   margin-bottom: 6px;
   color: #252a38;
   font-weight: 700;
 }
 
-.field input,
-.field select,
-.field textarea {
-  box-sizing: border-box;
+.dp-field input,
+.dp-field select,
+.dp-field textarea {
   width: 100%;
+  border-radius: 10px;
+  border: 1px solid #d7dfe9;
+  padding: 10px 12px;
+  background: #fff;
+  font-size: 15px;
+  box-sizing: border-box;
 }
 
-.modal-actions {
+.dp-field input:focus,
+.dp-field select:focus,
+.dp-field textarea:focus {
+  border-color: #0a6cff;
+  outline: none;
+}
+
+.dp-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 14px;
 }
 
+.dp-modal-actions .dp-btn {
+  width: 100px;
+  min-width: 100px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+  font-size: 15px;
+  border-radius: 10px;
+  margin: 0;
+}
+
+.dp-modal-actions .dp-btn-primary {
+  box-shadow: none;
+  border: 1px solid transparent;
+}
+
+.dp-modal-actions .dp-btn-secondary {
+  border-width: 1px;
+}
+
 @media (max-width: 1024px) {
-  .datphong {
-    padding: 16px;
-  }
-
-  .datphong__table-wrap {
-    overflow-x: auto;
-  }
-
   .datphong__filter {
     flex-direction: column;
     align-items: stretch;
@@ -294,5 +425,27 @@
 
   .datphong__filter select {
     width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .datphong {
+    padding: 12px;
+  }
+
+  .datphong-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dp-field-full {
+    grid-column: auto;
+  }
+
+  .modal {
+    padding: 18px;
+  }
+
+  .modalDatPhong {
+    margin-top: 0;
   }
 }

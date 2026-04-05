@@ -2,120 +2,324 @@ import React, { Component } from "react";
 import "../style/Datphong.css";
 import { FeatureHeader } from "./Common";
 
+const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
+const CUSTOMERS_API_URL = "http://localhost:3000/api/customers";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
+const PAGE_SIZE = 4;
+
 const STATUS_OPTIONS = [
   { value: "all", label: "Tất cả trạng thái" },
   { value: "booked", label: "Đã đặt" },
   { value: "checkedin", label: "Đã nhận" },
   { value: "completed", label: "Hoàn thành" },
   { value: "canceled", label: "Đã hủy" },
-  { value: "noshow", label: "Không đến" },
 ];
 
-const ROOM_TYPES = ["Suite", "Standard", "Deluxe", "Premium"];
+const STATUS_LABELS = {
+  booked: "Đã đặt",
+  checkedin: "Đã nhận",
+  completed: "Hoàn thành",
+  canceled: "Đã hủy",
+  unknown: "Không xác định",
+};
+
+const getDefaultForm = () => ({
+  customerId: "",
+  newCustomer: {
+    fullName: "",
+    phone: "",
+    cccd: "",
+    email: "",
+  },
+  roomTypeId: "",
+  checkInDate: "",
+  checkOutDate: "",
+  quantity: "1",
+});
+
+const normalizeStatus = (status) => {
+  const normalized = String(status || "")
+    .trim()
+    .toUpperCase();
+
+  if (normalized === "BOOKED") return "booked";
+  if (normalized === "CHECKED_IN") return "checkedin";
+  if (normalized === "COMPLETED") return "completed";
+  if (normalized === "CANCELLED" || normalized === "CANCELED")
+    return "canceled";
+
+  return "unknown";
+};
+
+const pad2 = (value) => String(value).padStart(2, "0");
+
+const formatDateForInput = (value) => {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+const formatDateForTable = (value) => {
+  const normalized = formatDateForInput(value);
+  if (!normalized) return "-";
+
+  const [year, month, day] = normalized.split("-");
+  return `${day}/${month}/${year}`;
+};
+
+const formatCurrency = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "-";
+  return `${amount.toLocaleString("vi-VN")} đ`;
+};
+
+const mapReservationFromApi = (item) => ({
+  id: item?.ReservationID,
+  userId: item?.UserID ?? null,
+  fullName: item?.FullName ?? "",
+  phone: item?.Phone ?? "",
+  roomTypeName: item?.RoomTypeName ?? "",
+  roomTypeId: item?.RoomTypeID ?? null,
+  quantity: Number(item?.Quantity ?? 0),
+  checkInDate: formatDateForInput(item?.CheckInDate),
+  checkOutDate: formatDateForInput(item?.CheckOutDate),
+  statusRaw: item?.Status ?? "",
+  totalPrice: item?.TotalPrice ?? null,
+});
 
 class Datphong extends Component {
   state = {
+    loading: true,
+    lookupLoading: true,
+    submitLoading: false,
+    actionLoadingId: null,
+    error: "",
+    notice: "",
     showModal: false,
+    modalMode: "create",
     editingId: null,
     customerTab: "old",
     search: "",
     filterStatus: "all",
-    bookings: [
-      {
-        id: 1,
-        customer: "Phạm Văn An",
-        roomType: "Suite",
-        checkIn: "20/03/2026",
-        checkOut: "12/10/2026",
-        guests: 20,
-        rooms: 1,
-        status: "Đã đặt",
-        note: "",
-      },
-      {
-        id: 2,
-        customer: "Nguyễn Thị B",
-        roomType: "Standard",
-        checkIn: "22/03/2026",
-        checkOut: "26/03/2026",
-        guests: 3,
-        rooms: 1,
-        status: "Đã nhận",
-        note: "Yêu cầu: phòng có ban công",
-      },
-    ],
-    form: {
-      customerId: "",
-      newCustomer: {
-        name: "",
-        phone: "",
-        identity: "",
-        email: "",
-      },
-      roomType: "",
-      checkIn: "",
-      checkOut: "",
-      guests: 1,
-      rooms: 1,
-      note: "",
-      status: "Đã đặt",
-    },
+    currentPage: 1,
+    reservations: [],
+    customers: [],
+    roomTypes: [],
+    form: getDefaultForm(),
   };
 
-  openModal = (booking = null) => {
-    if (booking) {
-      this.setState({
-        showModal: true,
-        editingId: booking.id,
-        customerTab: "old",
-        form: {
-          customerId: booking.customer,
-          newCustomer: { name: "", phone: "", identity: "", email: "" },
-          roomType: booking.roomType,
-          checkIn: booking.checkIn,
-          checkOut: booking.checkOut,
-          guests: booking.guests,
-          rooms: booking.rooms,
-          note: booking.note || "",
-          status: booking.status,
-        },
-      });
-    } else {
-      this.setState({
-        showModal: true,
-        editingId: null,
-        customerTab: "old",
-        form: {
-          customerId: "",
-          newCustomer: { name: "", phone: "", identity: "", email: "" },
-          roomType: "",
-          checkIn: "",
-          checkOut: "",
-          guests: 1,
-          rooms: 1,
-          note: "",
-          status: "Đã đặt",
-        },
-      });
+  componentDidMount() {
+    this.loadInitialData();
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    const updates = {};
+
+    if (this.state.error && this.state.error !== prevState.error) {
+      window.alert(this.state.error);
+      updates.error = "";
     }
+
+    if (this.state.notice && this.state.notice !== prevState.notice) {
+      window.alert(this.state.notice);
+      updates.notice = "";
+    }
+
+    if (Object.keys(updates).length > 0) {
+      this.setState(updates);
+    }
+  }
+
+  loadInitialData = async () => {
+    await Promise.all([
+      this.fetchReservations(),
+      this.fetchCustomers(),
+      this.fetchRoomTypes(),
+    ]);
+  };
+
+  readResponseBody = async (response) => {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  };
+
+  buildErrorMessage = (body, statusCode) => {
+    if (typeof body === "string" && body.trim()) return body;
+
+    if (body && typeof body === "object") {
+      const detail =
+        (typeof body.detail === "string" && body.detail.trim()) ||
+        (typeof body.Detail === "string" && body.Detail.trim());
+
+      if (detail) return detail;
+
+      return body.message || body.error || `API error: ${statusCode}`;
+    }
+
+    return `API error: ${statusCode}`;
+  };
+
+  request = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const body = await this.readResponseBody(response);
+
+    if (!response.ok) {
+      throw new Error(this.buildErrorMessage(body, response.status));
+    }
+
+    return body;
+  };
+
+  fetchReservations = async () => {
+    try {
+      this.setState({ loading: true, error: "" });
+      const payload = await this.request(RESERVATIONS_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const reservations = rawItems
+        .map(mapReservationFromApi)
+        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
+      this.setState({ reservations, currentPage: 1 });
+    } catch (err) {
+      this.setState({
+        error: err.message || "Không thể tải danh sách lịch đặt.",
+        reservations: [],
+      });
+    } finally {
+      this.setState({ loading: false });
+    }
+  };
+
+  fetchCustomers = async () => {
+    try {
+      this.setState({ lookupLoading: true, error: "" });
+      const payload = await this.request(CUSTOMERS_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const customers = rawItems
+        .map((item) => ({
+          userId: item?.UserID ?? null,
+          customerId: item?.CustomerID ?? null,
+          fullName: item?.FullName ?? "",
+          phone: item?.Phone ?? "",
+          cccd: item?.CCCD ?? "",
+          email: item?.Email ?? "",
+        }))
+        .filter((item) => item.userId !== null)
+        .sort((a, b) => a.fullName.localeCompare(b.fullName, "vi"));
+
+      this.setState({ customers });
+    } catch (err) {
+      this.setState({
+        error: err.message || "Không thể tải danh sách khách hàng.",
+        customers: [],
+      });
+    } finally {
+      this.setState({ lookupLoading: false });
+    }
+  };
+
+  fetchRoomTypes = async () => {
+    try {
+      this.setState({ lookupLoading: true, error: "" });
+      const payload = await this.request(ROOM_TYPES_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const roomTypes = rawItems
+        .map((item) => ({
+          id: item?.RoomTypeID ?? item?.id ?? null,
+          name: item?.Name ?? item?.name ?? "",
+          defaultPrice: item?.DefaultPrice ?? item?.price ?? null,
+        }))
+        .filter((item) => item.id !== null)
+        .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+
+      this.setState({ roomTypes });
+    } catch (err) {
+      this.setState({
+        error: err.message || "Không thể tải danh sách loại phòng.",
+        roomTypes: [],
+      });
+    } finally {
+      this.setState({ lookupLoading: false });
+    }
+  };
+
+  openCreateModal = () => {
+    this.setState({
+      showModal: true,
+      modalMode: "create",
+      editingId: null,
+      customerTab: "old",
+      form: getDefaultForm(),
+      error: "",
+    });
+  };
+
+  openEditModal = (reservation) => {
+    const { roomTypes } = this.state;
+    const matchedRoomType = roomTypes.find(
+      (type) =>
+        String(type.id) === String(reservation.roomTypeId) ||
+        type.name === reservation.roomTypeName,
+    );
+
+    this.setState({
+      showModal: true,
+      modalMode: "edit",
+      editingId: reservation.id,
+      customerTab: "old",
+      error: "",
+      form: {
+        customerId: reservation.userId ? String(reservation.userId) : "",
+        newCustomer: {
+          fullName: "",
+          phone: "",
+          cccd: "",
+          email: "",
+        },
+        roomTypeId: matchedRoomType
+          ? String(matchedRoomType.id)
+          : reservation.roomTypeId
+            ? String(reservation.roomTypeId)
+            : "",
+        checkInDate: reservation.checkInDate || "",
+        checkOutDate: reservation.checkOutDate || "",
+        quantity: reservation.quantity > 0 ? String(reservation.quantity) : "1",
+      },
+    });
   };
 
   closeModal = () => {
     this.setState({
       showModal: false,
+      modalMode: "create",
       editingId: null,
       customerTab: "old",
-      form: {
-        customerId: "",
-        newCustomer: { name: "", phone: "", identity: "", email: "" },
-        roomType: "",
-        checkIn: "",
-        checkOut: "",
-        guests: 1,
-        rooms: 1,
-        note: "",
-        status: "Đã đặt",
-      },
+      form: getDefaultForm(),
     });
   };
 
@@ -134,119 +338,255 @@ class Datphong extends Component {
     });
   };
 
-  saveBooking = () => {
-    const { customerTab, form, bookings } = this.state;
+  handleSearchChange = (event) => {
+    this.setState({ search: event.target.value, currentPage: 1 });
+  };
 
-    let customerName = "";
-    if (customerTab === "old") {
-      if (!form.customerId) {
-        alert("Vui lòng chọn khách hàng.");
-        return;
-      }
-      customerName = form.customerId;
-    } else {
-      const { name, phone, identity } = form.newCustomer;
-      if (!name || !phone || !identity) {
-        alert("Vui lòng điền đầy đủ thông tin khách mới.");
-        return;
-      }
-      customerName = name;
+  handleStatusChange = (event) => {
+    this.setState({ filterStatus: event.target.value, currentPage: 1 });
+  };
+
+  validateForm = () => {
+    const { modalMode, customerTab, form } = this.state;
+    const quantityNumber = Number(form.quantity);
+
+    if (!form.roomTypeId || !form.checkInDate || !form.checkOutDate) {
+      return "Vui lòng nhập đầy đủ thông tin đặt phòng.";
     }
 
-    if (!form.roomType || !form.checkIn || !form.checkOut || !form.guests) {
-      alert("Vui lòng điền đầy đủ thông tin đặt phòng.");
+    if (!Number.isInteger(quantityNumber) || quantityNumber < 1) {
+      return "Số lượng phòng phải là số nguyên dương.";
+    }
+
+    if (new Date(form.checkOutDate) <= new Date(form.checkInDate)) {
+      return "Ngày trả phòng phải sau ngày nhận phòng.";
+    }
+
+    if (modalMode === "create" && customerTab === "old" && !form.customerId) {
+      return "Vui lòng chọn khách hàng cũ.";
+    }
+
+    if (modalMode === "create" && customerTab === "new") {
+      if (
+        !form.newCustomer.fullName.trim() ||
+        !form.newCustomer.phone.trim() ||
+        !form.newCustomer.cccd.trim()
+      ) {
+        return "Vui lòng nhập họ tên, số điện thoại và CCCD cho khách mới.";
+      }
+    }
+
+    return "";
+  };
+
+  saveBooking = async () => {
+    const { modalMode, customerTab, editingId, form } = this.state;
+    const validationError = this.validateForm();
+
+    if (validationError) {
+      this.setState({ error: validationError, notice: "" });
       return;
     }
 
-    const bookingToSave = {
-      id: this.state.editingId || bookings.length + 1,
-      customer: customerName,
-      roomType: form.roomType,
-      checkIn: form.checkIn,
-      checkOut: form.checkOut,
-      guests: form.guests,
-      rooms: form.rooms,
-      status: form.status,
-      note: form.note,
+    const commonPayload = {
+      RoomTypeID: Number(form.roomTypeId),
+      Quantity: Number(form.quantity),
+      CheckInDate: form.checkInDate,
+      CheckOutDate: form.checkOutDate,
     };
 
-    const updatedBookings = this.state.editingId
-      ? bookings.map((b) => (b.id === this.state.editingId ? bookingToSave : b))
-      : [bookingToSave, ...bookings];
+    try {
+      this.setState({ submitLoading: true, error: "", notice: "" });
+      let successMessage = "Lưu lịch đặt thành công.";
 
-    this.setState({
-      bookings: updatedBookings,
-      showModal: false,
-      editingId: null,
-      customerTab: "old",
-      form: {
-        customerId: "",
-        newCustomer: { name: "", phone: "", identity: "", email: "" },
-        roomType: "",
-        checkIn: "",
-        checkOut: "",
-        guests: 1,
-        rooms: 1,
-        note: "",
-        status: "Đã đặt",
-      },
-    });
-  };
+      if (modalMode === "edit" && editingId) {
+        await this.request(`${RESERVATIONS_API_URL}/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(commonPayload),
+        });
+        successMessage = "Cập nhật lịch đặt thành công.";
+      } else if (customerTab === "old") {
+        const selectedCustomer = this.state.customers.find(
+          (customer) => String(customer.userId) === String(form.customerId),
+        );
 
-  deleteBooking = (id) => {
-    this.setState({ bookings: this.state.bookings.filter((b) => b.id !== id) });
+        if (!selectedCustomer || selectedCustomer.userId === null) {
+          throw new Error(
+            "KhÃ¡ch hÃ ng Ä‘Ã£ chá»n khÃ´ng cÃ³ UserID há»£p lá»‡.",
+          );
+        }
+
+        await this.request(RESERVATIONS_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...commonPayload,
+            UserID: Number(selectedCustomer.userId),
+          }),
+        });
+        successMessage = "Thêm lịch đặt cho khách cũ thành công.";
+      } else {
+        await this.request(`${RESERVATIONS_API_URL}/new-customer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...commonPayload,
+            FullName: form.newCustomer.fullName.trim(),
+            Phone: form.newCustomer.phone.trim(),
+            CCCD: form.newCustomer.cccd.trim(),
+            Email: form.newCustomer.email.trim() || null,
+          }),
+        });
+        successMessage = "Thêm lịch đặt cho khách mới thành công.";
+      }
+
+      await this.fetchReservations();
+      this.setState({
+        notice: successMessage,
+        showModal: false,
+        modalMode: "create",
+        editingId: null,
+        customerTab: "old",
+        form: getDefaultForm(),
+      });
+    } catch (err) {
+      this.setState({
+        error: err.message || "Không thể lưu lịch đặt.",
+        notice: "",
+      });
+    } finally {
+      this.setState({ submitLoading: false });
+    }
   };
 
   setCustomerTab = (tab) => {
-    this.setState({ customerTab: tab });
+    this.setState((prev) => ({
+      customerTab: tab,
+      form: {
+        ...prev.form,
+        customerId: "",
+        newCustomer: {
+          fullName: "",
+          phone: "",
+          cccd: "",
+          email: "",
+        },
+      },
+    }));
+  };
+
+  cancelBooking = async (reservationId) => {
+    if (!window.confirm("Bạn chắc chắn muốn hủy lịch đặt này?")) {
+      return;
+    }
+
+    try {
+      this.setState({ actionLoadingId: reservationId, error: "", notice: "" });
+      const response = await this.request(
+        `${RESERVATIONS_API_URL}/${reservationId}/cancel`,
+        {
+          method: "PATCH",
+        },
+      );
+
+      await this.fetchReservations();
+      this.setState({
+        notice:
+          response?.Message ||
+          response?.message ||
+          "Đã hủy đặt phòng thành công.",
+      });
+    } catch (err) {
+      this.setState({
+        error: err.message || "Không thể hủy lịch đặt.",
+        notice: "",
+      });
+    } finally {
+      this.setState({ actionLoadingId: null });
+    }
+  };
+
+  getFilteredReservations = () => {
+    const { reservations, search, filterStatus } = this.state;
+    const keyword = search.trim().toLowerCase();
+
+    return reservations.filter((item) => {
+      const normalizedStatus = normalizeStatus(item.statusRaw);
+      const matchesStatus =
+        filterStatus === "all" || filterStatus === normalizedStatus;
+
+      const matchesSearch =
+        !keyword ||
+        String(item.id || "").includes(keyword) ||
+        item.fullName.toLowerCase().includes(keyword) ||
+        item.phone.toLowerCase().includes(keyword) ||
+        item.roomTypeName.toLowerCase().includes(keyword);
+
+      return matchesStatus && matchesSearch;
+    });
   };
 
   render() {
-    const { showModal, customerTab, bookings, search, filterStatus, form } =
-      this.state;
+    const {
+      loading,
+      lookupLoading,
+      submitLoading,
+      actionLoadingId,
+      showModal,
+      modalMode,
+      customerTab,
+      customers,
+      roomTypes,
+      search,
+      filterStatus,
+      currentPage,
+      form,
+    } = this.state;
 
-    const filteredBookings = bookings.filter((booking) => {
-      const matchesSearch =
-        booking.customer.toLowerCase().includes(search.toLowerCase()) ||
-        booking.roomType.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus =
-        filterStatus === "all" ||
-        (filterStatus === "booked" && booking.status === "Đã đặt") ||
-        (filterStatus === "checkedin" && booking.status === "Đã nhận") ||
-        (filterStatus === "completed" && booking.status === "Hoàn thành") ||
-        (filterStatus === "canceled" && booking.status === "Đã hủy") ||
-        (filterStatus === "noshow" && booking.status === "Không đến");
-      return matchesSearch && matchesStatus;
-    });
+    const filteredReservations = this.getFilteredReservations();
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredReservations.length / PAGE_SIZE),
+    );
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+    const paginatedReservations = filteredReservations.slice(
+      startIndex,
+      startIndex + PAGE_SIZE,
+    );
+
+    const isEditMode = modalMode === "edit";
 
     return (
       <div className="datphong">
         <div className="datphong__header">
           <FeatureHeader
             title="Đặt phòng"
-            description="Quản lý đặt phòng khách sạn"
+            description="Quản lý lịch đặt phòng khách sạn"
           />
-          <button className="btn btn-primary" onClick={this.openModal}>
-            + Thêm đặt phòng
+          <button
+            className="dp-btn dp-btn-primary"
+            onClick={this.openCreateModal}
+          >
+            + Thêm lịch đặt
           </button>
         </div>
+
         <div className="datphong-main">
           <div className="datphong__filter">
             <div className="datphong-search-box">
               <i className="fa fa-search"></i>
               <input
-                placeholder="Tìm theo tên khách, SĐT, loại phòng..."
+                placeholder="Tìm theo mã đặt, tên khách, SDT, loại phòng..."
                 value={search}
-                onChange={(e) => this.setState({ search: e.target.value })}
+                onChange={this.handleSearchChange}
               />
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => this.setState({ filterStatus: e.target.value })}
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
+            <select value={filterStatus} onChange={this.handleStatusChange}>
+              {STATUS_OPTIONS.map((statusOption) => (
+                <option key={statusOption.value} value={statusOption.value}>
+                  {statusOption.label}
                 </option>
               ))}
             </select>
@@ -257,206 +597,275 @@ class Datphong extends Component {
               <thead>
                 <tr>
                   <th>Khách hàng</th>
+                  <th>Số điện thoại</th>
                   <th>Loại phòng</th>
-                  <th>Nhận phòng</th>
-                  <th>Trả phòng</th>
-                  <th>Số người</th>
+                  <th>Ngày nhận</th>
+                  <th>Ngày trả</th>
+                  <th>Số phòng</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.length === 0 ? (
+                {loading ? (
                   <tr>
-                    <td colSpan="7" className="empty-row">
-                      Không tìm thấy kết quả.
+                    <td colSpan="8" className="empty-row">
+                      Đang tải dữ liệu lịch đặt...
+                    </td>
+                  </tr>
+                ) : filteredReservations.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="empty-row">
+                      Không có lịch đặt phù hợp.
                     </td>
                   </tr>
                 ) : (
-                  filteredBookings.map((booking) => (
-                    <tr key={booking.id}>
-                      <td>{booking.customer}</td>
-                      <td>{booking.roomType}</td>
-                      <td>{booking.checkIn}</td>
-                      <td>{booking.checkOut}</td>
-                      <td>{booking.guests}</td>
-                      <td>
-                        <span
-                          className={`status status-${booking.status.replace(/\s+/g, "").toLowerCase()}`}
-                        >
-                          {booking.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="icon-btn"
-                          title="Sửa"
-                          onClick={() => this.openModal(booking)}
-                        >
-                          <i className="fa fa-edit"></i>
-                        </button>
-                        <button
-                          className="icon-btn icon-btn-delete"
-                          onClick={() => this.deleteBooking(booking.id)}
-                          title="Xóa"
-                        >
-                          <i className="fa fa-trash"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  paginatedReservations.map((reservation) => {
+                    const statusKey = normalizeStatus(reservation.statusRaw);
+                    const statusLabel =
+                      STATUS_LABELS[statusKey] || STATUS_LABELS.unknown;
+                    const isCanceled = statusKey === "canceled";
+
+                    return (
+                      <tr key={reservation.id}>
+                        <td>
+                          {reservation.fullName ||
+                            `Khách #${reservation.userId || "-"}`}
+                        </td>
+                        <td>{reservation.phone || "-"}</td>
+                        <td>{reservation.roomTypeName || "-"}</td>
+                        <td>{formatDateForTable(reservation.checkInDate)}</td>
+                        <td>{formatDateForTable(reservation.checkOutDate)}</td>
+                        <td>{reservation.quantity || "-"}</td>
+                        <td>
+                          <span className={`status status-${statusKey}`}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="datphong-actions">
+                          <button
+                            className="dp-icon-btn"
+                            title="Sửa"
+                            onClick={() => this.openEditModal(reservation)}
+                            disabled={isCanceled || submitLoading}
+                          >
+                            <i className="fa fa-edit"></i>
+                          </button>
+                          <button
+                            className="dp-icon-btn dp-icon-btn-delete"
+                            title="Hủy đặt phòng"
+                            onClick={() => this.cancelBooking(reservation.id)}
+                            disabled={
+                              isCanceled || actionLoadingId === reservation.id
+                            }
+                          >
+                            <i className="fa fa-ban"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
+
+          {!loading && filteredReservations.length > 0 && (
+            <div className="datphong-pagination">
+              <button
+                type="button"
+                className="datphong-page-btn"
+                onClick={() =>
+                  this.setState((prev) => ({
+                    currentPage: Math.max(prev.currentPage - 1, 1),
+                  }))
+                }
+                disabled={safeCurrentPage === 1}
+                aria-label="Trang trước"
+              >
+                ‹
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`datphong-page-btn ${page === safeCurrentPage ? "active" : ""}`}
+                    onClick={() => this.setState({ currentPage: page })}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+
+              <button
+                type="button"
+                className="datphong-page-btn"
+                onClick={() =>
+                  this.setState((prev) => ({
+                    currentPage: Math.min(prev.currentPage + 1, totalPages),
+                  }))
+                }
+                disabled={safeCurrentPage === totalPages}
+                aria-label="Trang sau"
+              >
+                ›
+              </button>
+            </div>
+          )}
         </div>
 
         {showModal && (
           <div className="modal-overlay" onClick={this.closeModal}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="modal modalDatPhong"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="modal-title-row">
-                <h2>Thêm đặt phòng mới</h2>
+                <h2>
+                  {isEditMode ? "Cập nhật lịch đặt" : "Thêm lịch đặt mới"}
+                </h2>
                 <button className="close-btn" onClick={this.closeModal}>
                   ×
                 </button>
               </div>
 
-              <div className="customer-tabs">
-                <button
-                  className={customerTab === "old" ? "active" : ""}
-                  onClick={() => this.setCustomerTab("old")}
-                >
-                  Khách cũ
-                </button>
-                <button
-                  className={customerTab === "new" ? "active" : ""}
-                  onClick={() => this.setCustomerTab("new")}
-                >
-                  Khách mới
-                </button>
-              </div>
-
-              {customerTab === "old" ? (
-                <div className="field">
-                  <label>Chọn khách hàng</label>
-                  <select
-                    value={form.customerId}
-                    onChange={this.handleInput("customerId")}
+              {!isEditMode && (
+                <div className="customer-tabs">
+                  <button
+                    className={customerTab === "old" ? "active" : ""}
+                    onClick={() => this.setCustomerTab("old")}
                   >
-                    <option value="">-- Chọn khách hàng --</option>
-                    <option value="Phạm Văn An">Phạm Văn An</option>
-                    <option value="Nguyễn Thị B">Nguyễn Thị B</option>
-                  </select>
+                    Khách cũ
+                  </button>
+                  <button
+                    className={customerTab === "new" ? "active" : ""}
+                    onClick={() => this.setCustomerTab("new")}
+                  >
+                    Khách mới
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <div className="field">
-                    <label>Họ tên *</label>
-                    <input
-                      type="text"
-                      value={form.newCustomer.name}
-                      onChange={this.handleNewCustomerInput("name")}
-                      placeholder="Họ tên *"
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Số điện thoại *</label>
-                    <input
-                      type="text"
-                      value={form.newCustomer.phone}
-                      onChange={this.handleNewCustomerInput("phone")}
-                      placeholder="Số điện thoại *"
-                    />
-                  </div>
-                  <div className="field">
-                    <label>CMND/CCCD *</label>
-                    <input
-                      type="text"
-                      value={form.newCustomer.identity}
-                      onChange={this.handleNewCustomerInput("identity")}
-                      placeholder="CMND/CCCD *"
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Email</label>
-                    <input
-                      type="email"
-                      value={form.newCustomer.email}
-                      onChange={this.handleNewCustomerInput("email")}
-                      placeholder="Email"
-                    />
-                  </div>
-                </>
               )}
 
-              <div className="field">
-                <label>Loại phòng *</label>
-                <select
-                  value={form.roomType}
-                  onChange={this.handleInput("roomType")}
+              <div className="datphong-form-grid">
+                {!isEditMode && customerTab === "old" && (
+                  <div className="dp-field dp-field-full">
+                    <label>Chọn khách hàng *</label>
+                    <select
+                      value={form.customerId}
+                      onChange={this.handleInput("customerId")}
+                      disabled={lookupLoading}
+                    >
+                      <option value="">-- Chọn khách hàng --</option>
+                      {customers.map((customer) => (
+                        <option key={customer.userId} value={customer.userId}>
+                          {customer.fullName} - {customer.phone}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {!isEditMode && customerTab === "new" && (
+                  <>
+                    <div className="dp-field dp-field-full">
+                      <label>Họ tên *</label>
+                      <input
+                        type="text"
+                        value={form.newCustomer.fullName}
+                        onChange={this.handleNewCustomerInput("fullName")}
+                        placeholder="Nhập họ tên khách"
+                      />
+                    </div>
+                    <div className="dp-field">
+                      <label>Số điện thoại *</label>
+                      <input
+                        type="text"
+                        value={form.newCustomer.phone}
+                        onChange={this.handleNewCustomerInput("phone")}
+                        placeholder="Nhập số điện thoại"
+                      />
+                    </div>
+                    <div className="dp-field">
+                      <label>CMND/CCCD *</label>
+                      <input
+                        type="text"
+                        value={form.newCustomer.cccd}
+                        onChange={this.handleNewCustomerInput("cccd")}
+                        placeholder="Nhập CMND/CCCD"
+                      />
+                    </div>
+                    <div className="dp-field dp-field-full">
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={form.newCustomer.email}
+                        onChange={this.handleNewCustomerInput("email")}
+                        placeholder="Nhập email (nếu có)"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="dp-field dp-field-full">
+                  <label>Loại phòng *</label>
+                  <select
+                    value={form.roomTypeId}
+                    onChange={this.handleInput("roomTypeId")}
+                    disabled={lookupLoading}
+                  >
+                    <option value="">-- Chọn loại phòng --</option>
+                    {roomTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name} ({formatCurrency(type.defaultPrice)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="dp-field">
+                  <label>Ngày nhận phòng *</label>
+                  <input
+                    type="date"
+                    value={form.checkInDate}
+                    onChange={this.handleInput("checkInDate")}
+                  />
+                </div>
+
+                <div className="dp-field">
+                  <label>Ngày trả phòng *</label>
+                  <input
+                    type="date"
+                    value={form.checkOutDate}
+                    onChange={this.handleInput("checkOutDate")}
+                  />
+                </div>
+
+                <div className="dp-field dp-field-full">
+                  <label>Số phòng cần đặt *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={this.handleInput("quantity")}
+                  />
+                </div>
+              </div>
+
+              <div className="dp-modal-actions">
+                <button
+                  className="dp-btn dp-btn-secondary"
+                  onClick={this.closeModal}
                 >
-                  <option value="">Chọn loại phòng</option>
-                  {ROOM_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label>Ngày nhận phòng *</label>
-                <input
-                  type="date"
-                  value={form.checkIn}
-                  onChange={this.handleInput("checkIn")}
-                />
-              </div>
-
-              <div className="field">
-                <label>Ngày trả phòng *</label>
-                <input
-                  type="date"
-                  value={form.checkOut}
-                  onChange={this.handleInput("checkOut")}
-                />
-              </div>
-
-              <div className="field">
-                <label>Số người *</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.guests}
-                  onChange={this.handleInput("guests")}
-                />
-              </div>
-
-              <div className="field">
-                <label>Số phòng cần đặt</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.rooms}
-                  onChange={this.handleInput("rooms")}
-                />
-              </div>
-
-              <div className="field">
-                <label>Ghi chú</label>
-                <textarea
-                  rows="3"
-                  value={form.note}
-                  onChange={this.handleInput("note")}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button className="btn btn-secondary" onClick={this.closeModal}>
                   Hủy
                 </button>
-                <button className="btn btn-primary" onClick={this.saveBooking}>
-                  Lưu
+                <button
+                  className="dp-btn dp-btn-primary"
+                  onClick={this.saveBooking}
+                  disabled={submitLoading}
+                >
+                  {submitLoading ? "Đang lưu..." : "Lưu"}
                 </button>
               </div>
             </div>

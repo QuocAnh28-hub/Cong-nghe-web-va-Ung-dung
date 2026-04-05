@@ -775,25 +775,31 @@ BEGIN
 
     SELECT 
         c.CustomerID,
+        c.UserID,          
         c.FullName,
         c.Phone,
         c.CCCD,
         u.Email,
+
         COUNT(CASE WHEN s.Status = 'COMPLETED' THEN 1 END) AS TotalStays,
         ISNULL(SUM(i.TotalAmount),0) AS TotalSpent,
         MAX(s.ActualCheckIn) AS LastStay
+
     FROM Customers c
     LEFT JOIN Users u ON c.UserID = u.UserID
     LEFT JOIN Reservations r ON r.UserID = u.UserID
     LEFT JOIN Stays s ON s.ReservationID = r.ReservationID
     LEFT JOIN Invoices i ON i.StayID = s.StayID
+
     GROUP BY 
         c.CustomerID,
+        c.UserID,         
         c.FullName,
         c.Phone,
         c.CCCD,
         u.Email
 END
+
 EXEC sp_GetCustomersFullInfo
 
 --Thêm customers--------------------------------------------------------------------
