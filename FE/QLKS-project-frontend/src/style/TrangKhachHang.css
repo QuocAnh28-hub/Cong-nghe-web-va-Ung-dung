@@ -234,6 +234,7 @@
 
 .customer-hero__button {
   margin-top: 42px;
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 12px;

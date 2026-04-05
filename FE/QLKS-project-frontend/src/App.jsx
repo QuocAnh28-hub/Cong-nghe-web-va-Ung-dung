@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./Components/Login";
 import QLKhachSan from "./Components/QLKhachSan";
 import TrangKhachHang from "./Components/TrangKhachHang";
+import TrangKhachHang_PhongNghi from "./Components/TrangKhachHang_PhongNghi";
 
 function PrivateRoute({ children }) {
   const isLogin = localStorage.getItem("isLogin");
@@ -13,11 +14,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* Trang đăng nhập */}
         <Route path="/login" element={<Login />} />
 
-        {/* Trang hệ thống khách sạn */}
         <Route
           path="/"
           element={
@@ -27,7 +25,6 @@ function App() {
           }
         />
 
-        {/* Trang khách hàng */}
         <Route
           path="/trangkhachhang"
           element={
@@ -37,9 +34,18 @@ function App() {
           }
         />
 
+        <Route
+          path="/trangkhachhang/phongnghi"
+          element={
+            <PrivateRoute>
+              <TrangKhachHang_PhongNghi />
+            </PrivateRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
 }
 
 export default App;
+

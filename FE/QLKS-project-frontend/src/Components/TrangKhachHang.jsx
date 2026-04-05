@@ -1,32 +1,33 @@
-import React, { Component } from "react";
+﻿import React, { Component } from "react";
+import { Link } from "react-router-dom";
 import "../style/TrangKhachHang.css";
-import heroImage from "../img/pexels-apasaric-618079.jpg";
-import amenityImage from "../img/park-hyatt-saigon.webp";
+import heroImage from "../img/SlideShow.jpg";
+import amenityImage from "../img/Introduce_tt.jpg";
 
 const whyChooseItems = [
   {
     icon: "fa-solid fa-location-dot",
     title: "Vị trí đắc địa",
     description:
-      "Nằm ngay trung tâm thành phố, thuận tiện di chuyển đến các điểm tham quan.",
+      "Nằm ngay trung tâm thành phố, thuận tiện di chuyển đến các điểm tham quan và khu mua sắm.",
   },
   {
     icon: "fa-regular fa-clock",
     title: "Dịch vụ 24/7",
     description:
-      "Đội ngũ nhân viên tận tâm sẵn sàng hỗ trợ bạn bất cứ lúc nào.",
+      "Đội ngũ nhân viên luôn sẵn sàng hỗ trợ bạn mọi lúc để chuyến đi diễn ra thật trọn vẹn.",
   },
   {
     icon: "fa-solid fa-shield-halved",
     title: "An toàn tuyệt đối",
     description:
-      "Hệ thống an ninh hiện đại và quy trình vệ sinh nghiêm ngặt.",
+      "Hệ thống an ninh hiện đại cùng quy trình vệ sinh nghiêm ngặt giúp bạn luôn an tâm nghỉ dưỡng.",
   },
   {
     icon: "fa-regular fa-star",
     title: "Tiện nghi đẳng cấp",
     description:
-      "Trang thiết bị hiện đại, sang trọng mang lại sự thoải mái nhất.",
+      "Không gian sang trọng, nội thất hiện đại và nhiều dịch vụ cao cấp được chuẩn bị chu đáo.",
   },
 ];
 
@@ -45,7 +46,7 @@ class TrangKhachHang extends Component {
   componentDidMount() {
     const fullname = localStorage.getItem("fullname");
     this.setState({
-      fullname: fullname || "Nguyễn Văn An",
+      fullname: fullname,
     });
   }
 
@@ -58,14 +59,9 @@ class TrangKhachHang extends Component {
       localStorage.removeItem("role");
       localStorage.removeItem("email");
       localStorage.removeItem("fullname");
+      localStorage.removeItem("phone");
+      localStorage.removeItem("hotelBookings");
       window.location.href = "/login";
-    }
-  };
-
-  scrollToAmenities = () => {
-    const section = document.getElementById("tien-ich");
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -79,38 +75,40 @@ class TrangKhachHang extends Component {
             <span>QAS Hotel Booking</span>
           </div>
           <div className="customer-header__inner">
-            <a href="/trangkhachhang" className="customer-brand">
+            <Link to="/trangkhachhang" className="customer-brand">
               <span className="customer-brand__icon">
                 <i className="fa-regular fa-building" />
               </span>
               <span className="customer-brand__text">QAS-Hotel</span>
-            </a>
+            </Link>
 
             <nav className="customer-nav">
               <a href="#hero" className="customer-nav__link active">
                 <i className="fa-solid fa-house" />
-                <span>Trang chủ</span>
+                <span>{"Trang chủ"}</span>
               </a>
-              <a href="#ly-do" className="customer-nav__link">
+              <Link to="/trangkhachhang/phongnghi" className="customer-nav__link">
                 <i className="fa-solid fa-bed" />
-                <span>Phòng nghỉ</span>
-              </a>
+                <span>{"Phòng nghỉ"}</span>
+              </Link>
               <a href="#tien-ich" className="customer-nav__link">
                 <i className="fa-regular fa-calendar" />
-                <span>Đặt phòng</span>
+                <span>{"Đặt phòng"}</span>
               </a>
             </nav>
 
             <div className="customer-user">
               <div className="customer-user__chip">
-                <span className="customer-user__avatar"><i class="fa-solid fa-user-tie"></i></span>
+                <span className="customer-user__avatar">
+                  <i className="fa-solid fa-user-tie"></i>
+                </span>
                 <span className="customer-user__name">{fullname}</span>
               </div>
               <button
                 type="button"
                 className="customer-user__logout"
                 onClick={this.handleLogout}
-                aria-label="Đăng xuất"
+                aria-label={"Đăng xuất"}
               >
                 <i className="fa-solid fa-arrow-right-from-bracket" />
               </button>
@@ -121,37 +119,31 @@ class TrangKhachHang extends Component {
         <main className="customer-main">
           <section className="customer-hero" id="hero">
             <div className="customer-hero__media">
-              <img src={heroImage} alt="Khách sạn LuxeStay" />
+              <img src={heroImage} alt="Khach san QAS-Hotel" />
               <div className="customer-hero__overlay" />
             </div>
 
             <div className="customer-hero__content">
               <p className="customer-hero__eyebrow">LUXURY HOTEL EXPERIENCE</p>
               <h1>
-                Chào mừng bạn đến với
+                {"Chào mừng bạn đến với"}
                 <span> QAS-Hotel </span>
               </h1>
               <p className="customer-hero__description">
-                Nơi sự sang trọng gặp gỡ sự thoải mái. Trải nghiệm kỳ nghỉ tuyệt
-                vời nhất với dịch vụ đẳng cấp 5 sao và không gian tinh tế.
+                {"Nơi sự sang trọng gặp gỡ sự thoải mái. Trải nghiệm kỳ nghỉ tuyệt vời với dịch vụ đẳng cấp 5 sao và không gian nghỉ dưỡng tinh tế."}
               </p>
-              <button
-                type="button"
-                className="customer-hero__button"
-                onClick={this.scrollToAmenities}
-              >
-                Khám phá phòng nghỉ
+              <Link to="/trangkhachhang/phongnghi" className="customer-hero__button">
+                {"Khám phá phòng nghỉ"}
                 <i className="fa-solid fa-arrow-right" />
-              </button>
+              </Link>
             </div>
           </section>
 
           <section className="why-choose" id="ly-do">
             <div className="section-heading section-heading--center">
-              <h2>Tại sao chọn QAS-Hotel?</h2>
+              <h2>{"Tại sao chọn QAS-Hotel?"}</h2>
               <p>
-                Chúng tôi cam kết mang đến cho bạn những trải nghiệm đáng nhớ
-                nhất trong suốt kỳ nghỉ của mình.
+                {"Chúng tôi cam kết mang đến cho bạn những trải nghiệm đáng nhớ nhất trong suốt kỳ nghỉ của mình."}
               </p>
             </div>
 
@@ -171,11 +163,9 @@ class TrangKhachHang extends Component {
           <section className="amenities" id="tien-ich">
             <div className="amenities__content">
               <div className="section-heading">
-                <h2>Tiện ích đẳng cấp dành cho bạn</h2>
+                <h2>{"Tiện ích đẳng cấp dành cho bạn"}</h2>
                 <p>
-                  Tận hưởng những dịch vụ cao cấp nhất ngay tại khách sạn của
-                  chúng tôi. Từ hồ bơi vô cực đến không gian thư giãn hiện đại,
-                  mọi thứ đều được chuẩn bị chu đáo.
+                  {"Tận hưởng những dịch vụ cao cấp ngay tại khách sạn của chúng tôi. Từ hồ bơi vây cung đến không gian thư giãn hiện đại, mọi thứ đều được chuẩn bị chu đáo cho kỳ nghỉ hoàn hảo."}
                 </p>
               </div>
 
@@ -192,18 +182,18 @@ class TrangKhachHang extends Component {
             </div>
 
             <div className="amenities__image">
-              <img src={amenityImage} alt="Tiện ích cao cấp tại LuxeStay" />
+              <img src={amenityImage} alt="Tien ich cao cap tai khach san" />
             </div>
           </section>
         </main>
 
         <footer className="customer-footer">
           <h3>QAS-Hotel</h3>
-          <p>© 2026 QAS-Hotel. Tất cả quyền được bảo lưu.</p>
+          <p>{"© 2026 QAS-Hotel. Tất cả quyền được bảo lưu."}</p>
           <div className="customer-footer__links">
-            <a href="#hero">Chính sách bảo mật</a>
-            <a href="#ly-do">Điều khoản dịch vụ</a>
-            <a href="#tien-ich">Liên hệ</a>
+            <a href="#hero">{"Chính sách bảo mật"}</a>
+            <a href="#ly-do">{"Điều khoản dịch vụ"}</a>
+            <a href="#tien-ich">{"Liên hệ"}</a>
           </div>
         </footer>
       </div>
