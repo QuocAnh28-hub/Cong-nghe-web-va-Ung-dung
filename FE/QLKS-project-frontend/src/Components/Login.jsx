@@ -189,7 +189,7 @@ class Login extends Component {
           <i className="fa-regular fa-building logo-hotel-login"></i>
 
           <div className="dangnhap-top">
-            <h3>Hệ thống Quản lý Khách sạn</h3>
+            <h3>Khách sạn QAS</h3>
             <p>Đăng nhập vào hệ thống</p>
           </div>
 

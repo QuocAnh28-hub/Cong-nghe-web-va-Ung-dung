@@ -15,6 +15,38 @@ const getRooms = async (req, res) => {
   }
 };
 
+const getRoomCalendar = async (req, res) => {
+  console.log("getRoomCalendar called", req.query);
+  try {
+    const month = Number.parseInt(req.query.month, 10);
+    const year = Number.parseInt(req.query.year, 10);
+
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: "month phai la so tu 1 den 12" });
+    }
+
+    if (!Number.isInteger(year) || year < 1900 || year > 9999) {
+      return res
+        .status(400)
+        .json({ error: "year phai la so hop le (1900 - 9999)" });
+    }
+
+    const request = new sql.Request();
+    request.input("Month", sql.Int, month);
+    request.input("Year", sql.Int, year);
+    const result = await request.execute("sp_GetRoomCalendar_Advanced");
+
+    return res.json({
+      month,
+      year,
+      data: result.recordset || [],
+    });
+  } catch (err) {
+    console.error("getRoomCalendar Error:", err);
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
 const addRoom = async (req, res) => {
   console.log("addRoom called", req.body);
   try {
@@ -104,4 +136,4 @@ const updateRoom = async (req, res) => {
   }
 };
 
-module.exports = { getRooms, addRoom, updateRoom };
+module.exports = { getRooms, getRoomCalendar, addRoom, updateRoom };

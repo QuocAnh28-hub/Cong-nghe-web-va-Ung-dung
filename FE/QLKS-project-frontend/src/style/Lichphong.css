@@ -32,17 +32,21 @@
 }
 
 .lichphong-filter select {
-  margin-left: 8px;
+  margin-right: 10px;
+  margin-top: 20px;
   padding: 10px 10px;
   border: 1px solid #ccd0d5;
   border-radius: 8px;
   background-color: #fff;
 }
 .lichphong-main {
-  padding: 20px;
-  background-color: #f8f8f8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #f8f8f8;
   border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  padding: 18px 12px 24px 12px;
+  min-height: 430px;
+  display: flex;
+  flex-direction: column;
 }
 
 .lichphong-range {
@@ -58,7 +62,7 @@
   border: none;
   background: #fff;
   color: #333;
-  padding: 8px 10px;
+  padding: 10px 15px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -76,7 +80,9 @@
 
 .lichphong-table-wrapper {
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   position: relative;
   border: 1px solid #e6eaf1;
@@ -86,7 +92,7 @@
 
 .lichphong-table {
   width: max-content;
-  min-width: 2200px;
+  min-width: 0;
   border-collapse: collapse;
   border: 1px solid #e1e4e8;
   table-layout: fixed;
@@ -131,7 +137,6 @@
 .lichphong-table th {
   background-color: #f4f6f8;
   font-weight: 700;
-  color: black;
 }
 
 .room-cell {

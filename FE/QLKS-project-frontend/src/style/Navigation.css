@@ -6,11 +6,12 @@
   height: calc(100vh - 50px);
   z-index: 1000;
   overflow: auto;
-  background-color: rgb(228, 244, 251);
+  background-color: rgb(52, 73, 94);
   padding-top: 0.5%;
 }
 .navigations-btn {
   background-color: transparent;
+  color: #dfdfdf;
   width: 90%;
   height: 8%;
   margin-left: 5%;
@@ -29,7 +30,8 @@
   font-weight: bolder;
 }
 .navigations-btn:hover {
-  background-color: #ffffff;
+  background-color: #ffffffe8;
+  color: rgb(52, 73, 94);
 }
 .navigations-btn i {
   width: 10%;
@@ -38,5 +40,5 @@
 
 .navigations-btn.active {
   background-color: #ffffffe8;
-  color: rgba(0, 159, 187, 0.7);
+  color: rgb(52, 73, 94);
 }

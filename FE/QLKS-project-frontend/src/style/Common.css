@@ -1,10 +1,10 @@
-.feature-header {
-}
+/* .feature-header {
+} */
 
 .feature-header h1 {
   margin: 0;
   font-size: 32px;
-  color: rgb(0, 95, 132);
+  color: rgb(52, 73, 94);
 }
 
 .feature-header p {
