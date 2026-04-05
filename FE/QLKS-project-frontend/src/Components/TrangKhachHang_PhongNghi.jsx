@@ -4,6 +4,7 @@ import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
 import roomImage1 from "../img/AnhPhong_1.jpg";
 import roomImage2 from "../img/AnhPhong_2.jpg";
 import roomImage3 from "../img/AnhPhong_3.jpg";
+import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 
 const roomTypes = [
   {
@@ -70,52 +71,8 @@ class TrangKhachHang_PhongNghi extends Component {
 
     return (
       <div className="room-page">
-        <header className="room-header">
-          <div className="room-topbar">
-            <span>LuxeStay - Hotel Booking</span>
-          </div>
-
-          <div className="room-header__inner">
-            <Link to="/trangkhachhang" className="room-brand">
-              <span className="room-brand__icon">
-                <i className="fa-regular fa-building" />
-              </span>
-              <span className="room-brand__text">LuxeStay</span>
-            </Link>
-
-            <nav className="room-nav">
-              <Link to="/trangkhachhang" className="room-nav__link">
-                <i className="fa-solid fa-house" />
-                <span>Trang chủ</span>
-              </Link>
-              <Link to="/trangkhachhang/phongnghi" className="room-nav__link active">
-                <i className="fa-solid fa-bed" />
-                <span>Phòng nghỉ</span>
-              </Link>
-              <a href="#dat-phong" className="room-nav__link">
-                <i className="fa-regular fa-calendar" />
-                <span>Đặt phòng</span>
-              </a>
-            </nav>
-
-            <div className="room-user">
-              <div className="room-user__chip">
-                <span className="room-user__avatar">
-                  <i className="fa-solid fa-user-tie"></i>
-                </span>
-                <span className="room-user__name">{fullname}</span>
-              </div>
-              <button
-                type="button"
-                className="room-user__logout"
-                onClick={this.handleLogout}
-                aria-label="Đăng xuất"
-              >
-                <i className="fa-solid fa-arrow-right-from-bracket" />
-              </button>
-            </div>
-          </div>
-        </header>
+        
+        <TrangKhachHang_Header fullname={fullname} onLogout={this.handleLogout} />
 
         <main className="room-main">
           <section className="room-hero">
@@ -156,25 +113,18 @@ class TrangKhachHang_PhongNghi extends Component {
                     ))}
                   </div>
 
-                  <button type="button" className="room-card__button">
+                  <Link to="/trangkhachhang/datphong" className="room-card__button">
                     Đặt phòng ngay
                     <i className="fa-solid fa-arrow-right" />
-                  </button>
+                  </Link>
                 </div>
               </article>
             ))}
           </section>
         </main>
 
-        <footer className="room-footer">
-          <h3>LuxeStay</h3>
-          <p>© 2026 QAS-Hotel. Tất cả quyền được bảo lưu.</p>
-          <div className="room-footer__links">
-            <a href="#hero">Chính sách bảo mật</a>
-            <a href="#ly-do">Điều khoản dịch vụ</a>
-            <a href="#tien-ich">Liên hệ</a>
-          </div>
-        </footer>
+        <TrangKhachHang_Footer />
+        
       </div>
     );
   }

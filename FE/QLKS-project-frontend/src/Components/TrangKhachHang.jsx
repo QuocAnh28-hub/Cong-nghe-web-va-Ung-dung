@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import "../style/TrangKhachHang.css";
 import heroImage from "../img/SlideShow.jpg";
 import amenityImage from "../img/Introduce_tt.jpg";
+import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 
 const whyChooseItems = [
   {
@@ -70,56 +71,13 @@ class TrangKhachHang extends Component {
 
     return (
       <div className="customer-page">
-        <header className="customer-header">
-          <div className="customer-topbar">
-            <span>QAS Hotel Booking</span>
-          </div>
-          <div className="customer-header__inner">
-            <Link to="/trangkhachhang" className="customer-brand">
-              <span className="customer-brand__icon">
-                <i className="fa-regular fa-building" />
-              </span>
-              <span className="customer-brand__text">QAS-Hotel</span>
-            </Link>
-
-            <nav className="customer-nav">
-              <a href="#hero" className="customer-nav__link active">
-                <i className="fa-solid fa-house" />
-                <span>{"Trang chủ"}</span>
-              </a>
-              <Link to="/trangkhachhang/phongnghi" className="customer-nav__link">
-                <i className="fa-solid fa-bed" />
-                <span>{"Phòng nghỉ"}</span>
-              </Link>
-              <a href="#tien-ich" className="customer-nav__link">
-                <i className="fa-regular fa-calendar" />
-                <span>{"Đặt phòng"}</span>
-              </a>
-            </nav>
-
-            <div className="customer-user">
-              <div className="customer-user__chip">
-                <span className="customer-user__avatar">
-                  <i className="fa-solid fa-user-tie"></i>
-                </span>
-                <span className="customer-user__name">{fullname}</span>
-              </div>
-              <button
-                type="button"
-                className="customer-user__logout"
-                onClick={this.handleLogout}
-                aria-label={"Đăng xuất"}
-              >
-                <i className="fa-solid fa-arrow-right-from-bracket" />
-              </button>
-            </div>
-          </div>
-        </header>
+        
+        <TrangKhachHang_Header fullname={fullname} onLogout={this.handleLogout} />
 
         <main className="customer-main">
           <section className="customer-hero" id="hero">
             <div className="customer-hero__media">
-              <img src={heroImage} alt="Khach san QAS-Hotel" />
+              <img src={heroImage} alt="Khách sạn QAS-Hotel" />
               <div className="customer-hero__overlay" />
             </div>
 
@@ -130,7 +88,9 @@ class TrangKhachHang extends Component {
                 <span> QAS-Hotel </span>
               </h1>
               <p className="customer-hero__description">
-                {"Nơi sự sang trọng gặp gỡ sự thoải mái. Trải nghiệm kỳ nghỉ tuyệt vời với dịch vụ đẳng cấp 5 sao và không gian nghỉ dưỡng tinh tế."}
+                {
+                  "Nơi sự sang trọng gặp gỡ sự thoải mái. Trải nghiệm kỳ nghỉ tuyệt vời với dịch vụ đẳng cấp 5 sao và không gian nghỉ dưỡng tinh tế."
+                }
               </p>
               <Link to="/trangkhachhang/phongnghi" className="customer-hero__button">
                 {"Khám phá phòng nghỉ"}
@@ -143,7 +103,9 @@ class TrangKhachHang extends Component {
             <div className="section-heading section-heading--center">
               <h2>{"Tại sao chọn QAS-Hotel?"}</h2>
               <p>
-                {"Chúng tôi cam kết mang đến cho bạn những trải nghiệm đáng nhớ nhất trong suốt kỳ nghỉ của mình."}
+                {
+                  "Chúng tôi cam kết mang đến cho bạn những trải nghiệm đáng nhớ nhất trong suốt kỳ nghỉ của mình."
+                }
               </p>
             </div>
 
@@ -165,7 +127,9 @@ class TrangKhachHang extends Component {
               <div className="section-heading">
                 <h2>{"Tiện ích đẳng cấp dành cho bạn"}</h2>
                 <p>
-                  {"Tận hưởng những dịch vụ cao cấp ngay tại khách sạn của chúng tôi. Từ hồ bơi vây cung đến không gian thư giãn hiện đại, mọi thứ đều được chuẩn bị chu đáo cho kỳ nghỉ hoàn hảo."}
+                  {
+                    "Tận hưởng những dịch vụ cao cấp ngay tại khách sạn của chúng tôi. Từ hồ bơi vô cực đến không gian thư giãn hiện đại, mọi thứ đều được chuẩn bị chu đáo cho kỳ nghỉ hoàn hảo."
+                  }
                 </p>
               </div>
 
@@ -182,23 +146,17 @@ class TrangKhachHang extends Component {
             </div>
 
             <div className="amenities__image">
-              <img src={amenityImage} alt="Tien ich cao cap tai khach san" />
+              <img src={amenityImage} alt="Tiện ích cao cấp tại khách sạn" />
             </div>
           </section>
         </main>
 
-        <footer className="customer-footer">
-          <h3>QAS-Hotel</h3>
-          <p>{"© 2026 QAS-Hotel. Tất cả quyền được bảo lưu."}</p>
-          <div className="customer-footer__links">
-            <a href="#hero">{"Chính sách bảo mật"}</a>
-            <a href="#ly-do">{"Điều khoản dịch vụ"}</a>
-            <a href="#tien-ich">{"Liên hệ"}</a>
-          </div>
-        </footer>
+        <TrangKhachHang_Footer />
+        
       </div>
     );
   }
 }
 
 export default TrangKhachHang;
+

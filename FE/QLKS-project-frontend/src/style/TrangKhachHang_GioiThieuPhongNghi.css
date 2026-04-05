@@ -141,6 +141,7 @@
   color: #8798b1;
   font-size: 1.2rem;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .room-user__logout:hover {
@@ -305,6 +306,7 @@
   font-size: 1.28rem;
   font-weight: 800;
   cursor: pointer;
+  text-decoration: none;
   box-shadow: 0 16px 34px rgba(79, 70, 255, 0.28);
 }
 
@@ -423,4 +425,6 @@
     font-size: 1.08rem;
   }
 }
+
+
 

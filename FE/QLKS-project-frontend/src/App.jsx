@@ -1,8 +1,9 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./Components/Login";
 import QLKhachSan from "./Components/QLKhachSan";
 import TrangKhachHang from "./Components/TrangKhachHang";
 import TrangKhachHang_PhongNghi from "./Components/TrangKhachHang_PhongNghi";
+import TrangKhachHang_DatPhong from "./Components/TrangKhachHang_DatPhong";
 
 function PrivateRoute({ children }) {
   const isLogin = localStorage.getItem("isLogin");
@@ -42,10 +43,18 @@ function App() {
             </PrivateRoute>
           }
         />
+
+        <Route
+          path="/trangkhachhang/datphong"
+          element={
+            <PrivateRoute>
+              <TrangKhachHang_DatPhong />
+            </PrivateRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
 }
 
 export default App;
-
