@@ -1,13 +1,298 @@
-import React, { Component } from "react";
+﻿import React, { Component } from "react";
 import "../style/NhanTraphong.css";
 import { FeatureHeader } from "./Common";
 
+const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
+const WAITING_CHECKIN_CUSTOMERS_API_URL = `${RESERVATIONS_API_URL}/waiting-checkin-customers`;
+const CHECKIN_BY_RESERVATION_API_URL = `${RESERVATIONS_API_URL}/checkin/by-reservation`;
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
+
 class NhanTraphong extends Component {
+  serviceOptions = [
+    { name: "Giặt ủi", label: "Giặt ủi - 50.000đ", price: 50000 },
+    { name: "Dọn phòng", label: "Dọn phòng - 30.000đ", price: 30000 },
+    { name: "Đưa đón sân bay", label: "Đưa đón sân bay - 250.000đ", price: 250000 },
+    { name: "Bữa sáng", label: "Bữa sáng - 80.000đ", price: 80000 },
+  ];
+
+  createId = () => Date.now() + Math.floor(Math.random() * 1000);
+
+  getDefaultServiceItems = () => [
+    { id: this.createId(), name: "", qty: 1, price: 0 },
+  ];
+
+  getDefaultMinibarItems = () => [
+    { id: 1, name: "Pepsi - 30.000đ", qty: 2, price: 30000 },
+    { id: 2, name: "Nước suối - 10.000đ", qty: 1, price: 10000 },
+  ];
+
+  extractInputDateFromPlan = (plan) => {
+    if (!plan) return "";
+    const parts = plan.trim().split(" ");
+    const datePart = parts[parts.length - 1];
+    const [day, month, year] = datePart.split("/");
+    if (!day || !month || !year) return "";
+    return `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  };
+
+  formatInputDate = (value) => {
+    if (!value) return "";
+    const [year, month, day] = value.split("-");
+    if (!day || !month || !year) return "";
+    return `${Number(day)}/${Number(month)}/${year}`;
+  };
+
+  buildCheckOutPlan = (oldPlan, newDate) => {
+    const timePart = oldPlan?.split(" ")?.[0] || "12:00:00";
+    return `${timePart} ${this.formatInputDate(newDate)}`;
+  };
+
+  componentDidMount() {
+    this.loadInitialData();
+  }
+
+  readResponseBody = async (response) => {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  };
+
+  buildErrorMessage = (body, statusCode) => {
+    if (typeof body === "string" && body.trim()) return body;
+
+    if (body && typeof body === "object") {
+      const detail =
+        (typeof body.detail === "string" && body.detail.trim()) ||
+        (typeof body.Detail === "string" && body.Detail.trim());
+
+      if (detail) return detail;
+      return body.message || body.error || `API error: ${statusCode}`;
+    }
+
+    return `API error: ${statusCode}`;
+  };
+
+  request = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const body = await this.readResponseBody(response);
+
+    if (!response.ok) {
+      throw new Error(this.buildErrorMessage(body, response.status));
+    }
+
+    return body;
+  };
+
+  formatDateForInput = (value) => {
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  formatDateForTable = (value) => {
+    const normalized = this.formatDateForInput(value);
+    if (!normalized) return "-";
+
+    const [year, month, day] = normalized.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
+  loadInitialData = async () => {
+    await this.fetchRoomTypes();
+    await this.fetchWaitingCheckinCustomers();
+  };
+
+  fetchRoomTypes = async () => {
+    try {
+      const payload = await this.request(ROOM_TYPES_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const roomTypeMap = rawItems.reduce((acc, item) => {
+        const id = item?.RoomTypeID ?? item?.id;
+        const name = item?.Name ?? item?.name;
+
+        if (id !== null && id !== undefined && name) {
+          acc[String(id)] = String(name);
+        }
+
+        return acc;
+      }, {});
+
+      this.setState({ roomTypeMap });
+    } catch {
+      this.setState({ roomTypeMap: {} });
+    }
+  };
+
+  resolveRoomTypeName = (item) => {
+    if (item?.RoomTypeName) return item.RoomTypeName;
+    if (item?.RoomType) return item.RoomType;
+
+    const roomTypeId = item?.RoomTypeID;
+    if (roomTypeId !== null && roomTypeId !== undefined) {
+      const roomTypeName = this.state.roomTypeMap[String(roomTypeId)];
+      if (roomTypeName) return roomTypeName;
+      return `Loại #${roomTypeId}`;
+    }
+
+    return "-";
+  };
+
+  mapBookingFromApi = (item) => ({
+    id: item?.ReservationID ?? this.createId(),
+    reservationId: item?.ReservationID ?? null,
+    guest: item?.FullName ?? "",
+    roomType: this.resolveRoomTypeName(item),
+    checkIn: this.formatDateForTable(item?.CheckInDate),
+    checkOut: this.formatDateForTable(item?.CheckOutDate),
+  });
+
+  mapRoomFromApi = (item) => ({
+    roomId: item?.RoomID ?? item?.id ?? null,
+    roomNumber: item?.RoomNumber ?? "",
+    roomType: item?.RoomType ?? item?.RoomTypeName ?? "",
+  });
+
+  fetchWaitingCheckinCustomers = async () => {
+    try {
+      this.setState({ bookingLoading: true });
+      const payload = await this.request(WAITING_CHECKIN_CUSTOMERS_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      this.setState({ bookingData: rawItems.map(this.mapBookingFromApi) });
+    } catch (err) {
+      this.setState({ bookingData: [] });
+      window.alert(err.message || "Không thể tải danh sách khách chờ check-in.");
+    } finally {
+      this.setState({ bookingLoading: false });
+    }
+  };
+
+  fetchAvailableRoomsForCheckin = async (reservationId) => {
+    if (!reservationId) return;
+
+    try {
+      this.setState({
+        availableRoomsLoading: true,
+        availableRooms: [],
+        selectedCheckinRoomId: "",
+      });
+
+      const payload = await this.request(
+        `${RESERVATIONS_API_URL}/${reservationId}/available-rooms-for-checkin`,
+      );
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      const availableRooms = rawItems
+        .map(this.mapRoomFromApi)
+        .filter((room) => room.roomId !== null);
+
+      this.setState((prev) => {
+        const stillInCheckinModal =
+          prev.modalType === "checkin" &&
+          String(prev.currentItem?.reservationId) === String(reservationId);
+
+        if (!stillInCheckinModal) return null;
+
+        return {
+          availableRooms,
+          selectedCheckinRoomId: availableRooms[0]
+            ? String(availableRooms[0].roomId)
+            : "",
+        };
+      });
+    } catch (err) {
+      this.setState({ availableRooms: [], selectedCheckinRoomId: "" });
+      window.alert(err.message || "Không thể tải danh sách phòng khả dụng.");
+    } finally {
+      this.setState({ availableRoomsLoading: false });
+    }
+  };
+
+  confirmCheckin = async () => {
+    const { currentItem, selectedCheckinRoomId } = this.state;
+    const reservationId = currentItem?.reservationId;
+
+    if (!reservationId) {
+      window.alert("Không tìm thấy ReservationID.");
+      return;
+    }
+
+    if (!selectedCheckinRoomId) {
+      window.alert("Vui lòng chọn phòng để check-in.");
+      return;
+    }
+
+    try {
+      this.setState({ checkinSubmitting: true });
+      const response = await this.request(CHECKIN_BY_RESERVATION_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ReservationID: Number(reservationId),
+          RoomID: Number(selectedCheckinRoomId),
+        }),
+      });
+
+      window.alert(
+        response?.Message ||
+          response?.message ||
+          "Check-in thành công.",
+      );
+
+      this.closeModal();
+      await this.fetchWaitingCheckinCustomers();
+    } catch (err) {
+      window.alert(err.message || "Check-in thất bại.");
+    } finally {
+      this.setState({ checkinSubmitting: false });
+    }
+  };
+
   state = {
     activeTab: "stay",
     showModal: false,
     modalType: null,
     currentItem: null,
+    stayData: [
+      {
+        id: 1,
+        guest: "Phạm Văn An",
+        room: "406 (Suite)",
+        checkInTime: "08:47:05 20/3/2026",
+        checkOutPlan: "07:00:00 12/10/2026",
+      },
+    ],
+    bookingData: [],
+    bookingLoading: false,
+    availableRooms: [],
+    availableRoomsLoading: false,
+    selectedCheckinRoomId: "",
+    checkinSubmitting: false,
+    roomTypeMap: {},
     walkInForm: {
       name: "",
       phone: "",
@@ -17,36 +302,45 @@ class NhanTraphong extends Component {
     },
     transferRoom: "",
     transferNote: "",
+    extendForm: { info: "", newCheckOut: "" },
     minibarItems: [
       { id: 1, name: "Pepsi - 30.000đ", qty: 2, price: 30000 },
       { id: 2, name: "Nước suối - 10.000đ", qty: 1, price: 10000 },
     ],
+    serviceItems: [{ id: Date.now(), name: "", qty: 1, price: 0 }],
     newPenalty: { reason: "", amount: "" },
     penalties: [],
   };
 
-  stayData = [
-    {
-      id: 1,
-      guest: "Phạm Văn An",
-      room: "406 (Suite)",
-      checkInTime: "08:47:05 20/3/2026",
-      checkOutPlan: "07:00:00 12/10/2026",
-    },
-  ];
-
-  bookingData = [
-    {
-      id: 2,
-      guest: "Phạm Văn An",
-      roomType: "Suite",
-      checkIn: "20/3/2026",
-      checkOut: "12/10/2026",
-    },
-  ];
-
   openModal = (type, item = null) => {
-    this.setState({ showModal: true, modalType: type, currentItem: item });
+    const nextState = {
+      showModal: true,
+      modalType: type,
+      currentItem: item,
+    };
+
+    if (type === "extend") {
+      nextState.extendForm = {
+        info: "",
+        newCheckOut: this.extractInputDateFromPlan(item?.checkOutPlan),
+      };
+    }
+
+    if (type === "service") {
+      nextState.serviceItems = this.getDefaultServiceItems();
+    }
+
+    if (type === "checkin") {
+      nextState.availableRooms = [];
+      nextState.availableRoomsLoading = true;
+      nextState.selectedCheckinRoomId = "";
+    }
+
+    this.setState(nextState);
+
+    if (type === "checkin" && item?.reservationId) {
+      this.fetchAvailableRoomsForCheckin(item.reservationId);
+    }
   };
 
   closeModal = () => {
@@ -57,12 +351,15 @@ class NhanTraphong extends Component {
       walkInForm: { name: "", phone: "", identity: "", room: "", checkOut: "" },
       transferRoom: "",
       transferNote: "",
-      minibarItems: [
-        { id: 1, name: "Pepsi - 30.000đ", qty: 2, price: 30000 },
-        { id: 2, name: "Nước suối - 10.000đ", qty: 1, price: 10000 },
-      ],
+      extendForm: { info: "", newCheckOut: "" },
+      minibarItems: this.getDefaultMinibarItems(),
+      serviceItems: this.getDefaultServiceItems(),
       newPenalty: { reason: "", amount: "" },
       penalties: [],
+      availableRooms: [],
+      availableRoomsLoading: false,
+      selectedCheckinRoomId: "",
+      checkinSubmitting: false,
     });
   };
 
@@ -74,6 +371,16 @@ class NhanTraphong extends Component {
 
   handleTransferInput = (field) => (e) => {
     this.setState({ [field]: e.target.value });
+  };
+
+  handleExtendInput = (field) => (e) => {
+    this.setState({
+      extendForm: { ...this.state.extendForm, [field]: e.target.value },
+    });
+  };
+
+  handleCheckinRoomInput = (event) => {
+    this.setState({ selectedCheckinRoomId: event.target.value });
   };
 
   addMinibarItem = () => {
@@ -101,6 +408,45 @@ class NhanTraphong extends Component {
     }));
   };
 
+  addServiceItem = () => {
+    this.setState((prev) => ({
+      serviceItems: [
+        ...prev.serviceItems,
+        { id: this.createId(), name: "", qty: 1, price: 0 },
+      ],
+    }));
+  };
+
+  updateServiceItem = (id, field, value) => {
+    this.setState((prev) => ({
+      serviceItems: prev.serviceItems.map((item) => {
+        if (item.id !== id) return item;
+
+        if (field === "name") {
+          const selected = this.serviceOptions.find((service) => service.name === value);
+          return { ...item, name: value, price: selected ? selected.price : 0 };
+        }
+
+        if (field === "qty") {
+          return { ...item, qty: Math.max(1, Number(value) || 1) };
+        }
+
+        return { ...item, [field]: value };
+      }),
+    }));
+  };
+
+  removeServiceItem = (id) => {
+    this.setState((prev) => {
+      const nextItems = prev.serviceItems.filter((item) => item.id !== id);
+      return {
+        serviceItems: nextItems.length
+          ? nextItems
+          : [{ id: this.createId(), name: "", qty: 1, price: 0 }],
+      };
+    });
+  };
+
   addPenalty = () => {
     const { newPenalty, penalties } = this.state;
     if (!newPenalty.reason || !newPenalty.amount) return;
@@ -118,6 +464,45 @@ class NhanTraphong extends Component {
 
   changeTab = (tab) => this.setState({ activeTab: tab });
 
+  handleConfirmModal = () => {
+    const { modalType, currentItem, extendForm } = this.state;
+
+    if (modalType === "checkin") {
+      this.confirmCheckin();
+      return;
+    }
+
+    if (modalType === "extend") {
+      if (!extendForm.newCheckOut) {
+        alert("Vui lòng chọn ngày Check-out mới.");
+        return;
+      }
+
+      const currentDate = this.extractInputDateFromPlan(currentItem?.checkOutPlan);
+      if (currentDate && extendForm.newCheckOut <= currentDate) {
+        alert("Ngày Check-out mới phải lớn hơn ngày dự kiến hiện tại.");
+        return;
+      }
+
+      this.setState(
+        (prev) => ({
+          stayData: prev.stayData.map((item) =>
+            item.id === currentItem?.id
+              ? {
+                  ...item,
+                  checkOutPlan: this.buildCheckOutPlan(item.checkOutPlan, extendForm.newCheckOut),
+                }
+              : item,
+          ),
+        }),
+        this.closeModal,
+      );
+      return;
+    }
+
+    this.closeModal();
+  };
+
   renderModal() {
     const {
       modalType,
@@ -125,9 +510,15 @@ class NhanTraphong extends Component {
       walkInForm,
       transferRoom,
       transferNote,
+      extendForm,
       minibarItems,
+      serviceItems,
       newPenalty,
       penalties,
+      availableRooms,
+      availableRoomsLoading,
+      selectedCheckinRoomId,
+      checkinSubmitting,
     } = this.state;
 
     if (!modalType) return null;
@@ -141,15 +532,21 @@ class NhanTraphong extends Component {
       (sum, p) => sum + Number(p.amount || 0),
       0,
     );
+    const serviceTotal = serviceItems.reduce((sum, i) => sum + i.qty * i.price, 0);
+    const disableCheckinConfirm =
+      modalType === "checkin" &&
+      (availableRoomsLoading || checkinSubmitting || !selectedCheckinRoomId);
 
     return (
       <div className="nhan-modal-overlay" onClick={overlayClick}>
         <div className="nhan-modal" onClick={(e) => e.stopPropagation()}>
           <div className="nhan-modal-title-row">
             <h2>
-              {modalType === "walkin" && "Check-in"}
+              {modalType === "walkin" && "Check-in Walk-in"}
               {modalType === "checkin" && "Check-in khách hàng"}
               {modalType === "transfer" && "Chuyển phòng"}
+              {modalType === "extend" && "Gia hạn lưu trú"}
+              {modalType === "service" && "Gọi dịch vụ"}
               {modalType === "checkout" && "Check-out khách hàng"}
             </h2>
             <button className="nhan-close-btn" onClick={this.closeModal}>
@@ -159,7 +556,7 @@ class NhanTraphong extends Component {
 
           {modalType === "walkin" && (
             <>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Họ tên *</label>
                 <input
                   placeholder="Họ tên *"
@@ -167,7 +564,7 @@ class NhanTraphong extends Component {
                   onChange={this.handleWalkInInput("name")}
                 />
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Số điện thoại *</label>
                 <input
                   placeholder="Số điện thoại *"
@@ -175,7 +572,7 @@ class NhanTraphong extends Component {
                   onChange={this.handleWalkInInput("phone")}
                 />
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>CMND/CCCD *</label>
                 <input
                   placeholder="CMND/CCCD *"
@@ -183,7 +580,7 @@ class NhanTraphong extends Component {
                   onChange={this.handleWalkInInput("identity")}
                 />
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Chọn phòng *</label>
                 <select
                   value={walkInForm.room}
@@ -194,7 +591,7 @@ class NhanTraphong extends Component {
                   <option value="407 (Standard)">407 (Standard)</option>
                 </select>
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Ngày trả phòng dự kiến *</label>
                 <input
                   type="date"
@@ -207,29 +604,50 @@ class NhanTraphong extends Component {
 
           {modalType === "checkin" && (
             <>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Khách hàng</label>
-                <div className="readonly">{currentItem?.guest}</div>
+                <div className="ntp-readonly">{currentItem?.guest || "-"}</div>
               </div>
-              <div className="field">
+              <div className="ntp-field">
+                <label>Loại phòng</label>
+                <div className="ntp-readonly">{currentItem?.roomType || "-"}</div>
+              </div>
+              <div className="ntp-field">
                 <label>Chọn phòng *</label>
-                <select>
-                  <option>406 (Suite)</option>
-                  <option>407 (Standard)</option>
+                <select
+                  value={selectedCheckinRoomId}
+                  onChange={this.handleCheckinRoomInput}
+                  disabled={availableRoomsLoading || checkinSubmitting}
+                >
+                  <option value="">
+                    {availableRoomsLoading
+                      ? "Đang tải phòng khả dụng..."
+                      : "Chọn phòng"}
+                  </option>
+                  {availableRooms.map((room) => (
+                    <option key={room.roomId} value={room.roomId}>
+                      {room.roomNumber
+                        ? `${room.roomNumber}${room.roomType ? ` (${room.roomType})` : ""}`
+                        : `Phòng #${room.roomId}`}
+                    </option>
+                  ))}
                 </select>
+                {!availableRoomsLoading && availableRooms.length === 0 && (
+                  <small>Không có phòng trống phù hợp để check-in.</small>
+                )}
               </div>
             </>
           )}
 
           {modalType === "transfer" && (
             <>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Phòng hiện tại</label>
-                <div className="readonly">
+                <div className="ntp-readonly">
                   {currentItem?.room || "406 - Suite"}
                 </div>
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Phòng mới *</label>
                 <select
                   value={transferRoom}
@@ -240,7 +658,7 @@ class NhanTraphong extends Component {
                   <option value="503 - Premium">503 - Premium</option>
                 </select>
               </div>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Lý do chuyển phòng</label>
                 <textarea
                   rows={3}
@@ -249,22 +667,107 @@ class NhanTraphong extends Component {
                   onChange={this.handleTransferInput("transferNote")}
                 />
               </div>
-              <div className="note-box">
+              <div className="ntp-note-box">
                 Lưu ý: Tiền phòng sẽ được tính riêng theo từng phòng khách ở.
                 Phòng cũ sẽ chuyển sang trạng thái "Dọn dẹp".
               </div>
             </>
           )}
 
+          {modalType === "extend" && (
+            <>
+              <div className="ntp-field">
+                <label>Khách hàng</label>
+                <div className="ntp-readonly">{currentItem?.guest}</div>
+              </div>
+              <div className="ntp-field">
+                <label>Phòng</label>
+                <div className="ntp-readonly">{currentItem?.room}</div>
+              </div>
+              <div className="ntp-field">
+                <label>Thông tin gia hạn</label>
+                <textarea
+                  rows={3}
+                  placeholder="Nhập thông tin gia hạn (lý do, yêu cầu đặc biệt...)"
+                  value={extendForm.info}
+                  onChange={this.handleExtendInput("info")}
+                />
+              </div>
+              <div className="ntp-field">
+                <label>Ngày Check-out mới *</label>
+                <input
+                  type="date"
+                  value={extendForm.newCheckOut}
+                  onChange={this.handleExtendInput("newCheckOut")}
+                />
+              </div>
+            </>
+          )}
+
+          {modalType === "service" && (
+            <>
+              <div className="ntp-field">
+                <label>Khách hàng</label>
+                <div className="ntp-readonly">{currentItem?.guest}</div>
+              </div>
+              <div className="ntp-field">
+                <label>Phòng</label>
+                <div className="ntp-readonly">{currentItem?.room}</div>
+              </div>
+              <div className="ntp-sub-title">Dịch vụ sử dụng</div>
+              {serviceItems.map((item) => (
+                <div key={item.id} className="ntp-minibar-row">
+                  <select
+                    value={item.name}
+                    onChange={(e) =>
+                      this.updateServiceItem(item.id, "name", e.target.value)
+                    }
+                  >
+                    <option value="">Chọn dịch vụ</option>
+                    {this.serviceOptions.map((service) => (
+                      <option key={service.name} value={service.name}>
+                        {service.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.qty}
+                    onChange={(e) =>
+                      this.updateServiceItem(item.id, "qty", e.target.value)
+                    }
+                  />
+                  <button
+                    className="ntp-btn-danger"
+                    onClick={() => this.removeServiceItem(item.id)}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              ))}
+              <button
+                className="ntp-btn ntp-btn-secondary ntp-btn-add"
+                onClick={this.addServiceItem}
+              >
+                Thêm dịch vụ
+              </button>
+              <div className="ntp-total-row">
+                <span>Tổng dịch vụ:</span>
+                <strong>{serviceTotal.toLocaleString()}đ</strong>
+              </div>
+            </>
+          )}
+
           {modalType === "checkout" && (
             <>
-              <div className="field">
+              <div className="ntp-field">
                 <label>Khách hàng</label>
-                <div className="readonly">{currentItem?.guest}</div>
+                <div className="ntp-readonly">{currentItem?.guest}</div>
               </div>
-              <div className="sub-title">Minibar</div>
+              <div className="ntp-sub-title">Minibar</div>
               {minibarItems.map((item) => (
-                <div key={item.id} className="minibar-row">
+                <div key={item.id} className="ntp-minibar-row">
                   <select
                     value={item.name}
                     onChange={(e) =>
@@ -286,7 +789,7 @@ class NhanTraphong extends Component {
                     }
                   />
                   <button
-                    className="btn-danger"
+                    className="ntp-btn-danger"
                     onClick={() => this.removeMinibarItem(item.id)}
                   >
                     Xóa
@@ -294,13 +797,13 @@ class NhanTraphong extends Component {
                 </div>
               ))}
               <button
-                className="btn btn-secondary btn-add"
+                className="ntp-btn ntp-btn-secondary ntp-btn-add"
                 onClick={this.addMinibarItem}
               >
                 Thêm minibar
               </button>
-              <div className="sub-title">Phí phạt</div>
-              <div className="penalty-row">
+              <div className="ntp-sub-title">Phí phạt</div>
+              <div className="ntp-penalty-row">
                 <input
                   placeholder="Lý do phạt"
                   value={newPenalty.reason}
@@ -320,19 +823,19 @@ class NhanTraphong extends Component {
                     })
                   }
                 />
-                <button className="btn btn-secondary" onClick={this.addPenalty}>
+                <button className="ntp-btn ntp-btn-secondary" onClick={this.addPenalty}>
                   Thêm
                 </button>
               </div>
               {penalties.length > 0 && (
-                <div className="penalty-list">
+                <div className="ntp-penalty-list">
                   {penalties.map((p) => (
-                    <div key={p.id} className="penalty-item">
+                    <div key={p.id} className="ntp-penalty-item">
                       <span>{p.reason}</span>
-                      <div className="penalty-actions">
+                      <div className="ntp-penalty-actions">
                         <strong>{Number(p.amount).toLocaleString()}đ</strong>
                         <button
-                          className="btn btn-danger"
+                          className="ntp-btn ntp-btn-danger"
                           onClick={() => this.removePenalty(p.id)}
                         >
                           Xóa
@@ -342,7 +845,7 @@ class NhanTraphong extends Component {
                   ))}
                 </div>
               )}
-              <div className="total-row">
+              <div className="ntp-total-row">
                 <span>Tổng:</span>
                 <strong>{(subtotal + penaltyTotal).toLocaleString()}đ</strong>
               </div>
@@ -350,16 +853,26 @@ class NhanTraphong extends Component {
           )}
 
           <div className="nhan-modal-actions">
-            <button className="btn btn-secondary" onClick={this.closeModal}>
-              Hủy
+            <button className="ntp-btn ntp-btn-secondary" onClick={this.closeModal}>
+              {modalType === "service" ? "Đóng" : "Hủy"}
             </button>
-            <button className="btn btn-primary" onClick={this.closeModal}>
-              {modalType === "checkout"
-                ? "Xác nhận Check-out"
-                : modalType === "transfer"
-                  ? "Xác nhận chuyển"
-                  : "Check-in"}
-            </button>
+            {modalType !== "service" && (
+              <button
+                className="ntp-btn ntp-btn-primary"
+                onClick={this.handleConfirmModal}
+                disabled={disableCheckinConfirm}
+              >
+                {modalType === "checkout"
+                  ? "Xác nhận Check-out"
+                  : modalType === "transfer"
+                    ? "Xác nhận chuyển"
+                    : modalType === "extend"
+                      ? "Xác nhận gia hạn"
+                      : checkinSubmitting
+                        ? "Đang Check-in..."
+                        : "Check-in"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -367,44 +880,44 @@ class NhanTraphong extends Component {
   }
 
   render() {
-    const { activeTab, showModal } = this.state;
+    const { activeTab, showModal, stayData, bookingData, bookingLoading } = this.state;
 
     return (
       <div className="nhantraphong">
-        <div className="page-header">
+        <div className="ntp-page-header">
           <FeatureHeader
             title="Nhận/Trả phòng"
             description="Quản lý check-in và check-out khách hàng"
           />
           <button
-            className="btn btn-primary"
+            className="ntp-btn ntp-btn-primary"
             onClick={() => this.openModal("walkin")}
           >
-            Check-in
+            Walk-in
           </button>
         </div>
 
-        <div className="tab-panel">
+        <div className="ntp-tab-panel">
           <button
             className={activeTab === "stay" ? "active" : ""}
             onClick={() => this.changeTab("stay")}
           >
-            Đang lưu trú (1)
+            Đang lưu trú ({stayData.length})
           </button>
           <button
             className={activeTab === "pending" ? "active" : ""}
             onClick={() => this.changeTab("pending")}
           >
-            Đặt phòng chờ nhận (1)
+            Đặt phòng chờ nhận ({bookingData.length})
           </button>
         </div>
 
-        <div className="section-card">
+        <div className="ntp-section-card">
           <h2>
             {activeTab === "stay" ? "Khách đang lưu trú" : "Đặt phòng chờ nhận"}
           </h2>
-          <div className="table-wrap">
-            <table>
+          <div className="ntp-table-wrap">
+            <table className="ntp-table">
               <thead>
                 <tr>
                   <th>Khách hàng</th>
@@ -418,31 +931,58 @@ class NhanTraphong extends Component {
               </thead>
               <tbody>
                 {activeTab === "stay" &&
-                  this.stayData.map((item) => (
+                  stayData.map((item) => (
                     <tr key={item.id}>
                       <td>{item.guest}</td>
                       <td>{item.room}</td>
                       <td>{item.checkInTime}</td>
                       <td>{item.checkOutPlan}</td>
                       <td>
-                        <button
-                          className="icon-action"
-                          onClick={() => this.openModal("transfer", item)}
-                        >
-                          ↺ Chuyển phòng
-                        </button>
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => this.openModal("checkout", item)}
-                        >
-                          ➜ Check-out
-                        </button>
+                        <div className="ntp-action-group">
+                          <button
+                            className="ntp-icon-action"
+                            onClick={() => this.openModal("transfer", item)}
+                          >
+                            Chuyển phòng
+                          </button>
+                          <button
+                            className="ntp-icon-action"
+                            onClick={() => this.openModal("extend", item)}
+                          >
+                            Gia hạn
+                          </button>
+                          <button
+                            className="ntp-icon-action"
+                            onClick={() => this.openModal("service", item)}
+                          >
+                            Gọi dịch vụ
+                          </button>
+                          <button
+                            className="ntp-btn ntp-btn-primary"
+                            onClick={() => this.openModal("checkout", item)}
+                          >
+                            Check-out
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
 
+                {activeTab === "pending" && bookingLoading && (
+                  <tr>
+                    <td colSpan="5">Đang tải danh sách đặt phòng chờ nhận...</td>
+                  </tr>
+                )}
+
+                {activeTab === "pending" && !bookingLoading && bookingData.length === 0 && (
+                  <tr>
+                    <td colSpan="5">Không có khách đang chờ check-in.</td>
+                  </tr>
+                )}
+
                 {activeTab === "pending" &&
-                  this.bookingData.map((item) => (
+                  !bookingLoading &&
+                  bookingData.map((item) => (
                     <tr key={item.id}>
                       <td>{item.guest}</td>
                       <td>{item.roomType}</td>
@@ -450,10 +990,10 @@ class NhanTraphong extends Component {
                       <td>{item.checkOut}</td>
                       <td>
                         <button
-                          className="btn btn-primary"
+                          className="ntp-btn ntp-btn-primary"
                           onClick={() => this.openModal("checkin", item)}
                         >
-                          ➜ Check-in
+                          Check-in
                         </button>
                       </td>
                     </tr>
