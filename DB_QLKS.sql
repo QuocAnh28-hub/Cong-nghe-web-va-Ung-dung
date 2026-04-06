@@ -2866,11 +2866,130 @@ BEGIN
 END
 EXEC sp_GetAvailableRooms_ForCheckIn 28
 
+---Lấy tỷ lệ phòng theo tháng---------------------------------------
+CREATE PROCEDURE sp_GetRoomOccupancyByMonth
+    @Year INT,
+    @Month INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    DECLARE @TotalRooms INT;
 
+    -- Tổng số phòng
+    SELECT @TotalRooms = COUNT(*) 
+    FROM Rooms;
 
+    SELECT 
+        @Month AS N'Tháng',
 
+        COUNT(DISTINCT rsh.RoomID) AS N'Số phòng đã sử dụng',
 
+        @TotalRooms AS N'Tổng số phòng',
+
+        CASE 
+            WHEN @TotalRooms = 0 THEN 0
+            ELSE CAST(COUNT(DISTINCT rsh.RoomID) * 100.0 / @TotalRooms AS DECIMAL(5,2))
+        END AS N'Công suất (%)'
+
+    FROM RoomStayHistory rsh
+    WHERE 
+        YEAR(rsh.CheckInTime) = @Year
+        AND MONTH(rsh.CheckInTime) = @Month;
+END
+
+EXEC sp_GetRoomOccupancyByMonth 
+    @Year = 2026,
+    @Month = 3;
+
+---Lấy doanh thu theo tháng-------------------------------------------------
+CREATE PROCEDURE sp_GetNetRevenueByMonth
+    @Year INT,
+    @Month INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @TotalRevenue DECIMAL(18,2) = 0;
+    DECLARE @TotalVAT DECIMAL(18,2) = 0;
+
+    -- Tổng thu trong tháng
+    SELECT 
+        @TotalRevenue = ISNULL(SUM(p.Amount), 0)
+    FROM Payments p
+    WHERE 
+        YEAR(p.PaymentDate) = @Year
+        AND MONTH(p.PaymentDate) = @Month;
+
+    -- Tổng VAT trong tháng
+    SELECT 
+        @TotalVAT = ISNULL(SUM(i.VAT), 0)
+    FROM Invoices i
+    WHERE 
+        YEAR(i.Date) = @Year
+        AND MONTH(i.Date) = @Month;
+
+    -- Kết quả: Thu nhập sau thuế
+    SELECT 
+        (@TotalRevenue - @TotalVAT) AS N'Thu nhập sau thuế';
+END
+
+EXEC sp_GetNetRevenueByMonth 
+    @Year = 2026,
+    @Month = 3
+
+---Lấy số lượng khách lưu trú Đặt trước/ Walk-in theo tháng-------------------------------------
+CREATE PROCEDURE sp_GetGuestTypeByMonth
+    @Year INT,
+    @Month INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        @Month AS N'Tháng',
+
+        -- Khách đặt trước
+        COUNT(CASE WHEN ReservationID IS NOT NULL THEN 1 END) 
+            AS N'Khách đặt trước',
+
+        -- Khách walk-in
+        COUNT(CASE WHEN ReservationID IS NULL THEN 1 END) 
+            AS N'Khách walk-in',
+
+        -- Tổng
+        COUNT(*) AS N'Tổng lượt khách'
+
+    FROM Stays
+    WHERE 
+        YEAR(ActualCheckIn) = @Year
+        AND MONTH(ActualCheckIn) = @Month;
+END
+
+EXEC sp_GetGuestTypeByMonth
+    @Year = 2026,
+    @Month = 3;
+
+---Lấy số lượng đặt phòng theo tháng-----------------------------------------------------
+CREATE PROCEDURE sp_GetReservationCountByMonth
+    @Year INT,
+    @Month INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        @Month AS N'Tháng',
+        COUNT(*) AS N'Số lượng đặt phòng'
+    FROM Reservations
+    WHERE 
+        YEAR(CreatedAt) = @Year
+        AND MONTH(CreatedAt) = @Month;
+END
+
+EXEC sp_GetReservationCountByMonth
+    @Year = 2026,
+    @Month = 4;
 
 
 
