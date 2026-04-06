@@ -105,6 +105,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
 }
 
 .act i {
@@ -116,6 +117,7 @@
   margin: 0;
   font-size: 1rem;
   color: #374151;
+  text-align: left;
 }
 
 .act span {

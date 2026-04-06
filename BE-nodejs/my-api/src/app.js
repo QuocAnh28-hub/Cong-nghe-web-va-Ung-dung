@@ -9,6 +9,7 @@ const rateRoutes = require("./routes/rateRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
 const reservationRoutes = require("./routes/reservationRoutes");
+const overviewRoutes = require("./routes/overviewRoutes");
 
 const app = express();
 
@@ -24,5 +25,6 @@ app.use("/api/rates", rateRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/reservations", reservationRoutes);
+app.use("/api/overview", overviewRoutes);
 
 module.exports = app;

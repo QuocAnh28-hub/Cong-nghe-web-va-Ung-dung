@@ -1,7 +1,13 @@
-import React, { Component } from "react";
+﻿import React, { Component } from "react";
 import "../style/Tongquan.css";
 import Header from "./Header";
 import { FeatureHeader } from "./Common";
+
+const OVERVIEW_API_URL = "http://localhost:3000/api/overview";
+const ROOM_STATISTICS_API_URL = `${OVERVIEW_API_URL}/room-statistics`;
+const OCCUPANCY_RATE_API_URL = `${OVERVIEW_API_URL}/occupancy-rate`;
+const ROOM_STATUS_SUMMARY_API_URL = `${OVERVIEW_API_URL}/room-status-summary`;
+const CUSTOMER_SUMMARY_API_URL = `${OVERVIEW_API_URL}/customer-summary`;
 
 class Tongquan extends Component {
   constructor(props) {
@@ -9,7 +15,16 @@ class Tongquan extends Component {
 
     this.state = {
       role: "",
-      name: ""
+      name: "",
+      overview: {
+        totalRooms: 0,
+        availableRooms: 0,
+        occupiedRooms: 0,
+        occupancyRate: 0,
+        dirtyRooms: 0,
+        totalCustomers: 0,
+        stayingGuests: 0,
+      },
     };
   }
 
@@ -18,25 +33,76 @@ class Tongquan extends Component {
 
     if (isLogin !== "true") {
       window.location.href = "/login";
+      return;
     }
 
     const role = localStorage.getItem("role");
     const name = localStorage.getItem("email");
 
     this.setState({
-      role: role,
-      name: name
+      role,
+      name,
     });
+
+    this.fetchOverviewData();
   }
 
+  readResponseBody = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  };
+
+  request = async (url) => {
+    const response = await fetch(url);
+    const body = await this.readResponseBody(response);
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    return body || {};
+  };
+
+  fetchOverviewData = async () => {
+    try {
+      const [roomStatistics, occupancyRate, roomStatusSummary, customerSummary] = await Promise.all([
+        this.request(ROOM_STATISTICS_API_URL),
+        this.request(OCCUPANCY_RATE_API_URL),
+        this.request(ROOM_STATUS_SUMMARY_API_URL),
+        this.request(CUSTOMER_SUMMARY_API_URL),
+      ]);
+
+      this.setState({
+        overview: {
+          totalRooms: Number(roomStatistics?.TotalRooms) || 0,
+          availableRooms: Number(roomStatistics?.AvailableRooms) || 0,
+          occupiedRooms: Number(roomStatistics?.OccupiedRooms) || 0,
+          occupancyRate: Number(occupancyRate?.OccupancyRate) || 0,
+          dirtyRooms: Number(roomStatusSummary?.DirtyRooms) || 0,
+          totalCustomers: Number(customerSummary?.TotalCustomers) || 0,
+          stayingGuests: Number(customerSummary?.StayingGuests) || 0,
+        },
+      });
+    } catch (error) {
+      console.error("Khong the tai du lieu tong quan:", error);
+    }
+  };
+
   render() {
+    const { role, name, overview } = this.state;
+
     return (
       <div className="tongquan">
-
-        <Header 
-          Name={this.state.name}
-          Role={this.state.role}
-        />
+        <Header Name={name} Role={role} />
 
         <FeatureHeader
           title="Tổng quan"
@@ -44,18 +110,17 @@ class Tongquan extends Component {
         />
 
         <div className="tongquan-mid">
-
           <Cards
             title="Tổng số phòng"
             logo="fa-solid fa-building"
-            number="0"
-            desc="Trống: | Đang dùng:"
+            number={overview.totalRooms}
+            desc={`Trống: ${overview.availableRooms} | Đang dùng: ${overview.occupiedRooms}`}
           />
 
           <Cards
             title="Công suất phòng"
             logo="fa-solid fa-bed"
-            number="0"
+            number={`${overview.occupancyRate}%`}
             desc=""
           />
 
@@ -72,32 +137,30 @@ class Tongquan extends Component {
             number="0"
             desc="Từ 0 lượt lưu trú"
           />
-
         </div>
 
         <div className="tongquan-low">
-
           <Activity
             title="Trạng thái phòng"
             items={[
               {
                 label: "Phòng trống",
-                value: 0,
+                value: overview.availableRooms,
                 color: "green",
-                className: "phongtrong"
+                className: "phongtrong",
               },
               {
                 label: "Đang sử dụng",
-                value: 0,
+                value: overview.occupiedRooms,
                 color: "blue",
-                className: "dangsudung"
+                className: "dangsudung",
               },
               {
                 label: "Cần dọn dẹp",
-                value: 0,
+                value: overview.dirtyRooms,
                 color: "orange",
-                className: "candondep"
-              }
+                className: "candondep",
+              },
             ]}
           />
 
@@ -107,18 +170,16 @@ class Tongquan extends Component {
               {
                 label: "Tổng khách hàng",
                 logo: "fa-solid fa-user",
-                value: 0
+                value: overview.totalCustomers,
               },
               {
                 label: "Đang lưu trú",
                 logo: "fa-solid fa-user-check",
-                value: 0
-              }
+                value: overview.stayingGuests,
+              },
             ]}
           />
-
         </div>
-
       </div>
     );
   }
@@ -142,13 +203,12 @@ function Activity({ title, items }) {
 
       {items.map((item, index) => (
         <div className={`act ${item.className || ""}`} key={index}>
-
-          {item.logo && <i className={item.logo}></i>}
-
-          <p className={item.color}>{item.label}</p>
+          <div className="act-left">
+            {item.logo && <i className={item.logo}></i>}
+            <p className={item.color}>{item.label}</p>
+          </div>
 
           <span>{item.value}</span>
-
         </div>
       ))}
     </div>

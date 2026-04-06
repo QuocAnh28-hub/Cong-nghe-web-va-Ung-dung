@@ -707,7 +707,7 @@ BEGIN
 END
 
 EXEC sp_GetRoomStatistics
-
+	
 --Công suất phòng (tỷ lệ % phòng đang được sử dụng)--------------------------------
 CREATE PROCEDURE sp_GetOccupancyRate
 AS
@@ -723,7 +723,7 @@ END
 EXEC sp_GetOccupancyRate
 
 --Trạng thái phòng(Phòng trống: n, Đang sử dụng: n, Cần dọn dẹp: n)----------------
-ALTER TABLE Rooms
+CREATE TABLE Rooms
 ADD CONSTRAINT CK_Rooms_Status 
 CHECK (Status IN ('AVAILABLE','OCCUPIED','MAINTENANCE','DIRTY'))--sửa lại trạng thái Rooms
 
