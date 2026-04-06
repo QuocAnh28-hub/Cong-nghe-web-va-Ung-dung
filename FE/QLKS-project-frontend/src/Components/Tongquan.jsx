@@ -8,6 +8,8 @@ const ROOM_STATISTICS_API_URL = `${OVERVIEW_API_URL}/room-statistics`;
 const OCCUPANCY_RATE_API_URL = `${OVERVIEW_API_URL}/occupancy-rate`;
 const ROOM_STATUS_SUMMARY_API_URL = `${OVERVIEW_API_URL}/room-status-summary`;
 const CUSTOMER_SUMMARY_API_URL = `${OVERVIEW_API_URL}/customer-summary`;
+const TODAY_CHECKIN_CHECKOUT_API_URL = `${OVERVIEW_API_URL}/today-checkin-checkout`;
+const REVENUE_THIS_MONTH_API_URL = `${OVERVIEW_API_URL}/revenue-this-month`;
 
 class Tongquan extends Component {
   constructor(props) {
@@ -24,6 +26,10 @@ class Tongquan extends Component {
         dirtyRooms: 0,
         totalCustomers: 0,
         stayingGuests: 0,
+        todayCheckIn: 0,
+        todayCheckOut: 0,
+        totalRevenue: 0,
+        totalStays: 0,
       },
     };
   }
@@ -72,13 +78,29 @@ class Tongquan extends Component {
     return body || {};
   };
 
+  formatCurrency = (value) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(Number(value) || 0);
+
   fetchOverviewData = async () => {
     try {
-      const [roomStatistics, occupancyRate, roomStatusSummary, customerSummary] = await Promise.all([
+      const [
+        roomStatistics,
+        occupancyRate,
+        roomStatusSummary,
+        customerSummary,
+        todayCheckinCheckout,
+        revenueThisMonth,
+      ] = await Promise.all([
         this.request(ROOM_STATISTICS_API_URL),
         this.request(OCCUPANCY_RATE_API_URL),
         this.request(ROOM_STATUS_SUMMARY_API_URL),
         this.request(CUSTOMER_SUMMARY_API_URL),
+        this.request(TODAY_CHECKIN_CHECKOUT_API_URL),
+        this.request(REVENUE_THIS_MONTH_API_URL),
       ]);
 
       this.setState({
@@ -90,6 +112,10 @@ class Tongquan extends Component {
           dirtyRooms: Number(roomStatusSummary?.DirtyRooms) || 0,
           totalCustomers: Number(customerSummary?.TotalCustomers) || 0,
           stayingGuests: Number(customerSummary?.StayingGuests) || 0,
+          todayCheckIn: Number(todayCheckinCheckout?.TodayCheckIn) || 0,
+          todayCheckOut: Number(todayCheckinCheckout?.TodayCheckOut) || 0,
+          totalRevenue: Number(revenueThisMonth?.TotalRevenue) || 0,
+          totalStays: Number(revenueThisMonth?.TotalStays) || 0,
         },
       });
     } catch (error) {
@@ -127,15 +153,15 @@ class Tongquan extends Component {
           <Cards
             title="Check-in/out hôm nay"
             logo="fa-solid fa-calendar-check"
-            number="0"
+            number={`${overview.todayCheckIn} / ${overview.todayCheckOut}`}
             desc="Nhận / Trả phòng"
           />
 
           <Cards
             title="Doanh thu tháng này"
             logo="fa-solid fa-money-bill"
-            number="0"
-            desc="Từ 0 lượt lưu trú"
+            number={this.formatCurrency(overview.totalRevenue)}
+            desc={`Từ ${overview.totalStays} lượt lưu trú`}
           />
         </div>
 

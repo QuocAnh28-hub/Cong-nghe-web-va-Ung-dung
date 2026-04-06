@@ -24,9 +24,17 @@ const getRoomStatusSummary = async (req, res) =>
 const getCustomerSummary = async (req, res) =>
   executeOverviewProcedure(res, "sp_GetCustomerSummary", "getCustomerSummary");
 
+const getTodayCheckInReservationCheckOutStay = async (req, res) =>
+  executeOverviewProcedure(res, "sp_TodayCheckIn_Reservation_CheckOut_Stay", "getTodayCheckInReservationCheckOutStay");
+
+const getRevenueThisMonthWithStayCount = async (req, res) =>
+  executeOverviewProcedure(res, "sp_RevenueThisMonth_WithStayCount", "getRevenueThisMonthWithStayCount");
+
 module.exports = {
   getRoomStatistics,
   getOccupancyRate,
   getRoomStatusSummary,
   getCustomerSummary,
+  getTodayCheckInReservationCheckOutStay,
+  getRevenueThisMonthWithStayCount,
 };
