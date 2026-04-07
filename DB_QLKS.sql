@@ -2134,42 +2134,50 @@ BEGIN
 
     SELECT 
         r.ReservationID,
-        c.CustomerID,
-        c.FullName,
-        c.Phone,
-        u.Email,
 
-        r.CheckInDate,
-        r.CheckOutDate,
+        ISNULL(c.CustomerID, g.GuestID) AS CustomerID,
 
-        rsh.RoomID,                -- lấy từ RoomStayHistory
-        rm.RoomNumber,             -- lấy từ Rooms
+        ISNULL(c.FullName, g.FullName) AS FullName,
+        ISNULL(c.Phone, N'Không có') AS Phone,
+        ISNULL(u.Email, N'Không có') AS Email,
 
-        r.Status,
-        r.CreatedAt
+        ISNULL(r.CheckInDate, s.ActualCheckIn) AS CheckInDate,
 
-    FROM Reservations r
+        s.ExpectedCheckOut AS CheckOutDate,
 
-    INNER JOIN Users u 
+        rsh.RoomID,
+        rm.RoomNumber,
+
+        s.Status,
+        s.ActualCheckIn AS CreatedAt
+
+    FROM Stays s
+
+    INNER JOIN Guests g
+        ON g.GuestID = s.GuestID
+
+    LEFT JOIN Reservations r
+        ON s.ReservationID = r.ReservationID
+
+    LEFT JOIN Users u 
         ON r.UserID = u.UserID
 
-    INNER JOIN Customers c 
+    LEFT JOIN Customers c 
         ON c.UserID = u.UserID
-
-    INNER JOIN Stays s
-        ON s.ReservationID = r.ReservationID
 
     INNER JOIN RoomStayHistory rsh
         ON rsh.StayID = s.StayID
-        AND rsh.CheckOutTime IS NULL   -- chỉ lấy phòng đang ở
+        AND rsh.CheckOutTime IS NULL
 
     INNER JOIN Rooms rm
         ON rm.RoomID = rsh.RoomID
 
-    WHERE r.Status = 'CHECKED_IN'
+    WHERE s.Status = 'CHECKED_IN'
+      AND (r.Status IS NULL OR r.Status != 'CANCELLED')
 
-    ORDER BY r.CheckInDate ASC
+    ORDER BY s.ActualCheckIn ASC
 END
+
 EXEC sp_GetCurrentStayingCustomers
 
 ---CheckIn theo lịch đặt-----------------------------------------------
@@ -2187,10 +2195,13 @@ BEGIN
         @CCCD NVARCHAR(20),
         @GuestID INT,
         @StayID INT,
-        @Price DECIMAL(12,2)
+        @Price DECIMAL(12,2),
+        @ExpectedCheckOut DATETIME
 
-    -- 1. Lấy User từ Reservation
-    SELECT @UserID = UserID
+    -- 1. Lấy User + ngày checkout
+    SELECT 
+        @UserID = UserID,
+        @ExpectedCheckOut = CheckOutDate
     FROM Reservations
     WHERE ReservationID = @ReservationID
 
@@ -2207,52 +2218,51 @@ BEGIN
     FROM ReservationRooms
     WHERE ReservationID = @ReservationID
 
-    -- 4. KIỂM TRA STAY ĐÃ TỒN TẠI CHƯA
+    -- 4. Kiểm tra Stay
     SELECT TOP 1 @StayID = StayID
     FROM Stays
     WHERE ReservationID = @ReservationID
       AND Status = 'CHECKED_IN'
 
-    -- 5. Nếu CHƯA có Stay → tạo mới
+    -- 5. Nếu chưa có Stay → tạo mới
     IF @StayID IS NULL
     BEGIN
-        -- tạo Guest (snapshot)
         INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
         VALUES (@FullName, 'CCCD', @CCCD)
 
         SET @GuestID = SCOPE_IDENTITY()
 
-        -- tạo Stay
-        INSERT INTO Stays (ReservationID, GuestID, ActualCheckIn, Status)
-        VALUES (@ReservationID, @GuestID, GETDATE(), 'CHECKED_IN')
+        INSERT INTO Stays 
+        (ReservationID, GuestID, ActualCheckIn, ExpectedCheckOut, Status)
+        VALUES 
+        (@ReservationID, @GuestID, GETDATE(), @ExpectedCheckOut, 'CHECKED_IN')
 
         SET @StayID = SCOPE_IDENTITY()
     END
 
-    -- 6. Luôn tạo RoomStayHistory (mỗi phòng 1 dòng)
+    -- 6. Thêm phòng
     INSERT INTO RoomStayHistory 
     (StayID, RoomID, CheckInTime, RateAtThatTime)
     VALUES 
     (@StayID, @RoomID, GETDATE(), @Price)
 
-    -- 7. Update trạng thái phòng
+    -- 7. Update phòng
     UPDATE Rooms
     SET Status = 'OCCUPIED'
     WHERE RoomID = @RoomID
 
-	--8. Update trạng thái Reservation
-	UPDATE Reservations
-	SET Status = 'CHECKED_IN'
-	WHERE ReservationID = @ReservationID
+    -- 8. Update Reservation
+    UPDATE Reservations
+    SET Status = 'CHECKED_IN'
+    WHERE ReservationID = @ReservationID
 END
 
 ---CheckIn theo khách WalkIn----------------------------------------------------------------
 CREATE PROCEDURE sp_CheckIn_WalkIn_OneRoom
     @FullName NVARCHAR(150),
-    @Phone NVARCHAR(20),
     @CCCD NVARCHAR(20),
     @RoomID INT,
-    @ExpectedCheckOut DATE
+    @ExpectedCheckOut DATETIME
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -2268,7 +2278,7 @@ BEGIN
     FROM Rooms
     WHERE RoomID = @RoomID
 
-    -- 2. Lấy giá hiện tại (Rates)
+    -- 2. Lấy giá hiện tại
     SELECT TOP 1 @Price = Price
     FROM Rates
     WHERE RoomTypeID = @RoomTypeID
@@ -2281,13 +2291,15 @@ BEGIN
 
     SET @GuestID = SCOPE_IDENTITY()
 
-    -- 4. Tạo Stay (không có Reservation)
-    INSERT INTO Stays (ReservationID, GuestID, ActualCheckIn, Status)
-    VALUES (NULL, @GuestID, GETDATE(), 'CHECKED_IN')
+    -- 4. Tạo Stay
+    INSERT INTO Stays 
+    (ReservationID, GuestID, ActualCheckIn, ExpectedCheckOut, Status)
+    VALUES 
+    (NULL, @GuestID, GETDATE(), @ExpectedCheckOut, 'CHECKED_IN')
 
     SET @StayID = SCOPE_IDENTITY()
 
-    -- 5. Tạo RoomStayHistory
+    -- 5. RoomStayHistory
     INSERT INTO RoomStayHistory
     (StayID, RoomID, CheckInTime, RateAtThatTime)
     VALUES
@@ -2298,6 +2310,12 @@ BEGIN
     SET Status = 'OCCUPIED'
     WHERE RoomID = @RoomID
 END
+
+EXEC sp_CheckIn_WalkIn_OneRoom
+    @FullName = N'Nguyễn Văn B',
+    @CCCD = '001203000991',
+    @RoomID = 33,
+    @ExpectedCheckOut = '2026-04-08';
 
 ---Chuyển phòng------------------------------------------------------------------
 CREATE PROCEDURE sp_TransferRoom
@@ -2375,62 +2393,80 @@ CREATE PROCEDURE sp_ExtendStay
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRAN
 
     DECLARE 
         @ReservationID INT,
-        @CurrentCheckOut DATETIME,
+        @RoomID INT,
         @Now DATETIME = GETDATE()
 
     -------------------------------------------------
-    -- 1. Lấy thông tin Stay
+    -- 1. Validate Stay
     -------------------------------------------------
-    SELECT 
-        @ReservationID = ReservationID
-    FROM Stays
-    WHERE StayID = @StayID
-      AND Status = 'CHECKED_IN'
-
-    IF @ReservationID IS NULL AND NOT EXISTS (
-        SELECT 1 FROM Stays WHERE StayID = @StayID AND Status = 'CHECKED_IN'
+    IF NOT EXISTS (
+        SELECT 1 FROM Stays 
+        WHERE StayID = @StayID AND Status = 'CHECKED_IN'
     )
     BEGIN
         RAISERROR(N'Stay không hợp lệ', 16, 1)
+        ROLLBACK
         RETURN
     END
 
     -------------------------------------------------
-    -- 2. Lấy phòng đang ở
+    -- 2. Validate thời gian
     -------------------------------------------------
-    DECLARE @RoomID INT
+    IF @NewCheckOut <= @Now
+    BEGIN
+        RAISERROR(N'Ngày checkout mới không hợp lệ', 16, 1)
+        ROLLBACK
+        RETURN
+    END
+
+    -------------------------------------------------
+    -- 3. Lấy dữ liệu
+    -------------------------------------------------
+    SELECT @ReservationID = ReservationID
+    FROM Stays
+    WHERE StayID = @StayID
 
     SELECT TOP 1 @RoomID = RoomID
     FROM RoomStayHistory
     WHERE StayID = @StayID
       AND CheckOutTime IS NULL
 
+    IF @RoomID IS NULL
+    BEGIN
+        RAISERROR(N'Không tìm thấy phòng đang ở', 16, 1)
+        ROLLBACK
+        RETURN
+    END
+
     -------------------------------------------------
-    -- 3. CHECK CONFLICT
+    -- 4. Check conflict
     -------------------------------------------------
     IF EXISTS (
         SELECT 1
         FROM Reservations r
         JOIN ReservationRooms rr ON r.ReservationID = rr.ReservationID
-        JOIN Rooms rm ON rm.RoomTypeID = rr.RoomTypeID
-        WHERE rm.RoomID = @RoomID
-          AND r.Status = 'BOOKED'
+        WHERE r.Status = 'BOOKED'
           AND r.CheckInDate < @NewCheckOut
           AND r.CheckOutDate > @Now
+          AND EXISTS (
+              SELECT 1 FROM Rooms 
+              WHERE RoomID = @RoomID
+                AND RoomTypeID = rr.RoomTypeID
+          )
     )
     BEGIN
         RAISERROR(N'Phòng đã được đặt sau thời điểm này', 16, 1)
+        ROLLBACK
         RETURN
     END
 
     -------------------------------------------------
-    -- 4. UPDATE
+    -- 5. Update
     -------------------------------------------------
-
-    -- Nếu có reservation
     IF @ReservationID IS NOT NULL
     BEGIN
         UPDATE Reservations
@@ -2439,11 +2475,12 @@ BEGIN
     END
     ELSE
     BEGIN
-        -- Walk-in
         UPDATE Stays
         SET ExpectedCheckOut = @NewCheckOut
         WHERE StayID = @StayID
-    END
+    END  
+
+    COMMIT
 END
 
 ---Thêm dịch vụ sử dụng(Gọi dịch vụ)---------------------------------------------------
