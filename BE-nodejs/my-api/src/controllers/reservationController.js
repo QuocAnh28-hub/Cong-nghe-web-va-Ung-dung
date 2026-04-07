@@ -470,24 +470,22 @@ const checkInWalkInOneRoom = async (req, res) => {
   console.log("checkInWalkInOneRoom called", req.body);
   try {
     const fullName = (req.body.FullName || "").trim();
-    const phone = (req.body.Phone || "").trim();
     const cccd = (req.body.CCCD || "").trim();
     const roomID = toPositiveInt(req.body.RoomID);
-    const expectedCheckOut = toDateString(req.body.ExpectedCheckOut);
+    const expectedCheckOut = toDateTime(req.body.ExpectedCheckOut);
 
-    if (!fullName || !phone || !cccd || !roomID || !expectedCheckOut) {
+    if (!fullName || !cccd || !roomID || !expectedCheckOut) {
       return res.status(400).json({
         error:
-          "Thieu hoac sai tham so: FullName, Phone, CCCD, RoomID, ExpectedCheckOut(YYYY-MM-DD)",
+          "Thieu hoac sai tham so: FullName, CCCD, RoomID, ExpectedCheckOut(ISO datetime)",
       });
     }
 
     const request = new sql.Request();
     request.input("FullName", sql.NVarChar(150), fullName);
-    request.input("Phone", sql.NVarChar(20), phone);
     request.input("CCCD", sql.NVarChar(20), cccd);
     request.input("RoomID", sql.Int, roomID);
-    request.input("ExpectedCheckOut", sql.Date, expectedCheckOut);
+    request.input("ExpectedCheckOut", sql.DateTime, expectedCheckOut);
 
     const result = await request.execute("sp_CheckIn_WalkIn_OneRoom");
     const payload = result.recordset?.[0] || null;
