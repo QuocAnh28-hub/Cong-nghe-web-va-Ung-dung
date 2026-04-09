@@ -1,6 +1,0 @@
-@Project_QuanLyKhachSan_HostAddress = http://localhost:5038
-
-GET {{Project_QuanLyKhachSan_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -36,6 +36,25 @@ const executeReportProcedure = async (req, res, procedureName, context) => {
   }
 };
 
+const executeReportProcedureList = async (req, res, procedureName, context) => {
+  const params = parseYearMonth(req, res);
+  if (!params) {
+    return;
+  }
+
+  try {
+    const request = new sql.Request();
+    request.input("Year", sql.Int, params.year);
+    request.input("Month", sql.Int, params.month);
+
+    const result = await request.execute(procedureName);
+    return res.json(result.recordset || []);
+  } catch (err) {
+    console.error(`${context} Error:`, err);
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
 const getRoomOccupancyByMonth = async (req, res) =>
   executeReportProcedure(req, res, "sp_GetRoomOccupancyByMonth", "getRoomOccupancyByMonth");
 
@@ -48,9 +67,21 @@ const getGuestTypeByMonth = async (req, res) =>
 const getReservationCountByMonth = async (req, res) =>
   executeReportProcedure(req, res, "sp_GetReservationCountByMonth", "getReservationCountByMonth");
 
+const getRevenueByDayInMonth = async (req, res) =>
+  executeReportProcedureList(req, res, "sp_GetRevenueByDayInMonth", "getRevenueByDayInMonth");
+
+const getRevenueByRoomTypeInMonth = async (req, res) =>
+  executeReportProcedureList(req, res, "sp_GetRevenueByRoomTypeInMonth", "getRevenueByRoomTypeInMonth");
+
+const getRoomTypeUsagePercentInMonth = async (req, res) =>
+  executeReportProcedureList(req, res, "sp_GetRoomTypeUsagePercentInMonth", "getRoomTypeUsagePercentInMonth");
+
 module.exports = {
   getRoomOccupancyByMonth,
   getNetRevenueByMonth,
   getGuestTypeByMonth,
   getReservationCountByMonth,
+  getRevenueByDayInMonth,
+  getRevenueByRoomTypeInMonth,
+  getRoomTypeUsagePercentInMonth,
 };

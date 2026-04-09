@@ -29,6 +29,6 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/overview", overviewRoutes);
 app.use("/api/report", reportRoutes);
-app.use("/api/invoice", invoiceRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
 module.exports = app;

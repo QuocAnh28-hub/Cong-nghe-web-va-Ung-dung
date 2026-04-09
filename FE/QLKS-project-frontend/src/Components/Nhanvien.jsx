@@ -6,13 +6,13 @@ import { FeatureHeader } from "./Common";
 const getRoleBadge = (role) => {
   if (role === "Quản trị viên") {
     return (
-      <span className="badge admin">
+      <span className="nhanvien-badge nhanvien-badge-admin">
         <span role="img" aria-label="admin"><i className="fa-solid fa-shield"></i> Quản trị viên</span>
       </span>
     );
   }
   return (
-    <span className="badge letan">
+    <span className="nhanvien-badge nhanvien-badge-letan">
       <span role="img" aria-label="letan"><i className="fa-solid fa-circle-user"></i> Lễ tân</span>
     </span>
   );
@@ -264,30 +264,30 @@ const Nhanvien = () => {
     <div className="nhanvien">
       <div className="nhanvien-header">
         <div className="nhanvien-top">
-          <div className="info">
+          <div className="nhanvien-info">
             <FeatureHeader
               title="Quản lý Nhân viên"
               description="Quản lý tài khoản nhân viên khách sạn"
             />
           </div>
-          <button className="add-btn" onClick={handleOpenModal}>+ Thêm nhân viên</button>
+          <button className="nhanvien-add-btn" onClick={handleOpenModal}>+ Thêm nhân viên</button>
         </div>
       </div>
-      <div className="table-card">
+      <div className="nhanvien-table-card">
         <div className="nhanvien-table-search">
           <div className="nhanvien-search-box">
             <i className="fa fa-search"></i>
             <input
               type="search"
-              className="search-input"
+              className="nhanvien-search-input"
               value={searchTerm}
               onChange={handleSearch}
               placeholder="Tìm kiếm nhân viên..."
             />
           </div>
         </div>
-        <table>
-          <thead>
+        <table className="nhanvien-table">
+          <thead className="nhanvien-table-head">
             <tr>
               <th>Họ và tên</th>
               <th>Vai trò</th>
@@ -297,7 +297,7 @@ const Nhanvien = () => {
               <th>Thao tác</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="nhanvien-table-body">
             {loading ? (
               <tr>
                 <td colSpan="6">Đang tải dữ liệu nhân viên...</td>
@@ -323,10 +323,10 @@ const Nhanvien = () => {
                   <td>{nv.phone}</td>
                   <td>{nv.createdAt}</td>
                   <td>
-                    <button className="icon-btn edit" title="Sửa" onClick={() => handleEdit(nv)}>
+                    <button className="nhanvien-icon-btn nhanvien-icon-btn-edit" title="Sửa" onClick={() => handleEdit(nv)}>
                       <span role="img" aria-label="edit"><i className="fa-regular fa-pen-to-square"></i></span>
                     </button>
-                    <button className="icon-btn delete" title="Xóa" onClick={() => handleDelete(nv)}>
+                    <button className="nhanvien-icon-btn nhanvien-icon-btn-delete" title="Xóa" onClick={() => handleDelete(nv)}>
                       <span role="img" aria-label="delete"><i className="fa-regular fa-trash-can"></i></span>
                     </button>
                   </td>
@@ -339,11 +339,11 @@ const Nhanvien = () => {
 
       {/* Modal thêm nhân viên */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button className="modal-close" onClick={handleCloseModal} title="Đóng">&times;</button>
+        <div className="nhanvien-modal-overlay">
+          <div className="nhanvien-modal-content">
+            <button className="nhanvien-modal-close" onClick={handleCloseModal} title="Đóng">&times;</button>
             <h2>{editingEmployee ? "Chỉnh sửa nhân viên" : "Thêm nhân viên mới"}</h2>
-            <form className="add-staff-form" onSubmit={handleSubmit}>
+            <form className="nhanvien-form" onSubmit={handleSubmit}>
               <label>
                 Họ và tên *
                 <input
@@ -385,14 +385,14 @@ const Nhanvien = () => {
                   placeholder={editingEmployee ? "Để trống nếu không đổi" : "Nhập mật khẩu"}
                 />
               </label>
-              <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={handleCloseModal} disabled={submitting}>Hủy</button>
-                <button type="submit" className="save-btn" disabled={submitting}>
+              <div className="nhanvien-modal-actions">
+                <button type="button" className="nhanvien-cancel-btn" onClick={handleCloseModal} disabled={submitting}>Hủy</button>
+                <button type="submit" className="nhanvien-save-btn" disabled={submitting}>
                   {editingEmployee ? (submitting ? "Đang cập nhật..." : "Cập nhật") : (submitting ? "Đang lưu..." : "Lưu")}
                 </button>
               </div>
               {submitError && (
-                <p className="modal-error">{submitError}</p>
+                <p className="nhanvien-modal-error">{submitError}</p>
               )}
             </form>
           </div>

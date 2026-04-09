@@ -1187,32 +1187,35 @@ BEGIN
     ),
 
     -------------------------------------------------
-    -- 🔴 OCCUPIED
+    -- 🟥 OCCUPIED (THEO STAY)
     -------------------------------------------------
     Occupied AS (
         SELECT 
             rsh.RoomID,
-            CAST(d.Date AS DATE) AS [Date]
-        FROM RoomStayHistory rsh
-        JOIN Stays s ON s.StayID = rsh.StayID
-        JOIN Dates d ON d.Date >= CAST(rsh.CheckInTime AS DATE)
-                    AND d.Date < CAST(ISNULL(rsh.CheckOutTime, GETDATE()) AS DATE)
+            d.Date
+        FROM Stays s
+        JOIN RoomStayHistory rsh ON rsh.StayID = s.StayID
+        JOIN Dates d 
+            ON d.Date >= CAST(s.ActualCheckIn AS DATE)
+           AND d.Date < CAST(ISNULL(s.ExpectedCheckOut, GETDATE()) AS DATE)
         WHERE s.Status = 'CHECKED_IN'
     ),
 
     -------------------------------------------------
-    -- 🟤 DIRTY (ngày checkout)
+    -- 🟤 DIRTY (1 NGÀY SAU CHECKOUT)
     -------------------------------------------------
     Dirty AS (
         SELECT 
             rsh.RoomID,
-            CAST(rsh.CheckOutTime AS DATE) AS [Date]
-        FROM RoomStayHistory rsh
-        WHERE rsh.CheckOutTime IS NOT NULL
+            CAST(s.ActualCheckOut AS DATE) AS Date
+        FROM Stays s
+        JOIN RoomStayHistory rsh ON rsh.StayID = s.StayID
+        WHERE s.Status = 'COMPLETED'
+          AND s.ActualCheckOut IS NOT NULL
     ),
 
     -------------------------------------------------
-    -- 🔵 BOOKED
+    -- 🔵 BOOKED (THEO LOẠI PHÒNG)
     -------------------------------------------------
     BookedByType AS (
         SELECT 
@@ -1221,14 +1224,15 @@ BEGIN
             SUM(rr.Quantity) AS TotalBooked
         FROM Reservations re
         JOIN ReservationRooms rr ON rr.ReservationID = re.ReservationID
-        JOIN Dates d ON d.Date >= re.CheckInDate
-                    AND d.Date < re.CheckOutDate
+        JOIN Dates d 
+            ON d.Date >= re.CheckInDate
+           AND d.Date < re.CheckOutDate
         WHERE re.Status = 'BOOKED'
         GROUP BY rr.RoomTypeID, d.Date
     ),
 
     -------------------------------------------------
-    -- 🔴 OCCUPIED COUNT
+    -- 🟥 COUNT OCCUPIED THEO TYPE
     -------------------------------------------------
     OccupiedCount AS (
         SELECT 
@@ -1240,6 +1244,9 @@ BEGIN
         GROUP BY r.RoomTypeID, o.Date
     )
 
+    -------------------------------------------------
+    -- MAIN
+    -------------------------------------------------
     SELECT 
         r.RoomID,
         r.RoomNumber,
@@ -1247,35 +1254,23 @@ BEGIN
         d.Date,
 
         CASE 
-            -------------------------------------------------
-            -- 🔧 MAINTENANCE (vẫn ưu tiên cao)
-            -------------------------------------------------
+            -----------------------------------------
             WHEN r.Status = 'MAINTENANCE' THEN 'MAINTENANCE'
 
-            -------------------------------------------------
-            -- 🟤 DIRTY (chỉ đúng ngày checkout)
-            -------------------------------------------------
-            WHEN di.RoomID IS NOT NULL THEN 'DIRTY'
-
-            -------------------------------------------------
-            -- 🔴 OCCUPIED
-            -------------------------------------------------
+            -----------------------------------------
             WHEN o.RoomID IS NOT NULL THEN 'OCCUPIED'
 
-            -------------------------------------------------
-            -- 🔵 BOOKED
-            -------------------------------------------------
+            -----------------------------------------
+            WHEN di.RoomID IS NOT NULL THEN 'DIRTY'
+
+            -----------------------------------------
             WHEN 
                 ISNULL(b.TotalBooked,0) > ISNULL(oc.TotalOccupied,0)
-                AND ROW_NUMBER() OVER (
-                    PARTITION BY r.RoomTypeID, d.Date 
-                    ORDER BY r.RoomID
-                ) <= (ISNULL(b.TotalBooked,0) - ISNULL(oc.TotalOccupied,0))
+                AND o.RoomID IS NULL
+AND di.RoomID IS NULL
             THEN 'BOOKED'
 
-            -------------------------------------------------
-            -- 🟢 AVAILABLE
-            -------------------------------------------------
+            -----------------------------------------
             ELSE 'AVAILABLE'
         END AS Status
 
@@ -1808,17 +1803,35 @@ BEGIN
         FROM Rooms
         WHERE RoomTypeID = @RoomTypeID;
 
-        -- 3. Số phòng đã được đặt trong khoảng thời gian
-        DECLARE @BookedRooms INT;
-        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
-        FROM ReservationRooms rr
-        JOIN Reservations r ON rr.ReservationID = r.ReservationID
-        WHERE rr.RoomTypeID = @RoomTypeID
-        AND r.Status IN ('BOOKED','CHECKED_IN')
-        AND (
-            r.CheckInDate < @CheckOutDate AND 
-            r.CheckOutDate > @CheckInDate
-        );
+        -- 3. Số phòng đã được đặt (Reservation)
+		DECLARE @BookedRooms INT;
+		SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+		FROM ReservationRooms rr
+		JOIN Reservations r ON rr.ReservationID = r.ReservationID
+		WHERE rr.RoomTypeID = @RoomTypeID
+		AND r.Status IN ('BOOKED','CHECKED_IN')
+		AND (
+			r.CheckInDate < @CheckOutDate AND 
+			r.CheckOutDate > @CheckInDate
+		);
+
+		-- 3.1 Số phòng đang OCCUPIED (Stay thật)
+		DECLARE @OccupiedRooms INT;
+		SELECT @OccupiedRooms = COUNT(DISTINCT rsh.RoomID)
+		FROM RoomStayHistory rsh
+		JOIN Rooms rm ON rsh.RoomID = rm.RoomID
+		JOIN Stays s ON rsh.StayID = s.StayID
+		WHERE rm.RoomTypeID = @RoomTypeID
+		AND s.Status = 'CHECKED_IN'
+		AND (
+			rsh.CheckInTime < @CheckOutDate AND 
+			ISNULL(rsh.CheckOutTime, s.ExpectedCheckOut) > @CheckInDate
+		);
+
+		-- 3.2 Tổng phòng đã bị chiếm
+		DECLARE @UsedRooms INT;
+		SET @UsedRooms = @BookedRooms + @OccupiedRooms;
+
 
         -- 4. Kiểm tra đủ phòng không
         IF (@TotalRooms - @BookedRooms < @Quantity)
@@ -1932,30 +1945,49 @@ BEGIN
         SET @CustomerID = SCOPE_IDENTITY();
 
         -------------------------------------------------
-        -- 4. CHECK PHÒNG TRỐNG
-        -------------------------------------------------
-        DECLARE @TotalRooms INT;
-        SELECT @TotalRooms = COUNT(*)
-        FROM Rooms
-        WHERE RoomTypeID = @RoomTypeID;
+		-- 4. CHECK PHÒNG TRỐNG
+		-------------------------------------------------
+		DECLARE @TotalRooms INT;
+		SELECT @TotalRooms = COUNT(*)
+		FROM Rooms
+		WHERE RoomTypeID = @RoomTypeID;
 
-        DECLARE @BookedRooms INT;
-        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
-        FROM ReservationRooms rr
-        JOIN Reservations r ON rr.ReservationID = r.ReservationID
-        WHERE rr.RoomTypeID = @RoomTypeID
-        AND r.Status IN ('BOOKED','CHECKED_IN')
-        AND (
-            r.CheckInDate < @CheckOutDate AND 
-            r.CheckOutDate > @CheckInDate
-        );
+		-- 4.1 Phòng đã BOOKED (Reservation)
+		DECLARE @BookedRooms INT;
+		SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+		FROM ReservationRooms rr
+		JOIN Reservations r ON rr.ReservationID = r.ReservationID
+		WHERE rr.RoomTypeID = @RoomTypeID
+		AND r.Status IN ('BOOKED','CHECKED_IN')
+		AND (
+			r.CheckInDate < @CheckOutDate AND 
+			r.CheckOutDate > @CheckInDate
+		);
 
-        IF (@TotalRooms - @BookedRooms < @Quantity)
-        BEGIN
-            RAISERROR(N'Không đủ phòng trống', 16, 1);
-            ROLLBACK;
-            RETURN;
-        END
+		-- 4.2 Phòng đang OCCUPIED (Stay thực tế)
+		DECLARE @OccupiedRooms INT;
+		SELECT @OccupiedRooms = COUNT(DISTINCT rsh.RoomID)
+		FROM RoomStayHistory rsh
+		JOIN Rooms rm ON rsh.RoomID = rm.RoomID
+		JOIN Stays s ON rsh.StayID = s.StayID
+		WHERE rm.RoomTypeID = @RoomTypeID
+		AND s.Status = 'CHECKED_IN'
+		AND (
+			rsh.CheckInTime < @CheckOutDate AND 
+			ISNULL(rsh.CheckOutTime, s.ExpectedCheckOut) > @CheckInDate
+		);
+
+		-- 4.3 Tổng phòng đã bị chiếm
+		DECLARE @UsedRooms INT;
+		SET @UsedRooms = @BookedRooms + @OccupiedRooms;
+
+		-- 4.4 Check phòng trống
+		IF (@TotalRooms - @UsedRooms < @Quantity)
+		BEGIN
+			RAISERROR(N'Không đủ phòng trống (đã tính cả phòng đang ở)', 16, 1);
+			ROLLBACK;
+			RETURN;
+		END
 
         -------------------------------------------------
         -- 5. LẤY GIÁ
@@ -2131,31 +2163,58 @@ BEGIN
         END
 
         -------------------------------------------------
-        -- 3. Check phòng trống (LOẠI TRỪ chính reservation này)
-        -------------------------------------------------
-        DECLARE @TotalRooms INT;
-        SELECT @TotalRooms = COUNT(*)
-        FROM Rooms
-        WHERE RoomTypeID = @RoomTypeID;
+		-- 3. Check phòng trống (LOẠI TRỪ chính reservation này)
+		-------------------------------------------------
+		DECLARE @TotalRooms INT;
+		SELECT @TotalRooms = COUNT(*)
+		FROM Rooms
+		WHERE RoomTypeID = @RoomTypeID;
 
-        DECLARE @BookedRooms INT;
-        SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
-        FROM ReservationRooms rr
-        JOIN Reservations r ON rr.ReservationID = r.ReservationID
-        WHERE rr.RoomTypeID = @RoomTypeID
-        AND r.Status IN ('BOOKED','CHECKED_IN')
-        AND r.ReservationID <> @ReservationID
-        AND (
-            r.CheckInDate < @CheckOutDate AND 
-            r.CheckOutDate > @CheckInDate
-        );
+		-------------------------------------------------
+		-- 3.1 Phòng đã BOOKED (trừ chính nó)
+		-------------------------------------------------
+		DECLARE @BookedRooms INT;
+		SELECT @BookedRooms = ISNULL(SUM(rr.Quantity), 0)
+		FROM ReservationRooms rr
+		JOIN Reservations r ON rr.ReservationID = r.ReservationID
+		WHERE rr.RoomTypeID = @RoomTypeID
+		AND r.Status IN ('BOOKED','CHECKED_IN')
+		AND r.ReservationID <> @ReservationID
+		AND (
+			r.CheckInDate < @CheckOutDate AND 
+			r.CheckOutDate > @CheckInDate
+		);
 
-        IF (@TotalRooms - @BookedRooms < @Quantity)
-        BEGIN
-            RAISERROR(N'Không đủ phòng trống để cập nhật', 16, 1);
-            ROLLBACK;
-            RETURN;
-        END
+		-------------------------------------------------
+		-- 3.2 Phòng đang OCCUPIED (Stay thật)
+		-------------------------------------------------
+		DECLARE @OccupiedRooms INT;
+		SELECT @OccupiedRooms = COUNT(DISTINCT rsh.RoomID)
+		FROM RoomStayHistory rsh
+		JOIN Rooms rm ON rsh.RoomID = rm.RoomID
+		JOIN Stays s ON rsh.StayID = s.StayID
+		WHERE rm.RoomTypeID = @RoomTypeID
+		AND s.Status = 'CHECKED_IN'
+		AND (
+			rsh.CheckInTime < @CheckOutDate AND 
+			ISNULL(rsh.CheckOutTime, s.ExpectedCheckOut) > @CheckInDate
+		);
+
+		-------------------------------------------------
+		-- 3.3 Tổng phòng đã bị chiếm
+		-------------------------------------------------
+		DECLARE @UsedRooms INT;
+		SET @UsedRooms = @BookedRooms + @OccupiedRooms;
+
+		-------------------------------------------------
+		-- 3.4 Check đủ phòng
+		-------------------------------------------------
+		IF (@TotalRooms - @UsedRooms < @Quantity)
+		BEGIN
+			RAISERROR(N'Không đủ phòng trống để cập nhật (đã tính cả phòng đang ở)', 16, 1);
+			ROLLBACK;
+			RETURN;
+		END
 
         -------------------------------------------------
         -- 4. Lấy giá mới (nếu cần)
@@ -3314,7 +3373,7 @@ END
 
 EXEC sp_GetGuestTypeByMonth
     @Year = 2026,
-    @Month = 3;
+    @Month = 4;
 
 ---Lấy số lượng đặt phòng theo tháng-----------------------------------------------------
 CREATE PROCEDURE sp_GetReservationCountByMonth
@@ -3337,10 +3396,10 @@ EXEC sp_GetReservationCountByMonth
     @Year = 2026,
     @Month = 4;
 
-------------------------------------------------------------
--------------1010101010101010-------------------------------
-------------------------------------------------------------
----load minibar theo roomid(roomtypes)----------------------
+------------------------------------------------------------------------------------------------------
+-------------1010101010101010-------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------
+---load minibar theo roomid(roomtypes)----------------------------------------------------------------
 CREATE PROCEDURE sp_GetMinibarByRoom
     @RoomID INT
 AS
@@ -3360,8 +3419,171 @@ END
 
 EXEC sp_GetMinibarByRoom 1
 
+------------------------------------------------------------------------------------------------------
+-------------1212121212121212-------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------
+---Biểu đồ doanh thu từng ngày theo tháng-------------------------
+CREATE PROCEDURE sp_GetRevenueByDayInMonth
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    -- Tạo ngày đầu và cuối tháng
+    DECLARE @StartDate DATE = DATEFROMPARTS(@Year, @Month, 1);
+    DECLARE @EndDate DATE = EOMONTH(@StartDate);
 
+    -- Tạo bảng danh sách ngày trong tháng
+    ;WITH DateList AS (
+        SELECT @StartDate AS Ngay
+        UNION ALL
+        SELECT DATEADD(DAY, 1, Ngay)
+        FROM DateList
+        WHERE Ngay < @EndDate
+    )
+
+    SELECT 
+        DAY(d.Ngay) AS Ngay,
+        ISNULL(SUM(p.Amount), 0) AS DoanhThu
+    FROM DateList d
+    LEFT JOIN Invoices i
+        ON CAST(i.Date AS DATE) = d.Ngay
+        AND i.Status = 'PAID'
+    LEFT JOIN Payments p
+        ON p.InvoiceID = i.InvoiceID
+    GROUP BY d.Ngay
+    ORDER BY d.Ngay
+    OPTION (MAXRECURSION 31); -- tránh lỗi đệ quy
+END
+
+EXEC sp_GetRevenueByDayInMonth @Month = 3, @Year = 2026
+
+---Biểu đồ doanh thu theo kênh (Đặt phòng/ Walk-in)---------------
+--sp_GetGuestTypeByMonth
+
+---Biểu đồ doanh thu theo loại phòng------------------------------
+CREATE alter PROCEDURE sp_GetRevenueByRoomTypeInMonth
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Đếm số phòng trong mỗi Stay (để tránh nhân đôi doanh thu)
+    ;WITH RoomCount AS (
+        SELECT 
+            StayID,
+            COUNT(DISTINCT RoomID) AS SoPhong
+        FROM RoomStayHistory
+        GROUP BY StayID
+    ),
+
+    RevenueData AS (
+        SELECT 
+            r.RoomTypeID,
+            SUM(p.Amount * 1.0 / rc.SoPhong) AS DoanhThu
+        FROM Payments p
+        INNER JOIN Invoices i 
+            ON p.InvoiceID = i.InvoiceID
+        INNER JOIN Stays s
+            ON i.StayID = s.StayID
+        INNER JOIN RoomStayHistory rsh
+            ON s.StayID = rsh.StayID
+        INNER JOIN RoomCount rc
+            ON rc.StayID = s.StayID
+        INNER JOIN Rooms r
+            ON rsh.RoomID = r.RoomID
+        WHERE 
+            MONTH(p.PaymentDate) = @Month
+            AND YEAR(p.PaymentDate) = @Year
+            AND i.Status = 'PAID'
+        GROUP BY r.RoomTypeID
+    )
+
+    SELECT 
+        rt.Name AS TenLoaiPhong,
+        ISNULL(rd.DoanhThu, 0) AS DoanhThu
+    FROM RoomTypes rt
+    LEFT JOIN RevenueData rd
+        ON rt.RoomTypeID = rd.RoomTypeID
+    ORDER BY DoanhThu DESC;
+END
+
+EXEC sp_GetRevenueByRoomTypeInMonth @Month = 4, @Year = 2026
+---Biểu đồ công suất theo loại phòng------------------------------
+CREATE PROCEDURE sp_GetRoomTypeUsagePercentInMonth
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @StartDate DATE = DATEFROMPARTS(@Year, @Month, 1);
+    DECLARE @EndDate DATE = EOMONTH(@StartDate);
+
+    -- Lấy tất cả các ngày phòng được sử dụng (tính theo từng ngày)
+    ;WITH UsagePerDay AS (
+        SELECT 
+            r.RoomTypeID,
+            CAST(d.Ngay AS DATE) AS Ngay
+        FROM RoomStayHistory rsh
+        INNER JOIN Rooms r
+            ON rsh.RoomID = r.RoomID
+
+        -- Tách từng ngày sử dụng
+        CROSS APPLY (
+            SELECT DATEADD(DAY, v.number,
+                CASE 
+                    WHEN rsh.CheckInTime < @StartDate THEN @StartDate
+                    ELSE rsh.CheckInTime
+                END
+            ) AS Ngay
+            FROM master..spt_values v
+            WHERE v.type = 'P'
+              AND DATEADD(DAY, v.number,
+                    CASE 
+                        WHEN rsh.CheckInTime < @StartDate THEN @StartDate
+                        ELSE rsh.CheckInTime
+                    END
+                ) < 
+                CASE 
+                    WHEN rsh.CheckOutTime > DATEADD(DAY, 1, @EndDate) 
+                        THEN DATEADD(DAY, 1, @EndDate)
+                    ELSE rsh.CheckOutTime
+                END
+        ) d
+    ),
+
+    -- Đếm số lượt sử dụng theo loại phòng
+    RoomTypeUsage AS (
+        SELECT 
+            RoomTypeID,
+            COUNT(*) AS UsageCount
+        FROM UsagePerDay
+        GROUP BY RoomTypeID
+    ),
+
+    -- Tổng toàn bộ lượt sử dụng
+    TotalUsage AS (
+        SELECT COUNT(*) AS TotalCount
+        FROM UsagePerDay
+    )
+
+    SELECT 
+        rt.Name AS TenLoaiPhong,
+        ISNULL(
+            (rtu.UsageCount * 100.0) / tu.TotalCount,
+            0
+        ) AS PhanTramSuDung
+    FROM RoomTypes rt
+    LEFT JOIN RoomTypeUsage rtu
+        ON rt.RoomTypeID = rtu.RoomTypeID
+    CROSS JOIN TotalUsage tu
+    ORDER BY PhanTramSuDung DESC;
+END
+
+EXEC sp_GetRoomTypeUsagePercentInMonth @Month = 4, @Year = 2026
 
 
 
