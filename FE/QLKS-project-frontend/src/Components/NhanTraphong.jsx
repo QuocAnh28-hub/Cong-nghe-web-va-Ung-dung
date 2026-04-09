@@ -1,4 +1,4 @@
-﻿﻿import React, { Component } from "react";
+﻿﻿﻿import React, { Component } from "react";
 import "../style/NhanTraphong.css";
 import { FeatureHeader } from "./Common";
 
@@ -7,31 +7,62 @@ const WAITING_CHECKIN_CUSTOMERS_API_URL = `${RESERVATIONS_API_URL}/waiting-check
 const CURRENT_STAYING_CUSTOMERS_API_URL = `${RESERVATIONS_API_URL}/current-staying-customers`;
 const CHECKIN_BY_RESERVATION_API_URL = `${RESERVATIONS_API_URL}/checkin/by-reservation`;
 const CHECKIN_WALKIN_API_URL = `${RESERVATIONS_API_URL}/checkin/walkin`;
+const CHECKOUT_ROOM_API_URL = `${RESERVATIONS_API_URL}/checkout-room`;
+const TRANSFER_ROOM_API_URL = `${RESERVATIONS_API_URL}/transfer-room`;
+const EXTEND_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/extend`;
+const SERVICE_USAGES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/service-usages`;
+const SERVICE_USAGE_BY_ID_API_URL = (usageId) =>
+  `${RESERVATIONS_API_URL}/service-usages/${usageId}`;
+const MINIBAR_USAGES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/minibar-usages`;
+const MINIBAR_USAGE_BY_ID_API_URL = (usageId) =>
+  `${RESERVATIONS_API_URL}/minibar-usages/${usageId}`;
+const MINIBAR_ITEMS_BY_ROOM_API_URL = (roomId) =>
+  `${RESERVATIONS_API_URL}/rooms/${roomId}/minibar-items`;
+const PENALTIES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/penalties`;
+const PENALTY_BY_ID_API_URL = (penaltyId) =>
+  `${RESERVATIONS_API_URL}/penalties/${penaltyId}`;
+const SERVICES_API_URL = "http://localhost:3000/api/services";
 const ROOMS_API_URL = "http://localhost:3000/api/rooms";
-const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
 
 class NhanTraphong extends Component {
-  serviceOptions = [
-    { name: "Giặt ủi", label: "Giặt ủi - 50.000đ", price: 50000 },
-    { name: "Dọn phòng", label: "Dọn phòng - 30.000đ", price: 30000 },
-    {
-      name: "Đưa đón sân bay",
-      label: "Đưa đón sân bay - 250.000đ",
-      price: 250000,
-    },
-    { name: "Bữa sáng", label: "Bữa sáng - 80.000đ", price: 80000 },
-  ];
-
   createId = () => Date.now() + Math.floor(Math.random() * 1000);
 
-  getDefaultServiceItems = () => [
-    { id: this.createId(), name: "", qty: 1, price: 0 },
-  ];
+  getDefaultServiceItem = () => ({
+    id: this.createId(),
+    usageId: null,
+    serviceId: "",
+    name: "",
+    qty: 1,
+    price: 0,
+    total: 0,
+    isDraft: true,
+    isCreating: false,
+    isUpdatingQty: false,
+    isDeleting: false,
+  });
 
-  getDefaultMinibarItems = () => [
-    { id: 1, name: "Pepsi - 30.000đ", qty: 2, price: 30000 },
-    { id: 2, name: "Nước suối - 10.000đ", qty: 1, price: 10000 },
-  ];
+  getDefaultServiceItems = () => [this.getDefaultServiceItem()];
+
+  getDefaultMinibarItem = () => ({
+    id: this.createId(),
+    usageId: null,
+    minibarId: "",
+    name: "",
+    qty: 1,
+    price: 0,
+    total: 0,
+    isDraft: true,
+    isCreating: false,
+    isUpdatingQty: false,
+    isDeleting: false,
+  });
+
+  getDefaultMinibarItems = () => [this.getDefaultMinibarItem()];
 
   extractInputDateFromPlan = (plan) => {
     if (!plan) return "";
@@ -150,6 +181,7 @@ class NhanTraphong extends Component {
 
   loadInitialData = async () => {
     await this.fetchRoomTypes();
+    await this.fetchServiceOptions();
     await Promise.all([
       this.fetchWaitingCheckinCustomers(),
       this.fetchCurrentStayingCustomers(),
@@ -209,6 +241,7 @@ class NhanTraphong extends Component {
     roomId: item?.RoomID ?? item?.id ?? null,
     roomNumber: item?.RoomNumber ?? "",
     roomType: item?.RoomType ?? item?.RoomTypeName ?? "",
+    status: item?.Status ?? "",
   });
 
   normalizeRoomStatus = (status) =>
@@ -223,7 +256,83 @@ class NhanTraphong extends Component {
     );
   };
 
+  normalizeServiceStatus = (status) =>
+    String(status ?? "")
+      .trim()
+      .toUpperCase();
+
+  isActiveServiceStatus = (status) => {
+    if (typeof status === "boolean") return status;
+    const normalized = this.normalizeServiceStatus(status);
+    return ["TRUE", "ACTIVE", "1"].includes(normalized);
+  };
+
+  mapServiceOptionFromApi = (item) => {
+    const serviceId = item?.ServiceID ?? item?.serviceId ?? item?.id ?? null;
+    const parsedServiceId = Number(serviceId);
+    const name = item?.ServiceName ?? item?.serviceName ?? item?.name ?? "";
+    const priceRaw = Number(item?.Price ?? item?.price ?? 0);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+    const status = item?.Status ?? item?.status ?? "TRUE";
+
+    return {
+      serviceId: Number.isFinite(parsedServiceId) ? parsedServiceId : null,
+      name: String(name || "").trim(),
+      price,
+      status: this.normalizeServiceStatus(status),
+      label: `${String(name || "").trim()} - ${price.toLocaleString("vi-VN")}đ`,
+    };
+  };
+
+  fetchServiceOptions = async (showError = false) => {
+    try {
+      this.setState({ serviceCatalogLoading: true });
+
+      const payload = await this.request(SERVICES_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const serviceOptions = rawItems
+        .map(this.mapServiceOptionFromApi)
+        .filter(
+          (item) =>
+            item.serviceId !== null &&
+            item.name &&
+            this.isActiveServiceStatus(item.status),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+
+      this.setState({ serviceOptions });
+    } catch (err) {
+      this.setState((prev) => ({
+        serviceOptions: prev.serviceOptions,
+      }));
+
+      if (showError) {
+        window.alert(err.message || "Không thể tải danh mục dịch vụ.");
+      }
+    } finally {
+      this.setState({ serviceCatalogLoading: false });
+    }
+  };
+
+  isTransferAvailableRoom = (status) => {
+    const normalized = this.normalizeRoomStatus(status);
+    return ["AVAILABLE", "VACANT", "EMPTY"].includes(normalized);
+  };
+
   mapStayingFromApi = (item) => {
+    const resolvedStayId =
+      item?.StayID ??
+      item?.StayId ??
+      item?.stayId ??
+      item?.ID ??
+      item?.Id ??
+      item?.id ??
+      null;
     const roomNumber = item?.RoomNumber ? String(item.RoomNumber).trim() : "";
     const roomType = this.resolveRoomTypeName(item);
     const room = roomNumber
@@ -233,13 +342,367 @@ class NhanTraphong extends Component {
         : "-";
 
     return {
-      id: item?.ReservationID ?? item?.RoomID ?? this.createId(),
+      id:
+        resolvedStayId ??
+        item?.ReservationID ??
+        item?.RoomID ??
+        this.createId(),
+      stayId: resolvedStayId,
       reservationId: item?.ReservationID ?? null,
+      roomId: item?.RoomID ?? item?.roomId ?? item?.RoomId ?? null,
+      roomNumber,
       guest: item?.FullName ?? "",
       room,
       checkInTime: this.formatDateTimeForTable(item?.CheckInDate),
       checkOutPlan: this.formatDateTimeForTable(item?.CheckOutDate),
     };
+  };
+
+  extractRoomNumberToken = (value) => {
+    if (!value) return "";
+    const normalized = String(value).trim();
+    if (!normalized) return "";
+
+    const hashMatch = normalized.match(/#\s*([A-Za-z0-9-]+)/);
+    if (hashMatch?.[1]) return hashMatch[1].trim();
+
+    const phongPrefixMatch = normalized.match(/^ph[oòóỏõọôồốổỗộơờớởỡợ]ng\s+([^\s(]+)/i);
+    if (phongPrefixMatch?.[1]) return phongPrefixMatch[1].trim();
+
+    const tokenMatch = normalized.match(/^([^\s(]+)/);
+    if (tokenMatch?.[1]) return tokenMatch[1].trim();
+
+    const numberMatch = normalized.match(/\d+/);
+    return numberMatch?.[0] ? numberMatch[0].trim() : "";
+  };
+
+  resolveCheckoutRoomId = async (checkoutItem) => {
+    const directRoomId = Number(
+      checkoutItem?.roomId ?? checkoutItem?.RoomID ?? checkoutItem?.roomID,
+    );
+    if (Number.isInteger(directRoomId) && directRoomId > 0) return directRoomId;
+
+    const roomNumber = this.extractRoomNumberToken(
+      checkoutItem?.roomNumber ?? checkoutItem?.RoomNumber ?? checkoutItem?.room,
+    );
+    if (!roomNumber) return null;
+
+    const payload = await this.request(ROOMS_API_URL);
+    const rawItems = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+    const normalizedRoomNumber = String(roomNumber).trim();
+    const roomNumberAsNumber = Number(normalizedRoomNumber);
+
+    const matchedRoom = rawItems.find(
+      (item) => {
+        const apiRoomNumber = String(item?.RoomNumber ?? "").trim();
+        if (!apiRoomNumber) return false;
+        if (apiRoomNumber === normalizedRoomNumber) return true;
+
+        const apiRoomNumberAsNumber = Number(apiRoomNumber);
+        if (
+          Number.isFinite(roomNumberAsNumber) &&
+          Number.isFinite(apiRoomNumberAsNumber)
+        ) {
+          return apiRoomNumberAsNumber === roomNumberAsNumber;
+        }
+
+        return false;
+      },
+    );
+    const fallbackById =
+      !matchedRoom && Number.isFinite(roomNumberAsNumber)
+        ? rawItems.find(
+            (item) =>
+              Number(item?.RoomID ?? item?.roomId ?? item?.id ?? null) ===
+              roomNumberAsNumber,
+          )
+        : null;
+    const matchedRoomId = Number(
+      (matchedRoom || fallbackById)?.RoomID ??
+        (matchedRoom || fallbackById)?.roomId ??
+        (matchedRoom || fallbackById)?.id ??
+        null,
+    );
+    return Number.isInteger(matchedRoomId) && matchedRoomId > 0
+      ? matchedRoomId
+      : null;
+  };
+
+  normalizeServiceName = (value = "") =>
+    String(value)
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u0111\u0110]/g, "d");
+
+  findServiceOptionByName = (name) => {
+    const normalizedName = this.normalizeServiceName(name);
+    return this.state.serviceOptions.find(
+      (option) => this.normalizeServiceName(option.name) === normalizedName,
+    );
+  };
+
+  mapServiceUsageFromApi = (item) => {
+    const usageId = item?.UsageID ?? item?.usageId ?? item?.id ?? null;
+    const quantityRaw = Number(item?.Quantity ?? item?.quantity ?? 1);
+    const qty = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
+    const priceRaw = Number(item?.Price ?? item?.price ?? 0);
+    const serviceName = item?.ServiceName ?? item?.serviceName ?? "";
+    const matchedOption = this.findServiceOptionByName(serviceName);
+    const price = Number.isFinite(priceRaw) ? priceRaw : matchedOption?.price || 0;
+    const totalRaw = Number(item?.Total ?? item?.total ?? qty * price);
+    const total = Number.isFinite(totalRaw) ? totalRaw : qty * price;
+
+    return {
+      id: usageId ?? this.createId(),
+      usageId,
+      serviceId: matchedOption ? String(matchedOption.serviceId) : "",
+      name: serviceName || matchedOption?.name || "",
+      qty,
+      price,
+      total,
+      isDraft: false,
+      isCreating: false,
+      isUpdatingQty: false,
+      isDeleting: false,
+    };
+  };
+
+  fetchServiceUsagesByStay = async (stayId) => {
+    if (!stayId) {
+      this.setState({ serviceItems: [], serviceUsageLoading: false });
+      return;
+    }
+
+    try {
+      this.setState({ serviceUsageLoading: true, serviceItems: [] });
+
+      const payload = await this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId));
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      const serviceItems = rawItems.map(this.mapServiceUsageFromApi);
+
+      this.setState((prev) => {
+        const stillInServiceModal =
+          prev.modalType === "service" &&
+          String(prev.currentItem?.stayId ?? "") === String(stayId);
+
+        if (!stillInServiceModal) return null;
+        return { serviceItems };
+      });
+    } catch (err) {
+      this.setState({ serviceItems: [] });
+      window.alert(
+        err.message || "Không thể tải danh sách dịch vụ đã sử dụng.",
+      );
+    } finally {
+      this.setState({ serviceUsageLoading: false });
+    }
+  };
+
+  normalizeMinibarName = (value = "") =>
+    String(value)
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u0111\u0110]/g, "d");
+
+  findMinibarOptionByMinibarId = (minibarId) => {
+    const normalizedId = String(minibarId);
+    return this.state.minibarOptions.find(
+      (option) => String(option.minibarId) === normalizedId,
+    );
+  };
+
+  findMinibarOptionByName = (name) => {
+    const normalizedName = this.normalizeMinibarName(name);
+    return this.state.minibarOptions.find(
+      (option) => this.normalizeMinibarName(option.name) === normalizedName,
+    );
+  };
+
+  mapMinibarOptionFromApi = (item) => {
+    const minibarIdRaw =
+      item?.MiniBarID ?? item?.MinibarID ?? item?.minibarId ?? item?.id ?? null;
+    const parsedMinibarId = Number(minibarIdRaw);
+    const name = item?.ItemName ?? item?.itemName ?? item?.Name ?? item?.name ?? "";
+    const priceRaw = Number(item?.Price ?? item?.price ?? 0);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+    const displayName = String(name || "").trim();
+
+    return {
+      minibarId: Number.isFinite(parsedMinibarId) ? parsedMinibarId : null,
+      name: displayName,
+      price,
+      label: `${displayName} - ${price.toLocaleString("vi-VN")}đ`,
+    };
+  };
+
+  mapMinibarUsageFromApi = (item) => {
+    const usageId = item?.ID ?? item?.UsageID ?? item?.usageId ?? item?.id ?? null;
+    const quantityRaw = Number(item?.Quantity ?? item?.quantity ?? 1);
+    const qty = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
+    const itemName = item?.ItemName ?? item?.itemName ?? "";
+    const priceRaw = Number(item?.Price ?? item?.price ?? 0);
+    const minibarIdRaw =
+      item?.MiniBarID ?? item?.MinibarID ?? item?.minibarId ?? null;
+    const parsedMinibarId = Number(minibarIdRaw);
+    const minibarIdFromApi = Number.isFinite(parsedMinibarId)
+      ? parsedMinibarId
+      : null;
+    const matchedById =
+      minibarIdFromApi !== null
+        ? this.findMinibarOptionByMinibarId(minibarIdFromApi)
+        : null;
+    const matchedByName = this.findMinibarOptionByName(itemName);
+    const matchedOption = matchedById || matchedByName;
+    const price = Number.isFinite(priceRaw) ? priceRaw : matchedOption?.price || 0;
+    const totalRaw = Number(item?.Total ?? item?.total ?? qty * price);
+    const total = Number.isFinite(totalRaw) ? totalRaw : qty * price;
+    const minibarId = matchedOption?.minibarId ?? minibarIdFromApi;
+
+    return {
+      id: usageId ?? this.createId(),
+      usageId,
+      minibarId:
+        minibarId !== null && minibarId !== undefined ? String(minibarId) : "",
+      name: itemName || matchedOption?.name || "",
+      qty,
+      price,
+      total,
+      isDraft: false,
+      isCreating: false,
+      isUpdatingQty: false,
+      isDeleting: false,
+    };
+  };
+
+  fetchMinibarOptionsByRoom = async (roomId, showError = false, stayId = null) => {
+    if (!roomId) {
+      this.setState({ minibarOptions: [], minibarCatalogLoading: false });
+      if (showError) {
+        window.alert("Không tìm thấy RoomID để tải danh mục minibar.");
+      }
+      return;
+    }
+
+    try {
+      this.setState({ minibarCatalogLoading: true, minibarOptions: [] });
+
+      const payload = await this.request(MINIBAR_ITEMS_BY_ROOM_API_URL(roomId));
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      const minibarOptions = rawItems
+        .map(this.mapMinibarOptionFromApi)
+        .filter((item) => item.minibarId !== null && item.name)
+        .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+
+      this.setState((prev) => {
+        const stillInCheckoutModal =
+          prev.modalType === "checkout" &&
+          (stayId === null ||
+            String(prev.currentItem?.stayId ?? "") === String(stayId));
+
+        if (!stillInCheckoutModal) return null;
+        return { minibarOptions };
+      });
+    } catch (err) {
+      this.setState({ minibarOptions: [] });
+      if (showError) {
+        window.alert(err.message || "Không thể tải danh mục minibar theo phòng.");
+      }
+    } finally {
+      this.setState({ minibarCatalogLoading: false });
+    }
+  };
+
+  loadCheckoutMinibarData = async (checkoutItem) => {
+    const stayId = checkoutItem?.stayId ?? null;
+
+    try {
+      const roomId = await this.resolveCheckoutRoomId(checkoutItem);
+      await this.fetchMinibarOptionsByRoom(roomId, true, stayId);
+    } catch (err) {
+      this.setState({
+        minibarCatalogLoading: false,
+        minibarOptions: [],
+      });
+      window.alert(err.message || "Không thể tải danh mục minibar theo phòng.");
+    } finally {
+      await this.fetchMinibarUsagesByStay(stayId);
+    }
+  };
+
+  fetchMinibarUsagesByStay = async (stayId) => {
+    if (!stayId) {
+      this.setState({ minibarItems: [], minibarUsageLoading: false });
+      return;
+    }
+
+    try {
+      this.setState({ minibarUsageLoading: true, minibarItems: [] });
+
+      const payload = await this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId));
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      const minibarItems = rawItems.map(this.mapMinibarUsageFromApi);
+
+      this.setState((prev) => {
+        const stillInCheckoutModal =
+          prev.modalType === "checkout" &&
+          String(prev.currentItem?.stayId ?? "") === String(stayId);
+
+        if (!stillInCheckoutModal) return null;
+        return { minibarItems };
+      });
+    } catch (err) {
+      this.setState({ minibarItems: [] });
+      window.alert(
+        err.message || "Không thể tải danh sách minibar đã sử dụng.",
+      );
+    } finally {
+      this.setState({ minibarUsageLoading: false });
+    }
+  };
+
+  createMinibarUsage = async (stayId, minibarId, quantity) => {
+    const requestBodies = [
+      { MinibarID: minibarId, Quantity: quantity },
+      { MiniBarID: minibarId, Quantity: quantity },
+      { minibarId, quantity },
+    ];
+
+    let lastError = null;
+
+    for (const body of requestBodies) {
+      try {
+        await this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error("Thêm minibar thất bại.");
   };
 
   fetchWaitingCheckinCustomers = async () => {
@@ -387,6 +850,65 @@ class NhanTraphong extends Component {
     }
   };
 
+  fetchTransferAvailableRooms = async (oldRoomId) => {
+    try {
+      this.setState({
+        transferRoomsLoading: true,
+        transferAvailableRooms: [],
+        transferRoom: "",
+      });
+
+      const payload = await this.request(ROOMS_API_URL);
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const transferAvailableRooms = rawItems
+        .filter((item) => this.isTransferAvailableRoom(item?.Status))
+        .map(this.mapRoomFromApi)
+        .filter(
+          (room) =>
+            room.roomId !== null && String(room.roomId) !== String(oldRoomId),
+        )
+        .sort((a, b) =>
+          String(a.roomNumber || "").localeCompare(
+            String(b.roomNumber || ""),
+            "vi",
+            {
+              numeric: true,
+            },
+          ),
+        );
+
+      this.setState((prev) => {
+        const stillInTransferModal =
+          prev.modalType === "transfer" &&
+          String(prev.currentItem?.roomId ?? "") === String(oldRoomId ?? "");
+
+        if (!stillInTransferModal) return null;
+
+        return {
+          transferAvailableRooms,
+          transferRoom: transferAvailableRooms[0]
+            ? String(transferAvailableRooms[0].roomId)
+            : "",
+        };
+      });
+    } catch (err) {
+      this.setState({
+        transferAvailableRooms: [],
+        transferRoom: "",
+      });
+      window.alert(
+        err.message || "Không thể tải danh sách phòng khả dụng để chuyển.",
+      );
+    } finally {
+      this.setState({ transferRoomsLoading: false });
+    }
+  };
+
   confirmWalkin = async () => {
     const { walkInForm } = this.state;
     const fullName = walkInForm.name.trim();
@@ -473,6 +995,171 @@ class NhanTraphong extends Component {
     }
   };
 
+  confirmTransfer = async () => {
+    const { currentItem, transferRoom } = this.state;
+
+    if (!currentItem?.stayId) {
+      window.alert("Không tìm thấy StayID để thực hiện chuyển phòng.");
+      return;
+    }
+
+    if (!currentItem?.roomId) {
+      window.alert("Không tìm thấy RoomID phòng hiện tại.");
+      return;
+    }
+
+    if (!transferRoom) {
+      window.alert("Vui lòng chọn phòng mới.");
+      return;
+    }
+
+    const stayId = Number(currentItem.stayId);
+    const oldRoomId = Number(currentItem.roomId);
+    const newRoomId = Number(transferRoom);
+
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("StayID không hợp lệ.");
+      return;
+    }
+
+    if (!Number.isInteger(oldRoomId) || oldRoomId < 1) {
+      window.alert("OldRoomID không hợp lệ.");
+      return;
+    }
+
+    if (!Number.isInteger(newRoomId) || newRoomId < 1) {
+      window.alert("NewRoomID không hợp lệ.");
+      return;
+    }
+
+    if (oldRoomId === newRoomId) {
+      window.alert("Phòng mới phải khác phòng hiện tại.");
+      return;
+    }
+
+    try {
+      this.setState({ transferSubmitting: true });
+      const response = await this.request(TRANSFER_ROOM_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          StayID: stayId,
+          OldRoomID: oldRoomId,
+          NewRoomID: newRoomId,
+        }),
+      });
+
+      window.alert(
+        response?.Message || response?.message || "Chuyển phòng thành công.",
+      );
+
+      this.closeModal();
+      await this.fetchCurrentStayingCustomers();
+    } catch (err) {
+      window.alert(err.message || "Chuyển phòng thất bại.");
+    } finally {
+      this.setState({ transferSubmitting: false });
+    }
+  };
+
+  confirmExtend = async () => {
+    const { currentItem, extendForm } = this.state;
+
+    if (!currentItem?.stayId) {
+      window.alert("Không tìm thấy StayID để thực hiện gia hạn.");
+      return;
+    }
+
+    if (!extendForm.newCheckOut) {
+      window.alert("Vui lòng chọn ngày Check-out mới.");
+      return;
+    }
+
+    const currentDate = this.extractInputDateFromPlan(currentItem?.checkOutPlan);
+    if (currentDate && extendForm.newCheckOut <= currentDate) {
+      window.alert("Ngày Check-out mới phải lớn hơn ngày dự kiến hiện tại.");
+      return;
+    }
+
+    const stayId = Number(currentItem.stayId);
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("StayID không hợp lệ.");
+      return;
+    }
+
+    try {
+      this.setState({ extendSubmitting: true });
+      const response = await this.request(EXTEND_STAY_API_URL(stayId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          NewCheckOut: extendForm.newCheckOut,
+        }),
+      });
+
+      window.alert(
+        response?.Message ||
+          response?.message ||
+          "Gia hạn lưu trú thành công.",
+      );
+
+      this.closeModal();
+      await this.fetchCurrentStayingCustomers();
+    } catch (err) {
+      window.alert(err.message || "Gia hạn lưu trú thất bại.");
+    } finally {
+      this.setState({ extendSubmitting: false });
+    }
+  };
+
+  confirmCheckout = async () => {
+    const { currentItem, checkoutSubmitting } = this.state;
+
+    if (checkoutSubmitting) return;
+
+    const stayId = Number(
+      currentItem?.stayId ??
+        currentItem?.StayID ??
+        currentItem?.stayID ??
+        currentItem?.StayId,
+    );
+
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("Không tìm thấy StayID hợp lệ để check-out.");
+      return;
+    }
+
+    try {
+      this.setState({ checkoutSubmitting: true });
+
+      const roomId = await this.resolveCheckoutRoomId(currentItem);
+      if (!Number.isInteger(roomId) || roomId < 1) {
+        window.alert("Không tìm thấy RoomID hợp lệ để check-out.");
+        return;
+      }
+
+      const response = await this.request(CHECKOUT_ROOM_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          StayID: stayId,
+          RoomID: roomId,
+        }),
+      });
+
+      window.alert(
+        response?.Message || response?.message || "Check-out phòng thành công.",
+      );
+
+      this.closeModal();
+      await this.fetchCurrentStayingCustomers();
+    } catch (err) {
+      window.alert(err.message || "Check-out phòng thất bại.");
+    } finally {
+      this.setState({ checkoutSubmitting: false });
+    }
+  };
+
   state = {
     activeTab: "stay",
     showModal: false,
@@ -486,9 +1173,22 @@ class NhanTraphong extends Component {
     availableRoomsLoading: false,
     walkinAvailableRooms: [],
     walkinRoomsLoading: false,
+    transferAvailableRooms: [],
+    transferRoomsLoading: false,
+    serviceUsageLoading: false,
+    serviceCatalogLoading: false,
+    serviceOptions: [],
+    minibarUsageLoading: false,
+    minibarCatalogLoading: false,
+    minibarOptions: [],
+    penaltyLoading: false,
+    penaltyAdding: false,
     selectedCheckinRoomId: "",
     checkinSubmitting: false,
     walkinSubmitting: false,
+    transferSubmitting: false,
+    extendSubmitting: false,
+    checkoutSubmitting: false,
     roomTypeMap: {},
     walkInForm: {
       name: "",
@@ -499,11 +1199,8 @@ class NhanTraphong extends Component {
     transferRoom: "",
     transferNote: "",
     extendForm: { info: "", newCheckOut: "" },
-    minibarItems: [
-      { id: 1, name: "Pepsi - 30.000đ", qty: 2, price: 30000 },
-      { id: 2, name: "Nước suối - 10.000đ", qty: 1, price: 10000 },
-    ],
-    serviceItems: [{ id: Date.now(), name: "", qty: 1, price: 0 }],
+    minibarItems: this.getDefaultMinibarItems(),
+    serviceItems: this.getDefaultServiceItems(),
     newPenalty: { reason: "", amount: "" },
     penalties: [],
   };
@@ -523,7 +1220,9 @@ class NhanTraphong extends Component {
     }
 
     if (type === "service") {
-      nextState.serviceItems = this.getDefaultServiceItems();
+      nextState.serviceItems = [];
+      nextState.serviceUsageLoading = true;
+      nextState.serviceCatalogLoading = true;
     }
 
     if (type === "walkin") {
@@ -538,6 +1237,23 @@ class NhanTraphong extends Component {
       nextState.selectedCheckinRoomId = "";
     }
 
+    if (type === "transfer") {
+      nextState.transferAvailableRooms = [];
+      nextState.transferRoomsLoading = true;
+      nextState.transferRoom = "";
+    }
+
+    if (type === "checkout") {
+      nextState.minibarItems = [];
+      nextState.minibarUsageLoading = true;
+      nextState.minibarCatalogLoading = true;
+      nextState.minibarOptions = [];
+      nextState.penalties = [];
+      nextState.newPenalty = { reason: "", amount: "" };
+      nextState.penaltyLoading = true;
+      nextState.penaltyAdding = false;
+    }
+
     this.setState(nextState);
 
     if (type === "checkin" && item?.reservationId) {
@@ -546,6 +1262,20 @@ class NhanTraphong extends Component {
 
     if (type === "walkin") {
       this.fetchWalkinAvailableRooms();
+    }
+
+    if (type === "transfer") {
+      this.fetchTransferAvailableRooms(item?.roomId);
+    }
+
+    if (type === "service") {
+      this.fetchServiceOptions(true);
+      this.fetchServiceUsagesByStay(item?.stayId);
+    }
+
+    if (type === "checkout") {
+      this.loadCheckoutMinibarData(item);
+      this.fetchPenaltiesByStay(item?.stayId);
     }
   };
 
@@ -566,9 +1296,21 @@ class NhanTraphong extends Component {
       availableRoomsLoading: false,
       walkinAvailableRooms: [],
       walkinRoomsLoading: false,
+      transferAvailableRooms: [],
+      transferRoomsLoading: false,
+      serviceUsageLoading: false,
+      serviceCatalogLoading: false,
+      minibarUsageLoading: false,
+      minibarCatalogLoading: false,
+      minibarOptions: [],
+      penaltyLoading: false,
+      penaltyAdding: false,
       selectedCheckinRoomId: "",
       checkinSubmitting: false,
       walkinSubmitting: false,
+      transferSubmitting: false,
+      extendSubmitting: false,
+      checkoutSubmitting: false,
     });
   };
 
@@ -593,90 +1335,561 @@ class NhanTraphong extends Component {
   };
 
   addMinibarItem = () => {
+    const {
+      modalType,
+      minibarUsageLoading,
+      minibarCatalogLoading,
+      minibarOptions,
+      minibarItems,
+    } = this.state;
+
+    if (modalType !== "checkout") return;
+
+    if (minibarUsageLoading || minibarCatalogLoading) {
+      window.alert("Danh sách minibar đang tải, vui lòng thử lại sau vài giây.");
+      return;
+    }
+
+    if (!Array.isArray(minibarOptions) || minibarOptions.length === 0) {
+      window.alert("Chưa có danh mục minibar cho phòng này nên chưa thể thêm.");
+      return;
+    }
+
+    const hasPendingDraft = minibarItems.some(
+      (item) =>
+        item.isDraft &&
+        !item.minibarId &&
+        !item.isCreating &&
+        !item.isDeleting,
+    );
+    if (hasPendingDraft) {
+      window.alert("Vui lòng chọn minibar ở dòng hiện tại trước khi thêm dòng mới.");
+      return;
+    }
+
     this.setState((prev) => ({
-      minibarItems: [
-        ...prev.minibarItems,
-        { id: Date.now(), name: "", qty: 1, price: 0 },
-      ],
+      minibarItems: [...prev.minibarItems, this.getDefaultMinibarItem()],
     }));
   };
 
-  updateMinibarItem = (id, field, value) => {
+  updateMinibarItem = async (id, field, value) => {
+    const { currentItem, minibarItems, minibarOptions } = this.state;
+    const targetItem = minibarItems.find((item) => item.id === id);
+    const stayId = Number(currentItem?.stayId);
+
+    if (!targetItem) return;
+
+    if (field === "minibarId") {
+      if (!targetItem.isDraft || targetItem.isCreating || targetItem.usageId) {
+        return;
+      }
+
+      const selected = minibarOptions.find(
+        (option) => String(option.minibarId) === String(value),
+      );
+      if (!selected) {
+        window.alert("Minibar đã chọn không hợp lệ.");
+        return;
+      }
+
+      const quantity = Math.max(1, Number(targetItem.qty) || 1);
+      if (!Number.isInteger(stayId) || stayId < 1) {
+        window.alert("Không tìm thấy StayID để thêm minibar.");
+        return;
+      }
+
+      this.setState((prev) => ({
+        minibarItems: prev.minibarItems.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                minibarId: String(selected.minibarId),
+                name: selected.name,
+                price: selected.price,
+                total: quantity * selected.price,
+                qty: quantity,
+                isCreating: true,
+              }
+            : item,
+        ),
+      }));
+
+      try {
+        await this.createMinibarUsage(
+          stayId,
+          Number(selected.minibarId),
+          quantity,
+        );
+
+        await this.fetchMinibarUsagesByStay(stayId);
+      } catch (err) {
+        this.setState((prev) => ({
+          minibarItems: prev.minibarItems.map((item) =>
+            item.id === id ? { ...item, isCreating: false } : item,
+          ),
+        }));
+        window.alert(err.message || "Thêm minibar thất bại.");
+      }
+      return;
+    }
+
+    if (field === "qty") {
+      const nextQty = Math.max(1, Number(value) || 1);
+      const previousQty = Math.max(1, Number(targetItem.qty) || 1);
+
+      this.setState((prev) => ({
+        minibarItems: prev.minibarItems.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                qty: nextQty,
+                total: Number(item.price || 0) * nextQty,
+              }
+            : item,
+        ),
+      }));
+
+      if (targetItem.isDraft || !targetItem.usageId) return;
+
+      if (!Number.isInteger(stayId) || stayId < 1) {
+        this.setState((prev) => ({
+          minibarItems: prev.minibarItems.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  qty: previousQty,
+                  total: Number(item.price || 0) * previousQty,
+                }
+              : item,
+          ),
+        }));
+        window.alert("Không tìm thấy StayID để cập nhật minibar.");
+        return;
+      }
+
+      if (targetItem.isUpdatingQty || targetItem.isDeleting) return;
+
+      this.setState((prev) => ({
+        minibarItems: prev.minibarItems.map((item) =>
+          item.id === id ? { ...item, isUpdatingQty: true } : item,
+        ),
+      }));
+
+      try {
+        await this.request(MINIBAR_USAGE_BY_ID_API_URL(targetItem.usageId), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Quantity: nextQty }),
+        });
+
+        await this.fetchMinibarUsagesByStay(stayId);
+      } catch (err) {
+        this.setState((prev) => ({
+          minibarItems: prev.minibarItems.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  qty: previousQty,
+                  total: Number(item.price || 0) * previousQty,
+                }
+              : item,
+          ),
+        }));
+        window.alert(err.message || "Cập nhật số lượng minibar thất bại.");
+      } finally {
+        this.setState((prev) => ({
+          minibarItems: prev.minibarItems.map((item) =>
+            item.id === id ? { ...item, isUpdatingQty: false } : item,
+          ),
+        }));
+      }
+    }
+  };
+
+  removeMinibarItem = async (id) => {
+    const { currentItem, minibarItems } = this.state;
+    const targetItem = minibarItems.find((item) => item.id === id);
+    const stayId = Number(currentItem?.stayId);
+
+    if (!targetItem) return;
+
+    if (!targetItem.usageId || targetItem.isDraft) {
+      this.setState((prev) => ({
+        minibarItems: prev.minibarItems.filter((item) => item.id !== id),
+      }));
+      return;
+    }
+
+    if (targetItem.isDeleting) return;
+
     this.setState((prev) => ({
       minibarItems: prev.minibarItems.map((item) =>
-        item.id === id
-          ? { ...item, [field]: field === "qty" ? Number(value) : value }
-          : item,
+        item.id === id ? { ...item, isDeleting: true } : item,
       ),
     }));
-  };
 
-  removeMinibarItem = (id) => {
-    this.setState((prev) => ({
-      minibarItems: prev.minibarItems.filter((item) => item.id !== id),
-    }));
+    try {
+      await this.request(MINIBAR_USAGE_BY_ID_API_URL(targetItem.usageId), {
+        method: "DELETE",
+      });
+
+      if (Number.isInteger(stayId) && stayId > 0) {
+        await this.fetchMinibarUsagesByStay(stayId);
+      } else {
+        this.setState((prev) => ({
+          minibarItems: prev.minibarItems.filter((item) => item.id !== id),
+        }));
+      }
+    } catch (err) {
+      this.setState((prev) => ({
+        minibarItems: prev.minibarItems.map((item) =>
+          item.id === id ? { ...item, isDeleting: false } : item,
+        ),
+      }));
+      window.alert(err.message || "Xóa minibar thất bại.");
+    }
   };
 
   addServiceItem = () => {
     this.setState((prev) => ({
-      serviceItems: [
-        ...prev.serviceItems,
-        { id: this.createId(), name: "", qty: 1, price: 0 },
-      ],
+      serviceItems: [...prev.serviceItems, this.getDefaultServiceItem()],
     }));
   };
 
-  updateServiceItem = (id, field, value) => {
+  updateServiceItem = async (id, field, value) => {
+    const { currentItem, serviceItems } = this.state;
+    const targetItem = serviceItems.find((item) => item.id === id);
+    const stayId = Number(currentItem?.stayId);
+
+    if (!targetItem) return;
+
+    if (field === "name") {
+      if (!targetItem.isDraft || targetItem.isCreating || targetItem.usageId) {
+        return;
+      }
+
+      const selected = this.findServiceOptionByName(value);
+      if (!selected) {
+        window.alert("Dịch vụ đã chọn không hợp lệ.");
+        return;
+      }
+
+      const quantity = Math.max(1, Number(targetItem.qty) || 1);
+      if (!Number.isInteger(stayId) || stayId < 1) {
+        window.alert("Không tìm thấy StayID để thêm dịch vụ.");
+        return;
+      }
+
+      this.setState((prev) => ({
+        serviceItems: prev.serviceItems.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                name: selected.name,
+                serviceId: String(selected.serviceId),
+                price: selected.price,
+                total: quantity * selected.price,
+                qty: quantity,
+                isCreating: true,
+              }
+            : item,
+        ),
+      }));
+
+      try {
+        await this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ServiceID: Number(selected.serviceId),
+            Quantity: quantity,
+          }),
+        });
+
+        await this.fetchServiceUsagesByStay(stayId);
+      } catch (err) {
+        this.setState((prev) => ({
+          serviceItems: prev.serviceItems.map((item) =>
+            item.id === id ? { ...item, isCreating: false } : item,
+          ),
+        }));
+        window.alert(err.message || "Thêm dịch vụ thất bại.");
+      }
+      return;
+    }
+
+    if (field === "qty") {
+      const nextQty = Math.max(1, Number(value) || 1);
+      const previousQty = Math.max(1, Number(targetItem.qty) || 1);
+
+      this.setState((prev) => ({
+        serviceItems: prev.serviceItems.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                qty: nextQty,
+                total: Number(item.price || 0) * nextQty,
+              }
+            : item,
+        ),
+      }));
+
+      if (targetItem.isDraft || !targetItem.usageId) return;
+
+      if (!Number.isInteger(stayId) || stayId < 1) {
+        this.setState((prev) => ({
+          serviceItems: prev.serviceItems.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  qty: previousQty,
+                  total: Number(item.price || 0) * previousQty,
+                }
+              : item,
+          ),
+        }));
+        window.alert("Không tìm thấy StayID để cập nhật dịch vụ.");
+        return;
+      }
+
+      if (targetItem.isUpdatingQty || targetItem.isDeleting) return;
+
+      this.setState((prev) => ({
+        serviceItems: prev.serviceItems.map((item) =>
+          item.id === id ? { ...item, isUpdatingQty: true } : item,
+        ),
+      }));
+
+      try {
+        await this.request(SERVICE_USAGE_BY_ID_API_URL(targetItem.usageId), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Quantity: nextQty }),
+        });
+
+        await this.fetchServiceUsagesByStay(stayId);
+      } catch (err) {
+        this.setState((prev) => ({
+          serviceItems: prev.serviceItems.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  qty: previousQty,
+                  total: Number(item.price || 0) * previousQty,
+                }
+              : item,
+          ),
+        }));
+        window.alert(err.message || "Cập nhật số lượng dịch vụ thất bại.");
+      } finally {
+        this.setState((prev) => ({
+          serviceItems: prev.serviceItems.map((item) =>
+            item.id === id ? { ...item, isUpdatingQty: false } : item,
+          ),
+        }));
+      }
+    }
+  };
+
+  removeServiceItem = async (id) => {
+    const { currentItem, serviceItems } = this.state;
+    const targetItem = serviceItems.find((item) => item.id === id);
+    const stayId = Number(currentItem?.stayId);
+
+    if (!targetItem) return;
+
+    if (!targetItem.usageId || targetItem.isDraft) {
+      this.setState((prev) => ({
+        serviceItems: prev.serviceItems.filter((item) => item.id !== id),
+      }));
+      return;
+    }
+
+    if (targetItem.isDeleting) return;
+
     this.setState((prev) => ({
-      serviceItems: prev.serviceItems.map((item) => {
-        if (item.id !== id) return item;
-
-        if (field === "name") {
-          const selected = this.serviceOptions.find(
-            (service) => service.name === value,
-          );
-          return { ...item, name: value, price: selected ? selected.price : 0 };
-        }
-
-        if (field === "qty") {
-          return { ...item, qty: Math.max(1, Number(value) || 1) };
-        }
-
-        return { ...item, [field]: value };
-      }),
+      serviceItems: prev.serviceItems.map((item) =>
+        item.id === id ? { ...item, isDeleting: true } : item,
+      ),
     }));
+
+    try {
+      await this.request(SERVICE_USAGE_BY_ID_API_URL(targetItem.usageId), {
+        method: "DELETE",
+      });
+
+      if (Number.isInteger(stayId) && stayId > 0) {
+        await this.fetchServiceUsagesByStay(stayId);
+      } else {
+        this.setState((prev) => ({
+          serviceItems: prev.serviceItems.filter((item) => item.id !== id),
+        }));
+      }
+    } catch (err) {
+      this.setState((prev) => ({
+        serviceItems: prev.serviceItems.map((item) =>
+          item.id === id ? { ...item, isDeleting: false } : item,
+        ),
+      }));
+      window.alert(err.message || "Xóa dịch vụ thất bại.");
+    }
   };
 
-  removeServiceItem = (id) => {
-    this.setState((prev) => {
-      const nextItems = prev.serviceItems.filter((item) => item.id !== id);
-      return {
-        serviceItems: nextItems.length
-          ? nextItems
-          : [{ id: this.createId(), name: "", qty: 1, price: 0 }],
-      };
-    });
+  mapPenaltyFromApi = (item) => {
+    const penaltyIdRaw =
+      item?.PenaltyID ?? item?.PenaltyId ?? item?.penaltyId ?? item?.ID ?? item?.id;
+    const parsedPenaltyId = Number(penaltyIdRaw);
+    const amountRaw = Number(item?.Amount ?? item?.amount ?? 0);
+    const amount = Number.isFinite(amountRaw) ? amountRaw : 0;
+
+    return {
+      id: Number.isFinite(parsedPenaltyId) ? parsedPenaltyId : this.createId(),
+      penaltyId: Number.isFinite(parsedPenaltyId) ? parsedPenaltyId : null,
+      reason: item?.Reason ?? item?.reason ?? "",
+      amount,
+      createdAt: item?.CreatedAt ?? item?.createdAt ?? null,
+      isDeleting: false,
+    };
   };
 
-  addPenalty = () => {
-    const { newPenalty, penalties } = this.state;
-    if (!newPenalty.reason || !newPenalty.amount) return;
-    this.setState({
-      penalties: [...penalties, { ...newPenalty, id: Date.now() }],
-      newPenalty: { reason: "", amount: "" },
-    });
+  fetchPenaltiesByStay = async (stayId) => {
+    if (!stayId) {
+      this.setState({ penalties: [], penaltyLoading: false });
+      return;
+    }
+
+    try {
+      this.setState({ penaltyLoading: true, penalties: [] });
+
+      const payload = await this.request(PENALTIES_BY_STAY_API_URL(stayId));
+      const rawItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+      const penalties = rawItems.map(this.mapPenaltyFromApi);
+
+      this.setState((prev) => {
+        const stillInCheckoutModal =
+          prev.modalType === "checkout" &&
+          String(prev.currentItem?.stayId ?? "") === String(stayId);
+
+        if (!stillInCheckoutModal) return null;
+        return { penalties };
+      });
+    } catch (err) {
+      this.setState({ penalties: [] });
+      window.alert(err.message || "Không thể tải danh sách phí phạt.");
+    } finally {
+      this.setState({ penaltyLoading: false });
+    }
   };
 
-  removePenalty = (id) => {
+  createPenalty = async (stayId, reason, amount) => {
+    const requestBodies = [
+      { Reason: reason, Amount: amount },
+      { reason, amount },
+    ];
+
+    let lastError = null;
+    for (const body of requestBodies) {
+      try {
+        await this.request(PENALTIES_BY_STAY_API_URL(stayId), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error("Thêm phí phạt thất bại.");
+  };
+
+  addPenalty = async () => {
+    const { newPenalty, currentItem, penaltyAdding } = this.state;
+    const reason = String(newPenalty.reason || "").trim();
+    const amount = Number(newPenalty.amount);
+    const stayId = Number(currentItem?.stayId);
+
+    if (penaltyAdding) return;
+
+    if (!reason) {
+      window.alert("Vui lòng nhập lý do phạt.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      window.alert("Số tiền phạt không hợp lệ.");
+      return;
+    }
+
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("Không tìm thấy StayID để thêm phí phạt.");
+      return;
+    }
+
+    try {
+      this.setState({ penaltyAdding: true });
+      await this.createPenalty(stayId, reason, amount);
+      await this.fetchPenaltiesByStay(stayId);
+      this.setState({ newPenalty: { reason: "", amount: "" } });
+    } catch (err) {
+      window.alert(err.message || "Thêm phí phạt thất bại.");
+    } finally {
+      this.setState({ penaltyAdding: false });
+    }
+  };
+
+  removePenalty = async (id) => {
+    const { penalties, currentItem } = this.state;
+    const targetPenalty = penalties.find((item) => item.id === id);
+    const stayId = Number(currentItem?.stayId);
+
+    if (!targetPenalty) return;
+    if (targetPenalty.isDeleting) return;
+
+    if (!targetPenalty.penaltyId) {
+      this.setState((prev) => ({
+        penalties: prev.penalties.filter((p) => p.id !== id),
+      }));
+      return;
+    }
+
     this.setState((prev) => ({
-      penalties: prev.penalties.filter((p) => p.id !== id),
+      penalties: prev.penalties.map((item) =>
+        item.id === id ? { ...item, isDeleting: true } : item,
+      ),
     }));
+
+    try {
+      await this.request(PENALTY_BY_ID_API_URL(targetPenalty.penaltyId), {
+        method: "DELETE",
+      });
+
+      if (Number.isInteger(stayId) && stayId > 0) {
+        await this.fetchPenaltiesByStay(stayId);
+      } else {
+        this.setState((prev) => ({
+          penalties: prev.penalties.filter((item) => item.id !== id),
+        }));
+      }
+    } catch (err) {
+      this.setState((prev) => ({
+        penalties: prev.penalties.map((item) =>
+          item.id === id ? { ...item, isDeleting: false } : item,
+        ),
+      }));
+      window.alert(err.message || "Xóa phí phạt thất bại.");
+    }
   };
 
   changeTab = (tab) => this.setState({ activeTab: tab });
 
   handleConfirmModal = () => {
-    const { modalType, currentItem, extendForm } = this.state;
+    const { modalType } = this.state;
 
     if (modalType === "walkin") {
       this.confirmWalkin();
@@ -688,36 +1901,18 @@ class NhanTraphong extends Component {
       return;
     }
 
+    if (modalType === "transfer") {
+      this.confirmTransfer();
+      return;
+    }
+
     if (modalType === "extend") {
-      if (!extendForm.newCheckOut) {
-        alert("Vui lòng chọn ngày Check-out mới.");
-        return;
-      }
+      this.confirmExtend();
+      return;
+    }
 
-      const currentDate = this.extractInputDateFromPlan(
-        currentItem?.checkOutPlan,
-      );
-      if (currentDate && extendForm.newCheckOut <= currentDate) {
-        alert("Ngày Check-out mới phải lớn hơn ngày dự kiến hiện tại.");
-        return;
-      }
-
-      this.setState(
-        (prev) => ({
-          stayData: prev.stayData.map((item) =>
-            item.id === currentItem?.id
-              ? {
-                  ...item,
-                  checkOutPlan: this.buildCheckOutPlan(
-                    item.checkOutPlan,
-                    extendForm.newCheckOut,
-                  ),
-                }
-              : item,
-          ),
-        }),
-        this.closeModal,
-      );
+    if (modalType === "checkout") {
+      this.confirmCheckout();
       return;
     }
 
@@ -733,16 +1928,29 @@ class NhanTraphong extends Component {
       transferNote,
       extendForm,
       minibarItems,
+      minibarUsageLoading,
+      minibarCatalogLoading,
+      minibarOptions,
       serviceItems,
       newPenalty,
       penalties,
+      penaltyLoading,
+      penaltyAdding,
       availableRooms,
       availableRoomsLoading,
       walkinAvailableRooms,
       walkinRoomsLoading,
+      transferAvailableRooms,
+      transferRoomsLoading,
+      serviceUsageLoading,
+      serviceCatalogLoading,
+      serviceOptions,
       selectedCheckinRoomId,
       checkinSubmitting,
       walkinSubmitting,
+      transferSubmitting,
+      extendSubmitting,
+      checkoutSubmitting,
     } = this.state;
 
     if (!modalType) return null;
@@ -751,15 +1959,20 @@ class NhanTraphong extends Component {
       if (e.target.classList.contains("nhan-modal-overlay")) this.closeModal();
     };
 
-    const subtotal = minibarItems.reduce((sum, i) => sum + i.qty * i.price, 0);
+    const subtotal = minibarItems.reduce((sum, i) => {
+      const rowTotal = Number(i.total);
+      if (Number.isFinite(rowTotal) && rowTotal >= 0) return sum + rowTotal;
+      return sum + Number(i.qty || 0) * Number(i.price || 0);
+    }, 0);
     const penaltyTotal = penalties.reduce(
       (sum, p) => sum + Number(p.amount || 0),
       0,
     );
-    const serviceTotal = serviceItems.reduce(
-      (sum, i) => sum + i.qty * i.price,
-      0,
-    );
+    const serviceTotal = serviceItems.reduce((sum, i) => {
+      const rowTotal = Number(i.total);
+      if (Number.isFinite(rowTotal) && rowTotal >= 0) return sum + rowTotal;
+      return sum + Number(i.qty || 0) * Number(i.price || 0);
+    }, 0);
     const disableCheckinConfirm =
       modalType === "checkin" &&
       (availableRoomsLoading || checkinSubmitting || !selectedCheckinRoomId);
@@ -771,7 +1984,20 @@ class NhanTraphong extends Component {
         !walkInForm.identity.trim() ||
         !walkInForm.roomId ||
         !walkInForm.checkOut);
-    const disableModalConfirm = disableCheckinConfirm || disableWalkinConfirm;
+    const disableTransferConfirm =
+      modalType === "transfer" &&
+      (transferSubmitting || transferRoomsLoading || !transferRoom);
+    const disableExtendConfirm =
+      modalType === "extend" &&
+      (extendSubmitting || !extendForm.newCheckOut);
+    const disableCheckoutConfirm =
+      modalType === "checkout" && checkoutSubmitting;
+    const disableModalConfirm =
+      disableCheckinConfirm ||
+      disableWalkinConfirm ||
+      disableTransferConfirm ||
+      disableExtendConfirm ||
+      disableCheckoutConfirm;
 
     return (
       <div className="nhan-modal-overlay" onClick={overlayClick}>
@@ -895,11 +2121,24 @@ class NhanTraphong extends Component {
                 <select
                   value={transferRoom}
                   onChange={this.handleTransferInput("transferRoom")}
+                  disabled={transferRoomsLoading || transferSubmitting}
                 >
-                  <option value="">Chọn phòng mới</option>
-                  <option value="502 - Deluxe">502 - Deluxe</option>
-                  <option value="503 - Premium">503 - Premium</option>
+                  <option value="">
+                    {transferRoomsLoading
+                      ? "Đang tải phòng khả dụng..."
+                      : "Chọn phòng mới"}
+                  </option>
+                  {transferAvailableRooms.map((room) => (
+                    <option key={room.roomId} value={room.roomId}>
+                      {room.roomNumber
+                        ? `${room.roomNumber}${room.roomType ? ` (${room.roomType})` : ""}`
+                        : `Phòng #${room.roomId}`}
+                    </option>
+                  ))}
                 </select>
+                {!transferRoomsLoading && transferAvailableRooms.length === 0 && (
+                  <small>Không có phòng trống để chuyển.</small>
+                )}
               </div>
               <div className="ntp-field">
                 <label>Lý do chuyển phòng</label>
@@ -958,6 +2197,22 @@ class NhanTraphong extends Component {
                 <div className="ntp-readonly">{currentItem?.room}</div>
               </div>
               <div className="ntp-sub-title">Dịch vụ sử dụng</div>
+              {serviceCatalogLoading && (
+                <div className="ntp-note-box">Đang tải danh mục dịch vụ...</div>
+              )}
+              {!serviceCatalogLoading && serviceOptions.length === 0 && (
+                <div className="ntp-note-box">
+                  Không có dịch vụ khả dụng trong danh mục.
+                </div>
+              )}
+              {serviceUsageLoading && (
+                <div className="ntp-note-box">
+                  Đang tải danh sách dịch vụ đã sử dụng...
+                </div>
+              )}
+              {!serviceUsageLoading && serviceItems.length === 0 && (
+                <div className="ntp-note-box">Chưa có dịch vụ nào được ghi nhận.</div>
+              )}
               {serviceItems.map((item) => (
                 <div key={item.id} className="ntp-minibar-row">
                   <select
@@ -965,11 +2220,18 @@ class NhanTraphong extends Component {
                     onChange={(e) =>
                       this.updateServiceItem(item.id, "name", e.target.value)
                     }
+                    disabled={
+                      !item.isDraft ||
+                      item.isCreating ||
+                      item.isDeleting ||
+                      serviceCatalogLoading ||
+                      serviceOptions.length === 0
+                    }
                   >
                     <option value="">Chọn dịch vụ</option>
-                    {this.serviceOptions.map((service) => (
-                      <option key={service.name} value={service.name}>
-                        {service.label}
+                    {serviceOptions.map((service) => (
+                      <option key={service.serviceId} value={service.name}>
+                        {service.label || service.name}
                       </option>
                     ))}
                   </select>
@@ -980,18 +2242,30 @@ class NhanTraphong extends Component {
                     onChange={(e) =>
                       this.updateServiceItem(item.id, "qty", e.target.value)
                     }
+                    disabled={
+                      item.isCreating ||
+                      item.isUpdatingQty ||
+                      item.isDeleting ||
+                      !item.name
+                    }
                   />
                   <button
                     className="ntp-btn-danger"
                     onClick={() => this.removeServiceItem(item.id)}
+                    disabled={item.isCreating || item.isUpdatingQty || item.isDeleting}
                   >
-                    Xóa
+                    {item.isDeleting ? "Đang xóa..." : "Xóa"}
                   </button>
                 </div>
               ))}
               <button
                 className="ntp-btn ntp-btn-secondary ntp-btn-add"
                 onClick={this.addServiceItem}
+                disabled={
+                  serviceUsageLoading ||
+                  serviceCatalogLoading ||
+                  serviceOptions.length === 0
+                }
               >
                 Thêm dịch vụ
               </button>
@@ -1009,19 +2283,43 @@ class NhanTraphong extends Component {
                 <div className="ntp-readonly">{currentItem?.guest}</div>
               </div>
               <div className="ntp-sub-title">Minibar</div>
+              {minibarCatalogLoading && (
+                <div className="ntp-note-box">Đang tải danh mục minibar theo phòng...</div>
+              )}
+              {!minibarCatalogLoading && minibarOptions.length === 0 && (
+                <div className="ntp-note-box">
+                  Không có minibar khả dụng cho phòng này.
+                </div>
+              )}
+              {minibarUsageLoading && (
+                <div className="ntp-note-box">
+                  Đang tải danh sách minibar đã sử dụng...
+                </div>
+              )}
+              {!minibarUsageLoading && minibarItems.length === 0 && (
+                <div className="ntp-note-box">Chưa có minibar nào được ghi nhận.</div>
+              )}
               {minibarItems.map((item) => (
                 <div key={item.id} className="ntp-minibar-row">
                   <select
-                    value={item.name}
+                    value={item.minibarId}
                     onChange={(e) =>
-                      this.updateMinibarItem(item.id, "name", e.target.value)
+                      this.updateMinibarItem(item.id, "minibarId", e.target.value)
+                    }
+                    disabled={
+                      !item.isDraft ||
+                      item.isCreating ||
+                      item.isDeleting ||
+                      minibarCatalogLoading ||
+                      minibarOptions.length === 0
                     }
                   >
-                    <option value="Pepsi - 30.000đ">Pepsi - 30.000đ</option>
-                    <option value="Nước suối - 10.000đ">
-                      Nước suối - 10.000đ
-                    </option>
-                    <option value="Snack - 20.000đ">Snack - 20.000đ</option>
+                    <option value="">Chọn minibar</option>
+                    {minibarOptions.map((option) => (
+                      <option key={option.minibarId} value={option.minibarId}>
+                        {option.label || option.name}
+                      </option>
+                    ))}
                   </select>
                   <input
                     type="number"
@@ -1030,26 +2328,41 @@ class NhanTraphong extends Component {
                     onChange={(e) =>
                       this.updateMinibarItem(item.id, "qty", e.target.value)
                     }
+                    disabled={
+                      item.isCreating ||
+                      item.isUpdatingQty ||
+                      item.isDeleting ||
+                      (item.isDraft && !item.minibarId)
+                    }
                   />
                   <button
                     className="ntp-btn-danger"
                     onClick={() => this.removeMinibarItem(item.id)}
+                    disabled={item.isCreating || item.isUpdatingQty || item.isDeleting}
                   >
-                    Xóa
+                    {item.isDeleting ? "Đang xóa..." : "Xóa"}
                   </button>
                 </div>
               ))}
               <button
+                type="button"
                 className="ntp-btn ntp-btn-secondary ntp-btn-add"
                 onClick={this.addMinibarItem}
               >
                 Thêm minibar
               </button>
               <div className="ntp-sub-title">Phí phạt</div>
+              {penaltyLoading && (
+                <div className="ntp-note-box">Đang tải danh sách phí phạt...</div>
+              )}
+              {!penaltyLoading && penalties.length === 0 && (
+                <div className="ntp-note-box">Chưa có phí phạt nào được ghi nhận.</div>
+              )}
               <div className="ntp-penalty-row">
                 <input
                   placeholder="Lý do phạt"
                   value={newPenalty.reason}
+                  disabled={penaltyLoading || penaltyAdding}
                   onChange={(e) =>
                     this.setState({
                       newPenalty: { ...newPenalty, reason: e.target.value },
@@ -1060,6 +2373,7 @@ class NhanTraphong extends Component {
                   type="number"
                   placeholder="Số tiền"
                   value={newPenalty.amount}
+                  disabled={penaltyLoading || penaltyAdding}
                   onChange={(e) =>
                     this.setState({
                       newPenalty: { ...newPenalty, amount: e.target.value },
@@ -1067,10 +2381,12 @@ class NhanTraphong extends Component {
                   }
                 />
                 <button
+                  type="button"
                   className="ntp-btn ntp-btn-secondary"
                   onClick={this.addPenalty}
+                  disabled={penaltyLoading || penaltyAdding}
                 >
-                  Thêm
+                  {penaltyAdding ? "Đang thêm..." : "Thêm"}
                 </button>
               </div>
               {penalties.length > 0 && (
@@ -1083,8 +2399,9 @@ class NhanTraphong extends Component {
                         <button
                           className="ntp-btn ntp-btn-danger"
                           onClick={() => this.removePenalty(p.id)}
+                          disabled={p.isDeleting || penaltyLoading || penaltyAdding}
                         >
-                          Xóa
+                          {p.isDeleting ? "Đang xóa..." : "Xóa"}
                         </button>
                       </div>
                     </div>
@@ -1112,11 +2429,17 @@ class NhanTraphong extends Component {
                 disabled={disableModalConfirm}
               >
                 {modalType === "checkout"
-                  ? "Xác nhận Check-out"
+                  ? checkoutSubmitting
+                    ? "Đang Check-out..."
+                    : "Xác nhận Check-out"
                   : modalType === "transfer"
-                    ? "Xác nhận chuyển"
+                    ? transferSubmitting
+                      ? "Đang chuyển..."
+                      : "Xác nhận chuyển"
                     : modalType === "extend"
-                      ? "Xác nhận gia hạn"
+                      ? extendSubmitting
+                        ? "Đang gia hạn..."
+                        : "Xác nhận gia hạn"
                       : walkinSubmitting || checkinSubmitting
                         ? "Đang Check-in..."
                         : "Check-in"}

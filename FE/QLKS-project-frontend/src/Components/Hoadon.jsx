@@ -2,235 +2,399 @@ import React, { Component } from "react";
 import "../style/Hoadon.css";
 import { FeatureHeader } from "./Common";
 
+const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
+const PENDING_INVOICES_API_URL = "http://localhost:3000/api/invoices/pending";
+const INVOICE_HISTORY_API_URL = "http://localhost:3000/api/invoices/history";
+const CREATE_AND_PAY_INVOICE_API_URL =
+  "http://localhost:3000/api/invoices/create-and-pay";
+
+const ROOM_STAY_HISTORY_CHECKEDOUT_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/room-stay-history-checkedout`;
+const SERVICE_USAGES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/service-usages`;
+const MINIBAR_USAGES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/minibar-usages`;
+const PENALTIES_BY_STAY_API_URL = (stayId) =>
+  `${RESERVATIONS_API_URL}/stays/${stayId}/penalties`;
+
+const getDefaultInvoiceData = () => ({
+  stayId: null,
+  roomStays: [],
+  services: [],
+  minibar: [],
+  penalties: [],
+  roomTotal: 0,
+  serviceTotal: 0,
+  minibarTotal: 0,
+  penaltyTotal: 0,
+  subtotal: 0,
+  vat: 8,
+  vatAmount: 0,
+  total: 0,
+  method: "CASH",
+  status: "PENDING",
+});
+
 class Hoadon extends Component {
   state = {
-    pendingRooms: [
-      {
-        id: 1,
-        roomNumber: "101",
-        guestName: "Nguyễn Văn A",
-        checkinDate: "2023-10-01",
-        checkoutDate: "2023-10-05",
-        roomCharge: 2000000,
-        services: [
-          { name: "Giặt ủi", price: 50000 },
-          { name: "Ăn sáng", price: 100000 },
-        ],
-        minibar: [
-          { name: "Nước suối", price: 20000 },
-          { name: "Bia", price: 50000 },
-        ],
-        penalty: [],
-      },
-      {
-        id: 2,
-        roomNumber: "102",
-        guestName: "Trần Thị B",
-        checkinDate: "2023-10-02",
-        checkoutDate: "2023-10-04",
-        roomCharge: 1200000,
-        services: [],
-        minibar: [],
-        penalty: [{ name: "Hủy phòng", price: 100000 }],
-      },
-    ],
-    history: [
-      {
-        id: 1,
-        roomNumber: "103",
-        guestName: "Lê Văn C",
-        date: "2023-09-30",
-        total: 1500000,
-        status: "PAID",
-      },
-    ],
+    pendingRooms: [],
+    pendingLoading: true,
+    pendingError: "",
+    history: [],
+    historyLoading: true,
+    historyError: "",
     searchHistory: "",
     selectedRoom: null,
     isModalOpen: false,
-    step: 1,
-    invoiceData: {
-      roomCharge: 0,
-      services: [],
-      minibar: [],
-      penalty: [],
-      total: 0,
-      discount: 0,
-      vat: 0,
-      finalTotal: 0,
-      paymentMethod: "",
-      status: "PENDING",
-    },
+    modalLoading: false,
+    modalError: "",
+    paySubmitting: false,
+    invoiceData: getDefaultInvoiceData(),
   };
 
-  calculateTotal = (data) => {
-    const roomCharge = data.roomCharge;
-    const servicesTotal = data.services.reduce((sum, s) => sum + s.price, 0);
-    const minibarTotal = data.minibar.reduce((sum, m) => sum + m.price, 0);
-    const penaltyTotal = Array.isArray(data.penalty)
-      ? data.penalty.reduce((sum, p) => sum + p.price, 0)
-      : data.penalty;
-    const subtotal = roomCharge + servicesTotal + minibarTotal + penaltyTotal;
-    const discountAmount = (subtotal * data.discount) / 100;
-    const afterDiscount = subtotal - discountAmount;
-    const vatAmount = (afterDiscount * data.vat) / 100;
-    const finalTotal = afterDiscount + vatAmount;
-    return { subtotal, discountAmount, vatAmount, finalTotal };
+  componentDidMount() {
+    this.fetchPendingInvoices();
+    this.fetchInvoiceHistory();
+  }
+
+  readResponseBody = async (response) => {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  };
+
+  buildErrorMessage = (body, statusCode) => {
+    if (typeof body === "string" && body.trim()) return body;
+
+    if (body && typeof body === "object") {
+      const detail =
+        (typeof body.detail === "string" && body.detail.trim()) ||
+        (typeof body.Detail === "string" && body.Detail.trim());
+
+      if (detail) return detail;
+      return body.message || body.error || `API error: ${statusCode}`;
+    }
+
+    return `API error: ${statusCode}`;
+  };
+
+  request = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const body = await this.readResponseBody(response);
+
+    if (!response.ok) {
+      throw new Error(this.buildErrorMessage(body, response.status));
+    }
+
+    return body;
+  };
+
+  extractList = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
+  getNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  formatCurrency = (value) => `${this.getNumber(value).toLocaleString("vi-VN")} VND`;
+
+  formatDateForTable = (value) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleDateString("vi-VN");
+  };
+
+  formatDateTimeForTable = (value) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleString("vi-VN");
+  };
+
+  mapPendingInvoiceFromApi = (item) => {
+    const stayId = item?.StayID ?? item?.stayId ?? item?.id ?? null;
+    const roomCharge = this.getNumber(item?.RoomCharge ?? item?.roomCharge);
+    const serviceCharge = this.getNumber(
+      item?.ServiceCharge ?? item?.serviceCharge,
+    );
+    const minibarCharge = this.getNumber(
+      item?.MinibarCharge ?? item?.minibarCharge,
+    );
+    const penaltyCharge = this.getNumber(
+      item?.PenaltyCharge ?? item?.penaltyCharge,
+    );
+    const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
+
+    return {
+      id: stayId ?? Date.now() + Math.floor(Math.random() * 1000),
+      stayId: stayId ?? null,
+      roomNumber: String(
+        item?.RoomNumber ?? item?.roomNumber ?? item?.SoPhong ?? "-",
+      ),
+      guestName: String(item?.CustomerName ?? item?.customerName ?? "-"),
+      checkinDate: this.formatDateForTable(
+        item?.FirstCheckIn ?? item?.firstCheckIn,
+      ),
+      checkoutDate: this.formatDateForTable(
+        item?.LastCheckOut ?? item?.lastCheckOut,
+      ),
+      roomCharge,
+      serviceCharge,
+      minibarCharge,
+      penaltyCharge,
+      totalAmount:
+        totalAmount > 0
+          ? totalAmount
+          : roomCharge + serviceCharge + minibarCharge + penaltyCharge,
+    };
+  };
+
+  mapRoomStayFromApi = (item) => ({
+    id: item?.ID ?? item?.id ?? item?.STT ?? Date.now() + Math.random(),
+    roomId: item?.RoomID ?? item?.roomId ?? null,
+    roomNumber: item?.SoPhong ?? item?.RoomNumber ?? item?.roomNumber ?? "-",
+    roomType: item?.RoomType ?? item?.roomType ?? "-",
+    checkInTime: this.formatDateTimeForTable(
+      item?.CheckInTime ?? item?.checkInTime,
+    ),
+    checkOutTime: this.formatDateTimeForTable(
+      item?.CheckOutTime ?? item?.checkOutTime,
+    ),
+    amount: this.getNumber(
+      item?.Amount ?? item?.amount ?? item?.RateAtThatTime ?? item?.rateAtThatTime,
+    ),
+  });
+
+  mapServiceUsageFromApi = (item) => {
+    const qty = this.getNumber(item?.Quantity ?? item?.quantity);
+    const price = this.getNumber(item?.Price ?? item?.price);
+    const total = this.getNumber(item?.Total ?? item?.total) || qty * price;
+
+    return {
+      id: item?.UsageID ?? item?.usageId ?? item?.id ?? Date.now() + Math.random(),
+      name: item?.ServiceName ?? item?.serviceName ?? "Dịch vụ",
+      quantity: qty,
+      price,
+      total,
+      usedDate: this.formatDateTimeForTable(item?.UsedDate ?? item?.usedDate),
+    };
+  };
+
+  mapMinibarUsageFromApi = (item) => {
+    const qty = this.getNumber(item?.Quantity ?? item?.quantity);
+    const price = this.getNumber(item?.Price ?? item?.price);
+    const total = this.getNumber(item?.Total ?? item?.total) || qty * price;
+
+    return {
+      id: item?.ID ?? item?.UsageID ?? item?.usageId ?? Date.now() + Math.random(),
+      name: item?.ItemName ?? item?.itemName ?? "Minibar",
+      quantity: qty,
+      price,
+      total,
+    };
+  };
+
+  mapPenaltyFromApi = (item) => ({
+    id: item?.PenaltyID ?? item?.penaltyId ?? item?.id ?? Date.now() + Math.random(),
+    reason: item?.Reason ?? item?.reason ?? "Phí phạt",
+    amount: this.getNumber(item?.Amount ?? item?.amount),
+    createdAt: this.formatDateTimeForTable(item?.CreatedAt ?? item?.createdAt),
+  });
+
+  mapInvoiceHistoryFromApi = (item) => {
+    const fullName = String(item?.FullName ?? item?.fullName ?? "-");
+    const dateRaw = item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
+    const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
+
+    return {
+      id:
+        item?.InvoiceID ??
+        item?.invoiceId ??
+        item?.ID ??
+        item?.id ??
+        `${fullName}-${dateRaw}-${totalAmount}`,
+      roomNumber: String(
+        item?.RoomNumber ?? item?.roomNumber ?? item?.SoPhong ?? "-",
+      ),
+      guestName: fullName,
+      date: this.formatDateTimeForTable(dateRaw),
+      total: totalAmount,
+      status: String(item?.Status ?? item?.status ?? "PAID"),
+    };
+  };
+
+  buildInvoiceData = (invoiceData) => {
+    const roomTotal = invoiceData.roomStays.reduce(
+      (sum, item) => sum + this.getNumber(item.amount),
+      0,
+    );
+    const serviceTotal = invoiceData.services.reduce(
+      (sum, item) => sum + this.getNumber(item.total),
+      0,
+    );
+    const minibarTotal = invoiceData.minibar.reduce(
+      (sum, item) => sum + this.getNumber(item.total),
+      0,
+    );
+    const penaltyTotal = invoiceData.penalties.reduce(
+      (sum, item) => sum + this.getNumber(item.amount),
+      0,
+    );
+
+    const subtotal = roomTotal + serviceTotal + minibarTotal + penaltyTotal;
+    const vat = this.getNumber(invoiceData.vat);
+    const vatAmount = (subtotal * vat) / 100;
+    const total = subtotal + vatAmount;
+
+    return {
+      ...invoiceData,
+      roomTotal,
+      serviceTotal,
+      minibarTotal,
+      penaltyTotal,
+      subtotal,
+      vat,
+      vatAmount,
+      total,
+    };
+  };
+
+  fetchPendingInvoices = async () => {
+    try {
+      this.setState({ pendingLoading: true, pendingError: "" });
+
+      const payload = await this.request(PENDING_INVOICES_API_URL);
+      const rawItems = this.extractList(payload);
+
+      this.setState({
+        pendingRooms: rawItems.map(this.mapPendingInvoiceFromApi),
+      });
+    } catch (err) {
+      this.setState({
+        pendingRooms: [],
+        pendingError:
+          err.message ||
+          "Không thể tải danh sách khách check-out chưa thanh toán.",
+      });
+    } finally {
+      this.setState({ pendingLoading: false });
+    }
+  };
+
+  fetchInvoiceHistory = async () => {
+    try {
+      this.setState({ historyLoading: true, historyError: "" });
+
+      const payload = await this.request(INVOICE_HISTORY_API_URL);
+      const rawItems = this.extractList(payload);
+
+      this.setState({
+        history: rawItems.map(this.mapInvoiceHistoryFromApi),
+      });
+    } catch (err) {
+      this.setState({
+        history: [],
+        historyError: err.message || "Không thể tải lịch sử hóa đơn.",
+      });
+    } finally {
+      this.setState({ historyLoading: false });
+    }
+  };
+
+  loadInvoiceDetailsByStay = async (stayId) => {
+    if (!stayId) {
+      this.setState({ modalLoading: false, modalError: "StayID không hợp lệ." });
+      return;
+    }
+
+    try {
+      this.setState({ modalLoading: true, modalError: "" });
+
+      const [roomStaysPayload, servicesPayload, minibarPayload, penaltiesPayload] =
+        await Promise.all([
+          this.request(ROOM_STAY_HISTORY_CHECKEDOUT_API_URL(stayId)),
+          this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId)),
+          this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId)),
+          this.request(PENALTIES_BY_STAY_API_URL(stayId)),
+        ]);
+
+      const roomStays = this.extractList(roomStaysPayload).map(
+        this.mapRoomStayFromApi,
+      );
+      const services = this.extractList(servicesPayload).map(
+        this.mapServiceUsageFromApi,
+      );
+      const minibar = this.extractList(minibarPayload).map(
+        this.mapMinibarUsageFromApi,
+      );
+      const penalties = this.extractList(penaltiesPayload).map(this.mapPenaltyFromApi);
+
+      this.setState((prev) => ({
+        invoiceData: this.buildInvoiceData({
+          ...prev.invoiceData,
+          stayId,
+          roomStays,
+          services,
+          minibar,
+          penalties,
+        }),
+      }));
+    } catch (err) {
+      this.setState({
+        modalError: err.message || "Không thể tải chi tiết hóa đơn.",
+      });
+    } finally {
+      this.setState({ modalLoading: false });
+    }
   };
 
   openInvoiceModal = (room) => {
-    const invoiceData = {
-      roomCharge: room.roomCharge,
-      services: [...room.services],
-      minibar: [...room.minibar],
-      penalty: Array.isArray(room.penalty) ? [...room.penalty] : [],
-      total: 0,
-      discount: 0,
-      vat: 10, // default VAT 10%
-      finalTotal: 0,
-      paymentMethod: "",
-      status: "PENDING",
-    };
-    const totals = this.calculateTotal(invoiceData);
-    invoiceData.total = totals.subtotal;
-    invoiceData.finalTotal = totals.finalTotal;
-    this.setState({
-      selectedRoom: room,
-      isModalOpen: true,
-      step: 1,
-      invoiceData,
-    });
+    const stayId = Number(room?.stayId);
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("Không tìm thấy StayID để tạo hóa đơn.");
+      return;
+    }
+
+    this.setState(
+      {
+        selectedRoom: room,
+        isModalOpen: true,
+        modalLoading: true,
+        modalError: "",
+        paySubmitting: false,
+        invoiceData: this.buildInvoiceData({
+          ...getDefaultInvoiceData(),
+          stayId,
+        }),
+      },
+      () => {
+        this.loadInvoiceDetailsByStay(stayId);
+      },
+    );
   };
 
   closeModal = () => {
-    this.setState({ isModalOpen: false, selectedRoom: null, step: 1 });
-  };
-
-  nextStep = () => {
-    this.setState((prev) => ({ step: prev.step + 1 }));
-  };
-
-  prevStep = () => {
-    this.setState((prev) => ({ step: prev.step - 1 }));
-  };
-
-  handleInvoiceChange = (field, value) => {
-    this.setState((prev) => {
-      const newData = { ...prev.invoiceData, [field]: value };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  handleServiceChange = (index, field, value) => {
-    this.setState((prev) => {
-      const services = [...prev.invoiceData.services];
-      services[index] = {
-        ...services[index],
-        [field]: field === "name" ? value : parseFloat(value) || 0,
-      };
-      const newData = { ...prev.invoiceData, services };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  handleMinibarChange = (index, field, value) => {
-    this.setState((prev) => {
-      const minibar = [...prev.invoiceData.minibar];
-      minibar[index] = {
-        ...minibar[index],
-        [field]: field === "name" ? value : parseFloat(value) || 0,
-      };
-      const newData = { ...prev.invoiceData, minibar };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  addService = () => {
-    this.setState((prev) => {
-      const services = [...prev.invoiceData.services, { name: "", price: 0 }];
-      const newData = { ...prev.invoiceData, services };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  removeService = (index) => {
-    this.setState((prev) => {
-      const services = prev.invoiceData.services.filter((_, i) => i !== index);
-      const newData = { ...prev.invoiceData, services };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  addMinibar = () => {
-    this.setState((prev) => {
-      const minibar = [...prev.invoiceData.minibar, { name: "", price: 0 }];
-      const newData = { ...prev.invoiceData, minibar };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  removeMinibar = (index) => {
-    this.setState((prev) => {
-      const minibar = prev.invoiceData.minibar.filter((_, i) => i !== index);
-      const newData = { ...prev.invoiceData, minibar };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  handlePenaltyChange = (index, field, value) => {
-    this.setState((prev) => {
-      const penalty = [...prev.invoiceData.penalty];
-      penalty[index] = {
-        ...penalty[index],
-        [field]: field === "name" ? value : parseFloat(value) || 0,
-      };
-      const newData = { ...prev.invoiceData, penalty };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  addPenalty = () => {
-    this.setState((prev) => {
-      const penalty = [...prev.invoiceData.penalty, { name: "", price: 0 }];
-      const newData = { ...prev.invoiceData, penalty };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
-    });
-  };
-
-  removePenalty = (index) => {
-    this.setState((prev) => {
-      const penalty = prev.invoiceData.penalty.filter((_, i) => i !== index);
-      const newData = { ...prev.invoiceData, penalty };
-      const totals = this.calculateTotal(newData);
-      newData.total = totals.subtotal;
-      newData.finalTotal = totals.finalTotal;
-      return { invoiceData: newData };
+    this.setState({
+      selectedRoom: null,
+      isModalOpen: false,
+      modalLoading: false,
+      modalError: "",
+      paySubmitting: false,
+      invoiceData: getDefaultInvoiceData(),
     });
   };
 
@@ -240,268 +404,316 @@ class Hoadon extends Component {
     }
   };
 
-  confirmPayment = () => {
+  handleVatChange = (value) => {
+    const vat = Math.max(0, this.getNumber(value));
+
     this.setState((prev) => ({
-      invoiceData: { ...prev.invoiceData, status: "PAID" },
-      step: 4,
+      invoiceData: this.buildInvoiceData({ ...prev.invoiceData, vat }),
     }));
   };
 
-  printPDF = () => {
-    alert("In PDF hoá đơn");
+  handleMethodChange = (value) => {
+    const method = String(value || "").toUpperCase();
+    if (!["CASH", "TRANSFER"].includes(method)) return;
+
+    this.setState((prev) => ({
+      invoiceData: { ...prev.invoiceData, method },
+    }));
   };
 
-  sendEmail = () => {
-    alert("Gửi mail hoá đơn");
+  confirmPayment = async () => {
+    const {
+      invoiceData: { stayId, method, vat },
+      paySubmitting,
+    } = this.state;
+
+    if (paySubmitting) return;
+
+    if (!Number.isInteger(Number(stayId)) || Number(stayId) < 1) {
+      window.alert("StayID không hợp lệ.");
+      return;
+    }
+
+    if (!["CASH", "TRANSFER"].includes(method)) {
+      window.alert("Vui lòng chọn phương thức thanh toán.");
+      return;
+    }
+
+    try {
+      this.setState({ paySubmitting: true });
+
+      const response = await this.request(CREATE_AND_PAY_INVOICE_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          StayID: Number(stayId),
+          Method: method,
+          VAT: this.getNumber(vat),
+        }),
+      });
+
+      window.alert(
+        response?.Message || response?.message || "Thanh toán hóa đơn thành công.",
+      );
+
+      this.closeModal();
+      await Promise.all([this.fetchPendingInvoices(), this.fetchInvoiceHistory()]);
+    } catch (err) {
+      window.alert(err.message || "Thanh toán hóa đơn thất bại.");
+    } finally {
+      this.setState({ paySubmitting: false });
+    }
   };
 
   getFilteredHistory = () => {
     const { history, searchHistory } = this.state;
-    return history.filter(
-      (inv) =>
-        inv.roomNumber.toLowerCase().includes(searchHistory.toLowerCase()) ||
-        inv.guestName.toLowerCase().includes(searchHistory.toLowerCase()),
-    );
+    const keyword = String(searchHistory || "").trim().toLowerCase();
+
+    if (!keyword) return history;
+
+    return history.filter((inv) => {
+      const roomNumber = String(inv.roomNumber || "").toLowerCase();
+      const guestName = String(inv.guestName || "").toLowerCase();
+      return roomNumber.includes(keyword) || guestName.includes(keyword);
+    });
   };
 
+  renderModalSectionHeader = (title) => (
+    <h3 style={{ marginTop: 20, marginBottom: 10 }}>{title}</h3>
+  );
+
   renderModal = () => {
-    const { step, invoiceData, selectedRoom } = this.state;
-    if (!this.state.isModalOpen) return null;
+    const {
+      isModalOpen,
+      selectedRoom,
+      modalLoading,
+      modalError,
+      paySubmitting,
+      invoiceData,
+    } = this.state;
+
+    if (!isModalOpen) return null;
+
+    const disableConfirm =
+      modalLoading ||
+      paySubmitting ||
+      !Number.isInteger(Number(invoiceData.stayId)) ||
+      !["CASH", "TRANSFER"].includes(invoiceData.method);
 
     return (
       <div className="modal-overlay" onClick={this.handleOverlayClick}>
-        <div className="modal-content">
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>Hoá Đơn - Phòng {selectedRoom.roomNumber}</h2>
+            <h2>
+              Hóa Đơn - {selectedRoom?.guestName || "-"}
+              {selectedRoom?.roomNumber ? ` (Phòng ${selectedRoom.roomNumber})` : ""}
+            </h2>
             <button className="btn-close" onClick={this.closeModal}>
               X
             </button>
           </div>
-          {step === 1 && (
+
+          {modalLoading && <p>Đang tải chi tiết hóa đơn...</p>}
+
+          {!modalLoading && modalError && (
             <div>
-              <h3>Tạo Hoá Đơn</h3>
-              <p>
-                <strong>Room Charge:</strong>{" "}
-                {invoiceData.roomCharge.toLocaleString()} VND
-              </p>
-              <p>
-                <strong>Services:</strong>
-              </p>
-              {invoiceData.services.map((s, i) => (
-                <div key={i} className="line-item">
-                  <input
-                    type="text"
-                    placeholder="Tên dịch vụ"
-                    value={s.name}
-                    onChange={(e) =>
-                      this.handleServiceChange(i, "name", e.target.value)
-                    }
-                  />
-                  <input
-                    type="number"
-                    placeholder="Giá"
-                    value={s.price}
-                    onChange={(e) =>
-                      this.handleServiceChange(i, "price", e.target.value)
-                    }
-                  />
-                  <button
-                    className="btn-secondary"
-                    onClick={() => this.removeService(i)}
-                  >
-                    X
-                  </button>
-                </div>
-              ))}
-              <button className="btn-secondary" onClick={this.addService}>
-                Thêm dịch vụ
-              </button>
-
-              <p>
-                <strong>Minibar:</strong>
-              </p>
-              {invoiceData.minibar.map((m, i) => (
-                <div key={i} className="line-item">
-                  <input
-                    type="text"
-                    placeholder="Tên minibar"
-                    value={m.name}
-                    onChange={(e) =>
-                      this.handleMinibarChange(i, "name", e.target.value)
-                    }
-                  />
-                  <input
-                    type="number"
-                    placeholder="Giá"
-                    value={m.price}
-                    onChange={(e) =>
-                      this.handleMinibarChange(i, "price", e.target.value)
-                    }
-                  />
-                  <button
-                    className="btn-secondary"
-                    onClick={() => this.removeMinibar(i)}
-                  >
-                    X
-                  </button>
-                </div>
-              ))}
-              <button className="btn-secondary" onClick={this.addMinibar}>
-                Thêm minibar
-              </button>
-
-              <p>
-                <strong>Penalties:</strong>
-              </p>
-              {invoiceData.penalty.map((p, i) => (
-                <div key={i} className="line-item">
-                  <input
-                    type="text"
-                    placeholder="Tên phạt"
-                    value={p.name}
-                    onChange={(e) =>
-                      this.handlePenaltyChange(i, "name", e.target.value)
-                    }
-                  />
-                  <input
-                    type="number"
-                    placeholder="Giá"
-                    value={p.price}
-                    onChange={(e) =>
-                      this.handlePenaltyChange(i, "price", e.target.value)
-                    }
-                  />
-                  <button
-                    className="btn-secondary"
-                    onClick={() => this.removePenalty(i)}
-                  >
-                    X
-                  </button>
-                </div>
-              ))}
-              <button className="btn-secondary" onClick={this.addPenalty}>
-                Thêm phạt
-              </button>
-
-              <p>
-                <strong>Tổng tiền:</strong> {invoiceData.total.toLocaleString()}{" "}
-                VND
-              </p>
-              <button className="btn-primary" onClick={this.nextStep}>
-                Tiếp tục
+              <p>{modalError}</p>
+              <button
+                className="btn-secondary"
+                onClick={() => this.loadInvoiceDetailsByStay(invoiceData.stayId)}
+              >
+                Tải lại
               </button>
             </div>
           )}
-          {step === 2 && (
-            <div>
-              <h3>Xác Nhận</h3>
+
+          {!modalLoading && !modalError && (
+            <>
+              {this.renderModalSectionHeader("Danh sách phòng đã ở")}
+              <div className="hoadon-table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Phòng</th>
+                      <th>Loại phòng</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Tiền phòng</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.roomStays.length === 0 && (
+                      <tr>
+                        <td colSpan="5">Không có lịch sử phòng.</td>
+                      </tr>
+                    )}
+                    {invoiceData.roomStays.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.roomNumber}</td>
+                        <td>{item.roomType}</td>
+                        <td>{item.checkInTime}</td>
+                        <td>{item.checkOutTime}</td>
+                        <td>{this.formatCurrency(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {this.renderModalSectionHeader("Danh sách dịch vụ")}
+              <div className="hoadon-table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Tên dịch vụ</th>
+                      <th>Số lượng</th>
+                      <th>Đơn giá</th>
+                      <th>Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.services.length === 0 && (
+                      <tr>
+                        <td colSpan="4">Không có dịch vụ.</td>
+                      </tr>
+                    )}
+                    {invoiceData.services.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>{this.formatCurrency(item.price)}</td>
+                        <td>{this.formatCurrency(item.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {this.renderModalSectionHeader("Danh sách minibar")}
+              <div className="hoadon-table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Tên minibar</th>
+                      <th>Số lượng</th>
+                      <th>Đơn giá</th>
+                      <th>Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.minibar.length === 0 && (
+                      <tr>
+                        <td colSpan="4">Không có minibar.</td>
+                      </tr>
+                    )}
+                    {invoiceData.minibar.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.name}</td>
+                        <td>{item.quantity}</td>
+                        <td>{this.formatCurrency(item.price)}</td>
+                        <td>{this.formatCurrency(item.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {this.renderModalSectionHeader("Danh sách phí phạt")}
+              <div className="hoadon-table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Lý do</th>
+                      <th>Ngày tạo</th>
+                      <th>Số tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.penalties.length === 0 && (
+                      <tr>
+                        <td colSpan="3">Không có phí phạt.</td>
+                      </tr>
+                    )}
+                    {invoiceData.penalties.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.reason}</td>
+                        <td>{item.createdAt}</td>
+                        <td>{this.formatCurrency(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {this.renderModalSectionHeader("Thông tin thanh toán")}
               <label>
-                Discount (%):{" "}
+                VAT (%)
                 <input
                   type="number"
-                  value={invoiceData.discount}
-                  onChange={(e) =>
-                    this.handleInvoiceChange(
-                      "discount",
-                      parseFloat(e.target.value) || 0,
-                    )
-                  }
-                />
-              </label>
-              <label>
-                VAT (%):{" "}
-                <input
-                  type="number"
+                  min="0"
                   value={invoiceData.vat}
-                  onChange={(e) =>
-                    this.handleInvoiceChange(
-                      "vat",
-                      parseFloat(e.target.value) || 0,
-                    )
-                  }
+                  onChange={(e) => this.handleVatChange(e.target.value)}
                 />
               </label>
-              <p>
-                Tổng sau discount:{" "}
-                {(
-                  invoiceData.total -
-                  (invoiceData.total * invoiceData.discount) / 100
-                ).toLocaleString()}{" "}
-                VND
-              </p>
-              <p>
-                VAT:{" "}
-                {(
-                  ((invoiceData.total -
-                    (invoiceData.total * invoiceData.discount) / 100) *
-                    invoiceData.vat) /
-                  100
-                ).toLocaleString()}{" "}
-                VND
-              </p>
-              <p>
-                <strong>Tổng cuối:</strong>{" "}
-                {invoiceData.finalTotal.toLocaleString()} VND
-              </p>
-              <button className="btn-secondary" onClick={this.prevStep}>
-                Quay lại
-              </button>
-              <button className="btn-primary" onClick={this.nextStep}>
-                Xác nhận
-              </button>
-            </div>
-          )}
-          {step === 3 && (
-            <div>
-              <h3>Xác nhận Thanh Toán</h3>
-              <p>Tổng tiền: {invoiceData.finalTotal.toLocaleString()} VND</p>
+
               <div className="payment-group">
                 <label className="payment-option">
                   <input
                     type="radio"
-                    name="payment"
-                    value="cash"
-                    onChange={(e) =>
-                      this.handleInvoiceChange("paymentMethod", e.target.value)
-                    }
+                    name="payment_method"
+                    value="CASH"
+                    checked={invoiceData.method === "CASH"}
+                    onChange={(e) => this.handleMethodChange(e.target.value)}
                   />
-                  <span>Tiền mặt</span>
+                  <span>CASH</span>
                 </label>
                 <label className="payment-option">
                   <input
                     type="radio"
-                    name="payment"
-                    value="transfer"
-                    onChange={(e) =>
-                      this.handleInvoiceChange("paymentMethod", e.target.value)
-                    }
+                    name="payment_method"
+                    value="TRANSFER"
+                    checked={invoiceData.method === "TRANSFER"}
+                    onChange={(e) => this.handleMethodChange(e.target.value)}
                   />
-                  <span>Chuyển khoản</span>
+                  <span>TRANSFER</span>
                 </label>
               </div>
-              <button className="btn-secondary" onClick={this.prevStep}>
-                Quay lại
-              </button>
-              <button className="btn-primary" onClick={this.confirmPayment}>
-                Thanh toán
-              </button>
-            </div>
-          )}
-          {step === 4 && (
-            <div>
-              <h3>Hoàn Tất</h3>
-              <p>Trạng thái: {invoiceData.status}</p>
-              <p>Phương thức thanh toán: {invoiceData.paymentMethod}</p>
-              <button className="btn-secondary" onClick={this.printPDF}>
-                In PDF
-              </button>
-              <button className="btn-secondary" onClick={this.sendEmail}>
-                Gửi Mail
-              </button>
-              <button className="btn-primary" onClick={this.closeModal}>
-                Đóng
-              </button>
-            </div>
+
+              <p>
+                <strong>Tiền phòng:</strong> {this.formatCurrency(invoiceData.roomTotal)}
+              </p>
+              <p>
+                <strong>Tiền dịch vụ:</strong> {this.formatCurrency(invoiceData.serviceTotal)}
+              </p>
+              <p>
+                <strong>Tiền minibar:</strong> {this.formatCurrency(invoiceData.minibarTotal)}
+              </p>
+              <p>
+                <strong>Tiền phạt:</strong> {this.formatCurrency(invoiceData.penaltyTotal)}
+              </p>
+              <p>
+                <strong>Tạm tính:</strong> {this.formatCurrency(invoiceData.subtotal)}
+              </p>
+              <p>
+                <strong>VAT:</strong> {this.formatCurrency(invoiceData.vatAmount)}
+              </p>
+              <p>
+                <strong>Tổng thanh toán:</strong> {this.formatCurrency(invoiceData.total)}
+              </p>
+
+              <div style={{ marginTop: 16 }}>
+                <button className="btn-secondary" onClick={this.closeModal}>
+                  Đóng
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={this.confirmPayment}
+                  disabled={disableConfirm}
+                >
+                  {paySubmitting ? "Đang thanh toán..." : "Xác nhận thanh toán"}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -509,7 +721,14 @@ class Hoadon extends Component {
   };
 
   render() {
-    const { pendingRooms, searchHistory } = this.state;
+    const {
+      pendingRooms,
+      pendingLoading,
+      pendingError,
+      historyLoading,
+      historyError,
+      searchHistory,
+    } = this.state;
     const filteredHistory = this.getFilteredHistory();
 
     return (
@@ -518,84 +737,114 @@ class Hoadon extends Component {
           title="Hoá Đơn"
           description="Quản lý hoá đơn thanh toán"
         />
+
         <div className="hoadon-main">
           <h3>Phòng Chưa Thanh Toán</h3>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Số Phòng</th>
-                <th>Tên Khách</th>
-                <th>Ngày Check-in</th>
-                <th>Ngày Check-out</th>
-                <th>Tổng Tiền Dự Kiến</th>
-                <th>Hành Động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingRooms.map((room) => (
-                <tr key={room.id}>
-                  <td>{room.roomNumber}</td>
-                  <td>{room.guestName}</td>
-                  <td>{room.checkinDate}</td>
-                  <td>{room.checkoutDate}</td>
-                  <td>
-                    {(
-                      room.roomCharge +
-                      room.services.reduce((s, svc) => s + svc.price, 0) +
-                      room.minibar.reduce((s, mb) => s + mb.price, 0) +
-                      (Array.isArray(room.penalty)
-                        ? room.penalty.reduce((s, p) => s + p.price, 0)
-                        : room.penalty)
-                    ).toLocaleString()}{" "}
-                    VND
-                  </td>
-                  <td>
-                    <button
-                      className="btn-primary"
-                      onClick={() => this.openInvoiceModal(room)}
-                    >
-                      Tạo Hoá Đơn
-                    </button>
-                  </td>
+          <div className="hoadon-table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tên khách</th>
+                  <th>Ngày check-in</th>
+                  <th>Ngày check-out</th>
+                  <th>Tổng dự kiến</th>
+                  <th>Hành động</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pendingLoading && (
+                  <tr>
+                    <td colSpan="6">Đang tải danh sách chưa thanh toán...</td>
+                  </tr>
+                )}
+
+                {!pendingLoading && pendingError && (
+                  <tr>
+                    <td colSpan="6">{pendingError}</td>
+                  </tr>
+                )}
+
+                {!pendingLoading && !pendingError && pendingRooms.length === 0 && (
+                  <tr>
+                    <td colSpan="6">Không có khách check-out chưa thanh toán.</td>
+                  </tr>
+                )}
+
+                {!pendingLoading &&
+                  !pendingError &&
+                  pendingRooms.map((room) => (
+                    <tr key={room.id}>
+                      <td>{room.guestName}</td>
+                      <td>{room.checkinDate}</td>
+                      <td>{room.checkoutDate}</td>
+                      <td>{this.formatCurrency(room.totalAmount)}</td>
+                      <td>
+                        <button
+                          className="btn-primary"
+                          onClick={() => this.openInvoiceModal(room)}
+                        >
+                          Tạo hóa đơn
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
         <div className="hoadon-history">
-          <h3>Lịch Sử Hoá Đơn</h3>
+          <h3>Lịch Sử Hóa Đơn</h3>
           <div className="search-box">
             <i className="fa fa-search"></i>
             <input
               type="text"
-              placeholder="Tìm kiếm hoá đơn..."
+              placeholder="Tìm kiếm hóa đơn..."
               value={searchHistory}
               onChange={(e) => this.setState({ searchHistory: e.target.value })}
             />
           </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Số Phòng</th>
-                <th>Tên Khách</th>
-                <th>Ngày</th>
-                <th>Tổng Tiền</th>
-                <th>Trạng Thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredHistory.map((inv) => (
-                <tr key={inv.id}>
-                  <td>{inv.roomNumber}</td>
-                  <td>{inv.guestName}</td>
-                  <td>{inv.date}</td>
-                  <td>{inv.total.toLocaleString()} VND</td>
-                  <td>{inv.status}</td>
+          <div className="hoadon-table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Tên khách</th>
+                  <th>Ngày</th>
+                  <th>Tổng tiền</th>
+                  <th>Trạng thái</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {historyLoading && (
+                  <tr>
+                    <td colSpan="5">Đang tải lịch sử hóa đơn...</td>
+                  </tr>
+                )}
+                {!historyLoading && historyError && (
+                  <tr>
+                    <td colSpan="5">{historyError}</td>
+                  </tr>
+                )}
+                {!historyLoading && !historyError && filteredHistory.length === 0 && (
+                  <tr>
+                    <td colSpan="5">Chưa có lịch sử hóa đơn.</td>
+                  </tr>
+                )}
+                {!historyLoading &&
+                  !historyError &&
+                  filteredHistory.map((inv) => (
+                  <tr key={inv.id}>
+                    <td>{inv.guestName}</td>
+                    <td>{inv.date}</td>
+                    <td>{this.formatCurrency(inv.total)}</td>
+                    <td>{inv.status}</td>
+                  </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
         {this.renderModal()}
       </div>
     );

@@ -502,11 +502,10 @@ const transferRoom = async (req, res) => {
     const stayID = toPositiveInt(req.body.StayID);
     const oldRoomID = toPositiveInt(req.body.OldRoomID);
     const newRoomID = toPositiveInt(req.body.NewRoomID);
-    const newRate = toPositiveDecimal(req.body.NewRate);
 
-    if (!stayID || !oldRoomID || !newRoomID || !newRate) {
+    if (!stayID || !oldRoomID || !newRoomID) {
       return res.status(400).json({
-        error: "Thieu hoac sai tham so: StayID, OldRoomID, NewRoomID, NewRate",
+        error: "Thieu hoac sai tham so: StayID, OldRoomID, NewRoomID",
       });
     }
 
@@ -514,7 +513,6 @@ const transferRoom = async (req, res) => {
     request.input("StayID", sql.Int, stayID);
     request.input("OldRoomID", sql.Int, oldRoomID);
     request.input("NewRoomID", sql.Int, newRoomID);
-    request.input("NewRate", sql.Decimal(12, 2), newRate);
 
     const result = await request.execute("sp_TransferRoom");
     const payload = result.recordset?.[0] || null;
@@ -550,6 +548,345 @@ const extendStay = async (req, res) => {
   }
 };
 
+const checkOutRoom = async (req, res) => {
+  console.log("checkOutRoom called", req.body);
+  try {
+    const stayID = toPositiveInt(req.body.StayID);
+    const roomID = toPositiveInt(req.body.RoomID);
+
+    if (!stayID || !roomID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID, RoomID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    request.input("RoomID", sql.Int, roomID);
+
+    const result = await request.execute("sp_CheckOutRoom");
+    const payload = result.recordset?.[0] || null;
+
+    return res.json(payload || { message: "Check-out phong thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "checkOutRoom");
+  }
+};
+
+const addServiceUsage = async (req, res) => {
+  console.log("addServiceUsage called", req.params, req.body);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.body.StayID);
+    const serviceID = toPositiveInt(req.body.ServiceID);
+    const quantity = toPositiveInt(req.body.Quantity);
+
+    if (!stayID || !serviceID || !quantity) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID, ServiceID, Quantity",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    request.input("ServiceID", sql.Int, serviceID);
+    request.input("Quantity", sql.Int, quantity);
+
+    await request.execute("sp_AddServiceUsage");
+    return res.status(201).json({ message: "Them dich vu su dung thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "addServiceUsage");
+  }
+};
+
+const updateServiceUsage = async (req, res) => {
+  console.log("updateServiceUsage called", req.params, req.body);
+  try {
+    const usageID = toPositiveInt(req.params.usageId || req.body.UsageID);
+    const quantity = toPositiveInt(req.body.Quantity);
+
+    if (!usageID || !quantity) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: UsageID, Quantity",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("UsageID", sql.Int, usageID);
+    request.input("Quantity", sql.Int, quantity);
+
+    await request.execute("sp_UpdateServiceUsage");
+    return res.json({ message: "Cap nhat dich vu su dung thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "updateServiceUsage");
+  }
+};
+
+const deleteServiceUsage = async (req, res) => {
+  console.log("deleteServiceUsage called", req.params);
+  try {
+    const usageID = toPositiveInt(req.params.usageId || req.body.UsageID);
+
+    if (!usageID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: UsageID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("UsageID", sql.Int, usageID);
+
+    await request.execute("sp_DeleteServiceUsage");
+    return res.json({ message: "Xoa dich vu su dung thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "deleteServiceUsage");
+  }
+};
+
+const getServiceUsageByStay = async (req, res) => {
+  console.log("getServiceUsageByStay called", req.params, req.query);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.query.stayId);
+
+    if (!stayID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    const result = await request.execute("sp_GetServiceUsageByStay");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    return sendSqlError(res, err, "getServiceUsageByStay");
+  }
+};
+
+const addMinibarUsage = async (req, res) => {
+  console.log("addMinibarUsage called", req.params, req.body);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.body.StayID);
+    const minibarID = toPositiveInt(req.body.MinibarID);
+    const quantity = toPositiveInt(req.body.Quantity);
+
+    if (!stayID || !minibarID || !quantity) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID, MinibarID, Quantity",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    request.input("MinibarID", sql.Int, minibarID);
+    request.input("Quantity", sql.Int, quantity);
+
+    await request.execute("sp_AddMinibarUsage");
+    return res.status(201).json({ message: "Them minibar usage thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "addMinibarUsage");
+  }
+};
+
+const updateMinibarUsage = async (req, res) => {
+  console.log("updateMinibarUsage called", req.params, req.body);
+  try {
+    const id = toPositiveInt(req.params.id || req.body.ID);
+    const quantity = toPositiveInt(req.body.Quantity);
+
+    if (!id || !quantity) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: ID, Quantity",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("ID", sql.Int, id);
+    request.input("Quantity", sql.Int, quantity);
+
+    await request.execute("sp_UpdateMinibarUsage");
+    return res.json({ message: "Cap nhat minibar usage thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "updateMinibarUsage");
+  }
+};
+
+const deleteMinibarUsage = async (req, res) => {
+  console.log("deleteMinibarUsage called", req.params);
+  try {
+    const id = toPositiveInt(req.params.id || req.body.ID);
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: ID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("ID", sql.Int, id);
+
+    await request.execute("sp_DeleteMinibarUsage");
+    return res.json({ message: "Xoa minibar usage thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "deleteMinibarUsage");
+  }
+};
+
+const getMinibarUsageByStay = async (req, res) => {
+  console.log("getMinibarUsageByStay called", req.params, req.query);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.query.stayId);
+
+    if (!stayID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    const result = await request.execute("sp_GetMinibarUsageByStay");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    return sendSqlError(res, err, "getMinibarUsageByStay");
+  }
+};
+
+const getMinibarByRoom = async (req, res) => {
+  console.log("getMinibarByRoom called", req.params, req.query);
+  try {
+    const roomID = toPositiveInt(req.params.roomId || req.query.roomId);
+
+    if (!roomID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: RoomID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("RoomID", sql.Int, roomID);
+    const result = await request.execute("sp_GetMinibarByRoom");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    return sendSqlError(res, err, "getMinibarByRoom");
+  }
+};
+
+const addPenalty = async (req, res) => {
+  console.log("addPenalty called", req.params, req.body);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.body.StayID);
+    const reason = (req.body.Reason || "").trim();
+    const amount = toPositiveDecimal(req.body.Amount);
+
+    if (!stayID || !reason || !amount) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID, Reason, Amount",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    request.input("Reason", sql.NVarChar(255), reason);
+    request.input("Amount", sql.Decimal(14, 2), amount);
+
+    await request.execute("sp_AddPenalty");
+    return res.status(201).json({ message: "Them penalty thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "addPenalty");
+  }
+};
+
+const updatePenalty = async (req, res) => {
+  console.log("updatePenalty called", req.params, req.body);
+  try {
+    const penaltyID = toPositiveInt(req.params.penaltyId || req.body.PenaltyID);
+    const reason = (req.body.Reason || "").trim();
+    const amount = toPositiveDecimal(req.body.Amount);
+
+    if (!penaltyID || !reason || !amount) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: PenaltyID, Reason, Amount",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("PenaltyID", sql.Int, penaltyID);
+    request.input("Reason", sql.NVarChar(255), reason);
+    request.input("Amount", sql.Decimal(14, 2), amount);
+
+    await request.execute("sp_UpdatePenalty");
+    return res.json({ message: "Cap nhat penalty thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "updatePenalty");
+  }
+};
+
+const deletePenalty = async (req, res) => {
+  console.log("deletePenalty called", req.params);
+  try {
+    const penaltyID = toPositiveInt(req.params.penaltyId || req.body.PenaltyID);
+
+    if (!penaltyID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: PenaltyID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("PenaltyID", sql.Int, penaltyID);
+
+    await request.execute("sp_DeletePenalty");
+    return res.json({ message: "Xoa penalty thanh cong" });
+  } catch (err) {
+    return sendSqlError(res, err, "deletePenalty");
+  }
+};
+
+const getPenaltyByStay = async (req, res) => {
+  console.log("getPenaltyByStay called", req.params, req.query);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.query.stayId);
+
+    if (!stayID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    const result = await request.execute("sp_GetPenaltyByStay");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    return sendSqlError(res, err, "getPenaltyByStay");
+  }
+};
+
+const getRoomStayHistoryCheckedOutByStay = async (req, res) => {
+  console.log("getRoomStayHistoryCheckedOutByStay called", req.params, req.query);
+  try {
+    const stayID = toPositiveInt(req.params.stayId || req.query.stayId);
+
+    if (!stayID) {
+      return res.status(400).json({
+        error: "Thieu hoac sai tham so: StayID",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("StayID", sql.Int, stayID);
+    const result = await request.execute("sp_GetRoomStayHistory_CheckedOut_ByStayID");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    return sendSqlError(res, err, "getRoomStayHistoryCheckedOutByStay");
+  }
+};
+
 module.exports = {
   createReservation,
   createReservationWithNewCustomer,
@@ -564,4 +901,19 @@ module.exports = {
   checkInWalkInOneRoom,
   transferRoom,
   extendStay,
+  checkOutRoom,
+  addServiceUsage,
+  updateServiceUsage,
+  deleteServiceUsage,
+  getServiceUsageByStay,
+  addMinibarUsage,
+  updateMinibarUsage,
+  deleteMinibarUsage,
+  getMinibarUsageByStay,
+  getMinibarByRoom,
+  addPenalty,
+  updatePenalty,
+  deletePenalty,
+  getPenaltyByStay,
+  getRoomStayHistoryCheckedOutByStay,
 };

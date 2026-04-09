@@ -1413,21 +1413,74 @@ CREATE PROCEDURE sp_GetPendingInvoices
 AS
 BEGIN
     SELECT 
-        r.RoomNumber,
+        s.StayID,
         g.FullName AS CustomerName,
-        rs.CheckInTime,
-        rs.CheckOutTime,
-        ISNULL(SUM(rs.RateAtThatTime), 0) AS EstimatedRoomCharge
+
+        stayInfo.FirstCheckIn,
+        stayInfo.LastCheckOut,
+
+        -- Chi tiết tiền
+        ISNULL(stayInfo.TotalRoomCharge, 0) AS RoomCharge,
+        ISNULL(sv.TotalServiceCharge, 0) AS ServiceCharge,
+        ISNULL(mb.TotalMinibarCharge, 0) AS MinibarCharge,
+        ISNULL(pn.TotalPenalty, 0) AS PenaltyCharge,
+
+        -- Tổng tiền
+        ISNULL(stayInfo.TotalRoomCharge, 0)
+        + ISNULL(sv.TotalServiceCharge, 0)
+        + ISNULL(mb.TotalMinibarCharge, 0)
+        + ISNULL(pn.TotalPenalty, 0) AS TotalAmount
+
     FROM Stays s
     JOIN Guests g ON s.GuestID = g.GuestID
-    JOIN RoomStayHistory rs ON s.StayID = rs.StayID
-    JOIN Rooms r ON rs.RoomID = r.RoomID
     LEFT JOIN Invoices i ON s.StayID = i.StayID
-    WHERE s.Status = 'COMPLETED'
-        AND (i.InvoiceID IS NULL OR i.Status != 'PAID')
-    GROUP BY r.RoomNumber, g.FullName, rs.CheckInTime, rs.CheckOutTime
-END
 
+    -------------------------------------------------
+    -- Room + thời gian (đã bao gồm tiền phòng)
+    -------------------------------------------------
+    OUTER APPLY (
+        SELECT 
+            MIN(CheckInTime) AS FirstCheckIn,
+            MAX(CheckOutTime) AS LastCheckOut,
+            SUM(RateAtThatTime) AS TotalRoomCharge
+        FROM RoomStayHistory
+        WHERE StayID = s.StayID
+    ) stayInfo
+
+    -------------------------------------------------
+    -- Service
+    -------------------------------------------------
+    OUTER APPLY (
+        SELECT SUM(su.Quantity * sv.Price) AS TotalServiceCharge
+        FROM ServiceUsages su
+        JOIN Services sv ON su.ServiceID = sv.ServiceID
+        WHERE su.StayID = s.StayID
+    ) sv
+
+    -------------------------------------------------
+    -- Minibar
+    -------------------------------------------------
+    OUTER APPLY (
+        SELECT SUM(mu.Quantity * mi.Price) AS TotalMinibarCharge
+        FROM MinibarUsages mu
+        JOIN MinibarItems mi ON mu.MinibarID = mi.MinibarID
+        WHERE mu.StayID = s.StayID
+    ) mb
+
+    -------------------------------------------------
+    -- Penalty
+    -------------------------------------------------
+    OUTER APPLY (
+        SELECT SUM(Amount) AS TotalPenalty
+        FROM Penalties
+        WHERE StayID = s.StayID
+    ) pn
+
+    -------------------------------------------------
+    WHERE 
+        s.Status = 'COMPLETED'
+        AND (i.InvoiceID IS NULL OR i.Status != 'PAID')
+END
 EXEC sp_GetPendingInvoices
 
 ---	Tạo hoá đơn---------------------------------------------------------------------------------------
@@ -1517,6 +1570,179 @@ BEGIN
     SELECT @InvoiceID AS InvoiceID, @Total AS Total
 END
 
+-----Tạo hoá đơn và thanh toán luôn---------------------------------------
+CREATE PROCEDURE sp_CreateAndPayInvoice
+    @StayID INT,
+    @Method NVARCHAR(20),
+    @VAT DECIMAL(5,2) -- %
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRAN
+
+    DECLARE 
+        @InvoiceID INT,
+        @SubTotal DECIMAL(14,2) = 0,
+        @VATAmount DECIMAL(14,2) = 0,
+        @Total DECIMAL(14,2) = 0
+
+    -------------------------------------------------
+    -- 1. TẠO INVOICE
+    -------------------------------------------------
+    INSERT INTO Invoices (StayID, TotalAmount, VAT, Status)
+    VALUES (@StayID, 0, @VAT, 'OPEN')
+
+    SET @InvoiceID = SCOPE_IDENTITY()
+
+    -------------------------------------------------
+    -- 2. ROOM CHARGE
+    -------------------------------------------------
+    INSERT INTO InvoiceDetails (InvoiceID, ItemType, ItemName, Quantity, UnitPrice, Amount)
+    SELECT 
+        @InvoiceID,
+        'ROOM',
+        r.RoomNumber,
+
+        -- FIX chuẩn số ngày
+        CASE 
+            WHEN DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) <= 0 THEN 1
+            ELSE CEILING(DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) / 24.0)
+        END,
+
+        rs.RateAtThatTime,
+
+        CASE 
+            WHEN DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) <= 0 THEN 1
+            ELSE CEILING(DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) / 24.0)
+        END * rs.RateAtThatTime
+
+    FROM RoomStayHistory rs
+    JOIN Rooms r ON rs.RoomID = r.RoomID
+    WHERE rs.StayID = @StayID
+
+    -------------------------------------------------
+    -- 3. SERVICES
+    -------------------------------------------------
+    INSERT INTO InvoiceDetails
+    SELECT
+        @InvoiceID,
+        'SERVICE',
+        s.ServiceName,
+        su.Quantity,
+        s.Price,
+        su.Quantity * s.Price
+    FROM ServiceUsages su
+    JOIN Services s ON su.ServiceID = s.ServiceID
+    WHERE su.StayID = @StayID
+
+    -------------------------------------------------
+    -- 4. MINIBAR
+    -------------------------------------------------
+    INSERT INTO InvoiceDetails
+    SELECT
+        @InvoiceID,
+        'MINIBAR',
+        m.ItemName,
+        mu.Quantity,
+        m.Price,
+        mu.Quantity * m.Price
+    FROM MinibarUsages mu
+    JOIN MinibarItems m ON mu.MinibarID = m.MinibarID
+    WHERE mu.StayID = @StayID
+
+    -------------------------------------------------
+    -- 5. PENALTIES
+    -------------------------------------------------
+    INSERT INTO InvoiceDetails
+    SELECT
+        @InvoiceID,
+        'PENALTY',
+        p.Reason,
+        1,
+        p.Amount,
+        p.Amount
+    FROM Penalties p
+    WHERE p.StayID = @StayID
+
+    -------------------------------------------------
+    -- 6. SUBTOTAL
+    -------------------------------------------------
+    SELECT @SubTotal = ISNULL(SUM(Amount), 0)
+    FROM InvoiceDetails
+    WHERE InvoiceID = @InvoiceID
+
+    -------------------------------------------------
+    -- 7. VAT + TOTAL
+    -------------------------------------------------
+    SET @VATAmount = @SubTotal * (@VAT / 100.0)
+    SET @Total = @SubTotal + @VATAmount
+
+    -------------------------------------------------
+    -- 8. UPDATE INVOICE
+    -------------------------------------------------
+    UPDATE Invoices
+    SET 
+        TotalAmount = @Total,
+        VAT = @VAT,
+        Status = 'PAID'
+    WHERE InvoiceID = @InvoiceID
+
+    -------------------------------------------------
+    -- 9. PAYMENT
+    -------------------------------------------------
+    INSERT INTO Payments (InvoiceID, PaymentMethod, Amount)
+    VALUES (@InvoiceID, @Method, @Total)
+
+    COMMIT
+
+    -------------------------------------------------
+    -- 10. RETURN
+    -------------------------------------------------
+    SELECT 
+        @InvoiceID AS InvoiceID, 
+        @SubTotal AS SubTotal,
+        @VATAmount AS VATAmount,
+        @Total AS Total
+END
+
+---Load những phòng khách đã ở (có thể nhiều phòng)-----------
+CREATE PROCEDURE sp_GetRoomStayHistory_CheckedOut_ByStayID
+    @StayID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        ROW_NUMBER() OVER (ORDER BY rs.CheckInTime) AS STT,
+
+        rs.ID,
+        rs.RoomID,
+        r.RoomNumber AS SoPhong,
+        rt.Name AS RoomType,
+
+        rs.CheckInTime,
+        rs.CheckOutTime,
+
+        rs.RateAtThatTime,
+
+        CASE 
+            WHEN DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) <= 0 THEN 1
+            ELSE CEILING(DATEDIFF(HOUR, rs.CheckInTime, rs.CheckOutTime) / 24.0)
+        END * rs.RateAtThatTime AS Amount
+
+    FROM RoomStayHistory rs
+    JOIN Rooms r 
+        ON rs.RoomID = r.RoomID
+    JOIN RoomTypes rt 
+        ON r.RoomTypeID = rt.RoomTypeID
+
+    WHERE rs.StayID = @StayID
+      AND rs.CheckOutTime IS NOT NULL
+
+    ORDER BY rs.CheckInTime
+END
+EXEC sp_GetRoomStayHistory_CheckedOut_ByStayID 33
+
 --Thanh toán hoá đơn-----------------------------------------------------------------------------------
 CREATE PROCEDURE sp_PayInvoice
     @InvoiceID INT,
@@ -1540,7 +1766,6 @@ CREATE PROCEDURE sp_GetInvoiceHistory
 AS
 BEGIN
     SELECT 
-        r.RoomNumber,
         g.FullName,
         i.Date,
         i.TotalAmount,
@@ -1548,11 +1773,8 @@ BEGIN
     FROM Invoices i
     JOIN Stays s ON i.StayID = s.StayID
     JOIN Guests g ON s.GuestID = g.GuestID
-    JOIN RoomStayHistory rs ON s.StayID = rs.StayID
-    JOIN Rooms r ON rs.RoomID = r.RoomID
     WHERE i.Status = 'PAID'
 END
-
 EXEC sp_GetInvoiceHistory
 
 ----------------------------------------------------------------------------------------------------------------------
@@ -2101,6 +2323,15 @@ BEGIN
             n.n AS RowNum
         FROM ReservationRooms rr
         JOIN Numbers n ON n.n <= rr.Quantity
+    ),
+    CheckedInCount AS
+    (
+        SELECT 
+            s.ReservationID,
+            COUNT(*) AS CheckedInRooms
+        FROM RoomStayHistory rsh
+        JOIN Stays s ON rsh.StayID = s.StayID
+        GROUP BY s.ReservationID
     )
 
     SELECT 
@@ -2116,10 +2347,13 @@ BEGIN
         er.PriceAtBooking
     FROM Reservations r
     INNER JOIN Users u ON r.UserID = u.UserID
-    LEFT JOIN Customers c ON c.UserID = u.UserID  -- 🔥 FIX CHÍNH
+    LEFT JOIN Customers c ON c.UserID = u.UserID
     INNER JOIN ExpandedRooms er ON r.ReservationID = er.ReservationID
+    LEFT JOIN CheckedInCount cic ON r.ReservationID = cic.ReservationID
 
-    WHERE LTRIM(RTRIM(r.Status)) = 'BOOKED'  -- 🔥 FIX STATUS
+    WHERE 
+        r.Status IN ('BOOKED', 'CHECKED_IN')
+        AND er.RowNum > ISNULL(cic.CheckedInRooms, 0)
 
     ORDER BY r.CheckInDate ASC;
 END
@@ -2133,6 +2367,7 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT 
+		s.StayID,
         r.ReservationID,
 
         ISNULL(c.CustomerID, g.GuestID) AS CustomerID,
@@ -2321,29 +2556,40 @@ EXEC sp_CheckIn_WalkIn_OneRoom
 CREATE PROCEDURE sp_TransferRoom
     @StayID INT,
     @OldRoomID INT,
-    @NewRoomID INT,
-    @NewRate DECIMAL(12,2)
+    @NewRoomID INT
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRAN
 
-    DECLARE @Now DATETIME = GETDATE()
+    DECLARE 
+        @Now DATETIME = GETDATE(),
+        @NewRate DECIMAL(12,2)
 
     -------------------------------------------------
-    -- ❗ VALIDATE
+    -- VALIDATE
     -------------------------------------------------
 
-    -- 1. Phòng mới phải AVAILABLE
+    -- Không cho chuyển cùng phòng
+    IF @OldRoomID = @NewRoomID
+    BEGIN
+        RAISERROR(N'Phòng mới phải khác phòng cũ', 16, 1)
+        ROLLBACK
+        RETURN
+    END
+
+    -- Phòng mới phải available
     IF NOT EXISTS (
         SELECT 1 FROM Rooms 
         WHERE RoomID = @NewRoomID AND Status = 'AVAILABLE'
     )
     BEGIN
         RAISERROR(N'Phòng mới không khả dụng', 16, 1)
+        ROLLBACK
         RETURN
     END
 
-    -- 2. Phải tồn tại phòng cũ đang ở (chưa checkout)
+    -- Phòng cũ đang ở
     IF NOT EXISTS (
         SELECT 1 
         FROM RoomStayHistory
@@ -2353,37 +2599,44 @@ BEGIN
     )
     BEGIN
         RAISERROR(N'Không tìm thấy phòng hiện tại của khách', 16, 1)
+        ROLLBACK
         RETURN
     END
 
     -------------------------------------------------
-    -- 🟡 BƯỚC 1: ĐÓNG PHÒNG CŨ
+    -- 🟢 LẤY GIÁ PHÒNG MỚI
     -------------------------------------------------
+    SELECT @NewRate = rt.DefaultPrice
+    FROM Rooms r
+    JOIN RoomTypes rt ON r.RoomTypeID = rt.RoomTypeID
+    WHERE r.RoomID = @NewRoomID
 
+    -------------------------------------------------
+    -- 🟡 ĐÓNG PHÒNG CŨ
+    -------------------------------------------------
     UPDATE RoomStayHistory
     SET CheckOutTime = @Now
     WHERE StayID = @StayID
       AND RoomID = @OldRoomID
       AND CheckOutTime IS NULL
 
-    -- Update phòng cũ → DIRTY (chuẩn nghiệp vụ)
     UPDATE Rooms
-    SET Status = 'MAINTENANCE' -- hoặc 'DIRTY' nếu bạn có enum này
+    SET Status = 'DIRTY' -- chuẩn hơn MAINTENANCE
     WHERE RoomID = @OldRoomID
 
     -------------------------------------------------
-    -- 🟢 BƯỚC 2: TẠO PHÒNG MỚI
+    -- 🟢 TẠO PHÒNG MỚI
     -------------------------------------------------
-
     INSERT INTO RoomStayHistory
     (StayID, RoomID, CheckInTime, RateAtThatTime)
     VALUES
     (@StayID, @NewRoomID, @Now, @NewRate)
 
-    -- Update phòng mới → OCCUPIED
     UPDATE Rooms
     SET Status = 'OCCUPIED'
     WHERE RoomID = @NewRoomID
+
+    COMMIT
 END
 
 ---Gia hạn Lưu trú------------------------------------------------------------------------
@@ -2398,6 +2651,7 @@ BEGIN
     DECLARE 
         @ReservationID INT,
         @RoomID INT,
+        @CurrentCheckOut DATETIME,
         @Now DATETIME = GETDATE()
 
     -------------------------------------------------
@@ -2414,7 +2668,14 @@ BEGIN
     END
 
     -------------------------------------------------
-    -- 2. Validate thời gian
+    -- 2. Lấy checkout hiện tại
+    -------------------------------------------------
+    SELECT @CurrentCheckOut = ExpectedCheckOut
+    FROM Stays
+    WHERE StayID = @StayID
+
+    -------------------------------------------------
+    -- 3. Validate thời gian
     -------------------------------------------------
     IF @NewCheckOut <= @Now
     BEGIN
@@ -2423,8 +2684,15 @@ BEGIN
         RETURN
     END
 
+    IF @NewCheckOut <= @CurrentCheckOut
+    BEGIN
+        RAISERROR(N'Ngày checkout mới phải lớn hơn ngày checkout hiện tại', 16, 1)
+        ROLLBACK
+        RETURN
+    END
+
     -------------------------------------------------
-    -- 3. Lấy dữ liệu
+    -- 4. Lấy dữ liệu
     -------------------------------------------------
     SELECT @ReservationID = ReservationID
     FROM Stays
@@ -2443,7 +2711,7 @@ BEGIN
     END
 
     -------------------------------------------------
-    -- 4. Check conflict
+    -- 5. Check conflict
     -------------------------------------------------
     IF EXISTS (
         SELECT 1
@@ -2465,13 +2733,17 @@ BEGIN
     END
 
     -------------------------------------------------
-    -- 5. Update
+    -- 6. Update
     -------------------------------------------------
     IF @ReservationID IS NOT NULL
     BEGIN
         UPDATE Reservations
         SET CheckOutDate = @NewCheckOut
         WHERE ReservationID = @ReservationID
+
+        UPDATE Stays
+        SET ExpectedCheckOut = @NewCheckOut
+        WHERE StayID = @StayID
     END
     ELSE
     BEGIN
@@ -2585,7 +2857,6 @@ BEGIN
     FROM ServiceUsages su
     INNER JOIN Services s ON su.ServiceID = s.ServiceID
     WHERE su.StayID = @StayID
-    ORDER BY su.UsedDate DESC
 END
 
 ---Thêm minibarUsages-----------------------------------------------------------
@@ -2788,7 +3059,14 @@ BEGIN
 
     DECLARE @Now DATETIME = GETDATE()
 
+    DECLARE 
+        @ReservationID INT,
+        @TotalBookedRooms INT,
+        @TotalCheckedInRooms INT
+
+    -------------------------------------------------
     -- 1. Check phòng đang ở
+    -------------------------------------------------
     IF NOT EXISTS (
         SELECT 1 
         FROM RoomStayHistory
@@ -2801,43 +3079,74 @@ BEGIN
         RETURN
     END
 
-    -- 2. Update checkout phòng
+    -------------------------------------------------
+    -- 2. Checkout phòng
+    -------------------------------------------------
     UPDATE RoomStayHistory
     SET CheckOutTime = @Now
     WHERE StayID = @StayID 
       AND RoomID = @RoomID
       AND CheckOutTime IS NULL
 
-    -- 3. Update trạng thái phòng → DIRTY
+    -------------------------------------------------
+    -- 3. Update phòng → DIRTY
+    -------------------------------------------------
     UPDATE Rooms
     SET Status = 'DIRTY'
     WHERE RoomID = @RoomID
 
     -------------------------------------------------
-    -- 4. Check còn phòng nào chưa checkout không
+    -- 4. Lấy ReservationID
     -------------------------------------------------
-    IF NOT EXISTS (
-        SELECT 1
-        FROM RoomStayHistory
-        WHERE StayID = @StayID
-          AND CheckOutTime IS NULL
-    )
+    SELECT @ReservationID = ReservationID
+    FROM Stays
+    WHERE StayID = @StayID
+
+    -------------------------------------------------
+    -- 5. Đếm số phòng đã đặt
+    -------------------------------------------------
+    SELECT @TotalBookedRooms = SUM(Quantity)
+    FROM ReservationRooms
+    WHERE ReservationID = @ReservationID
+
+    -------------------------------------------------
+    -- 6. Đếm số phòng đã check-in
+    -------------------------------------------------
+    SELECT @TotalCheckedInRooms = COUNT(*)
+    FROM RoomStayHistory rsh
+    JOIN Stays s ON rsh.StayID = s.StayID
+    WHERE s.ReservationID = @ReservationID
+
+    -------------------------------------------------
+    -- 7. Check điều kiện hoàn thành
+    -------------------------------------------------
+    IF 
+        -- Không còn phòng nào đang ở
+        NOT EXISTS (
+            SELECT 1
+            FROM RoomStayHistory
+            WHERE StayID = @StayID
+              AND CheckOutTime IS NULL
+        )
+        AND
+        -- Đã check-in đủ phòng đã đặt
+        @TotalCheckedInRooms >= @TotalBookedRooms
     BEGIN
-        -- 4.1 Update Stay
+        -------------------------------------------------
+        -- 7.1 Update Stay
+        -------------------------------------------------
         UPDATE Stays
         SET 
             ActualCheckOut = @Now,
             Status = 'COMPLETED'
         WHERE StayID = @StayID
 
-        -- 4.2 Update Reservation (nếu có)
+        -------------------------------------------------
+        -- 7.2 Update Reservation
+        -------------------------------------------------
         UPDATE Reservations
         SET Status = 'COMPLETED'
-        WHERE ReservationID = (
-            SELECT ReservationID 
-            FROM Stays 
-            WHERE StayID = @StayID
-        )
+        WHERE ReservationID = @ReservationID
     END
 END
 
@@ -3027,6 +3336,32 @@ END
 EXEC sp_GetReservationCountByMonth
     @Year = 2026,
     @Month = 4;
+
+------------------------------------------------------------
+-------------1010101010101010-------------------------------
+------------------------------------------------------------
+---load minibar theo roomid(roomtypes)----------------------
+CREATE PROCEDURE sp_GetMinibarByRoom
+    @RoomID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        mi.MiniBarID,
+        mi.ItemName,
+        mi.Price
+    FROM Rooms r
+    JOIN MinibarItems mi 
+        ON r.RoomTypeID = mi.RoomTypeID
+    WHERE r.RoomID = @RoomID
+    ORDER BY mi.ItemName
+END
+
+EXEC sp_GetMinibarByRoom 1
+
+
+
 
 
 
