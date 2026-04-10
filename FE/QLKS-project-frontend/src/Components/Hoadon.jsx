@@ -105,7 +105,8 @@ class Hoadon extends Component {
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  formatCurrency = (value) => `${this.getNumber(value).toLocaleString("vi-VN")} VND`;
+  formatCurrency = (value) =>
+    `${this.getNumber(value).toLocaleString("vi-VN")} VND`;
 
   formatDateForTable = (value) => {
     if (!value) return "-";
@@ -127,6 +128,24 @@ class Hoadon extends Component {
 
   mapPendingInvoiceFromApi = (item) => {
     const stayId = item?.StayID ?? item?.stayId ?? item?.id ?? null;
+    const guestName = String(
+      item?.GuesName ??
+        item?.GuestName ??
+        item?.guestName ??
+        item?.CustomerName ??
+        item?.customerName ??
+        "-",
+    );
+    const checkinRaw =
+      item?.ActualCheckIn ??
+      item?.actualCheckIn ??
+      item?.FirstCheckIn ??
+      item?.firstCheckIn;
+    const checkoutRaw =
+      item?.ActualCheckOut ??
+      item?.actualCheckOut ??
+      item?.LastCheckOut ??
+      item?.lastCheckOut;
     const roomCharge = this.getNumber(item?.RoomCharge ?? item?.roomCharge);
     const serviceCharge = this.getNumber(
       item?.ServiceCharge ?? item?.serviceCharge,
@@ -140,18 +159,17 @@ class Hoadon extends Component {
     const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
 
     return {
-      id: stayId ?? Date.now() + Math.floor(Math.random() * 1000),
+      id: stayId ?? `${guestName}-${checkinRaw}-${checkoutRaw}`,
       stayId: stayId ?? null,
       roomNumber: String(
         item?.RoomNumber ?? item?.roomNumber ?? item?.SoPhong ?? "-",
       ),
-      guestName: String(item?.CustomerName ?? item?.customerName ?? "-"),
-      checkinDate: this.formatDateForTable(
-        item?.FirstCheckIn ?? item?.firstCheckIn,
+      guestName,
+      identityNumber: String(
+        item?.IdentityNumber ?? item?.identityNumber ?? "-",
       ),
-      checkoutDate: this.formatDateForTable(
-        item?.LastCheckOut ?? item?.lastCheckOut,
-      ),
+      checkinDate: this.formatDateForTable(checkinRaw),
+      checkoutDate: this.formatDateForTable(checkoutRaw),
       roomCharge,
       serviceCharge,
       minibarCharge,
@@ -175,7 +193,10 @@ class Hoadon extends Component {
       item?.CheckOutTime ?? item?.checkOutTime,
     ),
     amount: this.getNumber(
-      item?.Amount ?? item?.amount ?? item?.RateAtThatTime ?? item?.rateAtThatTime,
+      item?.Amount ??
+        item?.amount ??
+        item?.RateAtThatTime ??
+        item?.rateAtThatTime,
     ),
   });
 
@@ -185,7 +206,11 @@ class Hoadon extends Component {
     const total = this.getNumber(item?.Total ?? item?.total) || qty * price;
 
     return {
-      id: item?.UsageID ?? item?.usageId ?? item?.id ?? Date.now() + Math.random(),
+      id:
+        item?.UsageID ??
+        item?.usageId ??
+        item?.id ??
+        Date.now() + Math.random(),
       name: item?.ServiceName ?? item?.serviceName ?? "Dịch vụ",
       quantity: qty,
       price,
@@ -200,7 +225,11 @@ class Hoadon extends Component {
     const total = this.getNumber(item?.Total ?? item?.total) || qty * price;
 
     return {
-      id: item?.ID ?? item?.UsageID ?? item?.usageId ?? Date.now() + Math.random(),
+      id:
+        item?.ID ??
+        item?.UsageID ??
+        item?.usageId ??
+        Date.now() + Math.random(),
       name: item?.ItemName ?? item?.itemName ?? "Minibar",
       quantity: qty,
       price,
@@ -209,7 +238,11 @@ class Hoadon extends Component {
   };
 
   mapPenaltyFromApi = (item) => ({
-    id: item?.PenaltyID ?? item?.penaltyId ?? item?.id ?? Date.now() + Math.random(),
+    id:
+      item?.PenaltyID ??
+      item?.penaltyId ??
+      item?.id ??
+      Date.now() + Math.random(),
     reason: item?.Reason ?? item?.reason ?? "Phí phạt",
     amount: this.getNumber(item?.Amount ?? item?.amount),
     createdAt: this.formatDateTimeForTable(item?.CreatedAt ?? item?.createdAt),
@@ -217,7 +250,8 @@ class Hoadon extends Component {
 
   mapInvoiceHistoryFromApi = (item) => {
     const fullName = String(item?.FullName ?? item?.fullName ?? "-");
-    const dateRaw = item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
+    const dateRaw =
+      item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
     const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
 
     return {
@@ -317,20 +351,27 @@ class Hoadon extends Component {
 
   loadInvoiceDetailsByStay = async (stayId) => {
     if (!stayId) {
-      this.setState({ modalLoading: false, modalError: "StayID không hợp lệ." });
+      this.setState({
+        modalLoading: false,
+        modalError: "StayID không hợp lệ.",
+      });
       return;
     }
 
     try {
       this.setState({ modalLoading: true, modalError: "" });
 
-      const [roomStaysPayload, servicesPayload, minibarPayload, penaltiesPayload] =
-        await Promise.all([
-          this.request(ROOM_STAY_HISTORY_CHECKEDOUT_API_URL(stayId)),
-          this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId)),
-          this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId)),
-          this.request(PENALTIES_BY_STAY_API_URL(stayId)),
-        ]);
+      const [
+        roomStaysPayload,
+        servicesPayload,
+        minibarPayload,
+        penaltiesPayload,
+      ] = await Promise.all([
+        this.request(ROOM_STAY_HISTORY_CHECKEDOUT_API_URL(stayId)),
+        this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId)),
+        this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId)),
+        this.request(PENALTIES_BY_STAY_API_URL(stayId)),
+      ]);
 
       const roomStays = this.extractList(roomStaysPayload).map(
         this.mapRoomStayFromApi,
@@ -341,7 +382,9 @@ class Hoadon extends Component {
       const minibar = this.extractList(minibarPayload).map(
         this.mapMinibarUsageFromApi,
       );
-      const penalties = this.extractList(penaltiesPayload).map(this.mapPenaltyFromApi);
+      const penalties = this.extractList(penaltiesPayload).map(
+        this.mapPenaltyFromApi,
+      );
 
       this.setState((prev) => ({
         invoiceData: this.buildInvoiceData({
@@ -453,11 +496,16 @@ class Hoadon extends Component {
       });
 
       window.alert(
-        response?.Message || response?.message || "Thanh toán hóa đơn thành công.",
+        response?.Message ||
+          response?.message ||
+          "Thanh toán hóa đơn thành công.",
       );
 
       this.closeModal();
-      await Promise.all([this.fetchPendingInvoices(), this.fetchInvoiceHistory()]);
+      await Promise.all([
+        this.fetchPendingInvoices(),
+        this.fetchInvoiceHistory(),
+      ]);
     } catch (err) {
       window.alert(err.message || "Thanh toán hóa đơn thất bại.");
     } finally {
@@ -467,7 +515,9 @@ class Hoadon extends Component {
 
   getFilteredHistory = () => {
     const { history, searchHistory } = this.state;
-    const keyword = String(searchHistory || "").trim().toLowerCase();
+    const keyword = String(searchHistory || "")
+      .trim()
+      .toLowerCase();
 
     if (!keyword) return history;
 
@@ -504,10 +554,7 @@ class Hoadon extends Component {
       <div className="modal-overlay" onClick={this.handleOverlayClick}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>
-              Hóa Đơn - {selectedRoom?.guestName || "-"}
-              {selectedRoom?.roomNumber ? ` (Phòng ${selectedRoom.roomNumber})` : ""}
-            </h2>
+            <h2>Hóa Đơn - {selectedRoom?.guestName}</h2>
             <button className="btn-close" onClick={this.closeModal}>
               X
             </button>
@@ -520,7 +567,9 @@ class Hoadon extends Component {
               <p>{modalError}</p>
               <button
                 className="btn-secondary"
-                onClick={() => this.loadInvoiceDetailsByStay(invoiceData.stayId)}
+                onClick={() =>
+                  this.loadInvoiceDetailsByStay(invoiceData.stayId)
+                }
               >
                 Tải lại
               </button>
@@ -680,25 +729,32 @@ class Hoadon extends Component {
               </div>
 
               <p>
-                <strong>Tiền phòng:</strong> {this.formatCurrency(invoiceData.roomTotal)}
+                <strong>Tiền phòng:</strong>{" "}
+                {this.formatCurrency(invoiceData.roomTotal)}
               </p>
               <p>
-                <strong>Tiền dịch vụ:</strong> {this.formatCurrency(invoiceData.serviceTotal)}
+                <strong>Tiền dịch vụ:</strong>{" "}
+                {this.formatCurrency(invoiceData.serviceTotal)}
               </p>
               <p>
-                <strong>Tiền minibar:</strong> {this.formatCurrency(invoiceData.minibarTotal)}
+                <strong>Tiền minibar:</strong>{" "}
+                {this.formatCurrency(invoiceData.minibarTotal)}
               </p>
               <p>
-                <strong>Tiền phạt:</strong> {this.formatCurrency(invoiceData.penaltyTotal)}
+                <strong>Tiền phạt:</strong>{" "}
+                {this.formatCurrency(invoiceData.penaltyTotal)}
               </p>
               <p>
-                <strong>Tạm tính:</strong> {this.formatCurrency(invoiceData.subtotal)}
+                <strong>Tạm tính:</strong>{" "}
+                {this.formatCurrency(invoiceData.subtotal)}
               </p>
               <p>
-                <strong>VAT:</strong> {this.formatCurrency(invoiceData.vatAmount)}
+                <strong>VAT:</strong>{" "}
+                {this.formatCurrency(invoiceData.vatAmount)}
               </p>
               <p>
-                <strong>Tổng thanh toán:</strong> {this.formatCurrency(invoiceData.total)}
+                <strong>Tổng thanh toán:</strong>{" "}
+                {this.formatCurrency(invoiceData.total)}
               </p>
 
               <div style={{ marginTop: 16 }}>
@@ -754,21 +810,25 @@ class Hoadon extends Component {
               <tbody>
                 {pendingLoading && (
                   <tr>
-                    <td colSpan="6">Đang tải danh sách chưa thanh toán...</td>
+                    <td colSpan="5">Đang tải danh sách chưa thanh toán...</td>
                   </tr>
                 )}
 
                 {!pendingLoading && pendingError && (
                   <tr>
-                    <td colSpan="6">{pendingError}</td>
+                    <td colSpan="5">{pendingError}</td>
                   </tr>
                 )}
 
-                {!pendingLoading && !pendingError && pendingRooms.length === 0 && (
-                  <tr>
-                    <td colSpan="6">Không có khách check-out chưa thanh toán.</td>
-                  </tr>
-                )}
+                {!pendingLoading &&
+                  !pendingError &&
+                  pendingRooms.length === 0 && (
+                    <tr>
+                      <td colSpan="5">
+                        Không có khách check-out chưa thanh toán.
+                      </td>
+                    </tr>
+                  )}
 
                 {!pendingLoading &&
                   !pendingError &&
@@ -825,20 +885,22 @@ class Hoadon extends Component {
                     <td colSpan="5">{historyError}</td>
                   </tr>
                 )}
-                {!historyLoading && !historyError && filteredHistory.length === 0 && (
-                  <tr>
-                    <td colSpan="5">Chưa có lịch sử hóa đơn.</td>
-                  </tr>
-                )}
+                {!historyLoading &&
+                  !historyError &&
+                  filteredHistory.length === 0 && (
+                    <tr>
+                      <td colSpan="5">Chưa có lịch sử hóa đơn.</td>
+                    </tr>
+                  )}
                 {!historyLoading &&
                   !historyError &&
                   filteredHistory.map((inv) => (
-                  <tr key={inv.id}>
-                    <td>{inv.guestName}</td>
-                    <td>{inv.date}</td>
-                    <td>{this.formatCurrency(inv.total)}</td>
-                    <td>{inv.status}</td>
-                  </tr>
+                    <tr key={inv.id}>
+                      <td>{inv.guestName}</td>
+                      <td>{inv.date}</td>
+                      <td>{this.formatCurrency(inv.total)}</td>
+                      <td>{inv.status}</td>
+                    </tr>
                   ))}
               </tbody>
             </table>

@@ -27,6 +27,7 @@ const PENALTY_BY_ID_API_URL = (penaltyId) =>
   `${RESERVATIONS_API_URL}/penalties/${penaltyId}`;
 const SERVICES_API_URL = "http://localhost:3000/api/services";
 const ROOMS_API_URL = "http://localhost:3000/api/rooms";
+const AVAILABLE_ROOMS_API_URL = `${ROOMS_API_URL}/available`;
 const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
 
 class NhanTraphong extends Component {
@@ -256,6 +257,12 @@ class NhanTraphong extends Component {
     );
   };
 
+  buildExpectedCheckoutDateTime = (value) => {
+    const normalizedDate = this.formatDateForInput(value);
+    if (!normalizedDate) return "";
+    return `${normalizedDate}T12:00:00`;
+  };
+
   normalizeServiceStatus = (status) =>
     String(status ?? "")
       .trim()
@@ -366,7 +373,9 @@ class NhanTraphong extends Component {
     const hashMatch = normalized.match(/#\s*([A-Za-z0-9-]+)/);
     if (hashMatch?.[1]) return hashMatch[1].trim();
 
-    const phongPrefixMatch = normalized.match(/^ph[oòóỏõọôồốổỗộơờớởỡợ]ng\s+([^\s(]+)/i);
+    const phongPrefixMatch = normalized.match(
+      /^ph[oòóỏõọôồốổỗộơờớởỡợ]ng\s+([^\s(]+)/i,
+    );
     if (phongPrefixMatch?.[1]) return phongPrefixMatch[1].trim();
 
     const tokenMatch = normalized.match(/^([^\s(]+)/);
@@ -383,7 +392,9 @@ class NhanTraphong extends Component {
     if (Number.isInteger(directRoomId) && directRoomId > 0) return directRoomId;
 
     const roomNumber = this.extractRoomNumberToken(
-      checkoutItem?.roomNumber ?? checkoutItem?.RoomNumber ?? checkoutItem?.room,
+      checkoutItem?.roomNumber ??
+        checkoutItem?.RoomNumber ??
+        checkoutItem?.room,
     );
     if (!roomNumber) return null;
 
@@ -396,23 +407,21 @@ class NhanTraphong extends Component {
     const normalizedRoomNumber = String(roomNumber).trim();
     const roomNumberAsNumber = Number(normalizedRoomNumber);
 
-    const matchedRoom = rawItems.find(
-      (item) => {
-        const apiRoomNumber = String(item?.RoomNumber ?? "").trim();
-        if (!apiRoomNumber) return false;
-        if (apiRoomNumber === normalizedRoomNumber) return true;
+    const matchedRoom = rawItems.find((item) => {
+      const apiRoomNumber = String(item?.RoomNumber ?? "").trim();
+      if (!apiRoomNumber) return false;
+      if (apiRoomNumber === normalizedRoomNumber) return true;
 
-        const apiRoomNumberAsNumber = Number(apiRoomNumber);
-        if (
-          Number.isFinite(roomNumberAsNumber) &&
-          Number.isFinite(apiRoomNumberAsNumber)
-        ) {
-          return apiRoomNumberAsNumber === roomNumberAsNumber;
-        }
+      const apiRoomNumberAsNumber = Number(apiRoomNumber);
+      if (
+        Number.isFinite(roomNumberAsNumber) &&
+        Number.isFinite(apiRoomNumberAsNumber)
+      ) {
+        return apiRoomNumberAsNumber === roomNumberAsNumber;
+      }
 
-        return false;
-      },
-    );
+      return false;
+    });
     const fallbackById =
       !matchedRoom && Number.isFinite(roomNumberAsNumber)
         ? rawItems.find(
@@ -450,11 +459,14 @@ class NhanTraphong extends Component {
   mapServiceUsageFromApi = (item) => {
     const usageId = item?.UsageID ?? item?.usageId ?? item?.id ?? null;
     const quantityRaw = Number(item?.Quantity ?? item?.quantity ?? 1);
-    const qty = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
+    const qty =
+      Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
     const priceRaw = Number(item?.Price ?? item?.price ?? 0);
     const serviceName = item?.ServiceName ?? item?.serviceName ?? "";
     const matchedOption = this.findServiceOptionByName(serviceName);
-    const price = Number.isFinite(priceRaw) ? priceRaw : matchedOption?.price || 0;
+    const price = Number.isFinite(priceRaw)
+      ? priceRaw
+      : matchedOption?.price || 0;
     const totalRaw = Number(item?.Total ?? item?.total ?? qty * price);
     const total = Number.isFinite(totalRaw) ? totalRaw : qty * price;
 
@@ -482,7 +494,9 @@ class NhanTraphong extends Component {
     try {
       this.setState({ serviceUsageLoading: true, serviceItems: [] });
 
-      const payload = await this.request(SERVICE_USAGES_BY_STAY_API_URL(stayId));
+      const payload = await this.request(
+        SERVICE_USAGES_BY_STAY_API_URL(stayId),
+      );
       const rawItems = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.data)
@@ -534,7 +548,8 @@ class NhanTraphong extends Component {
     const minibarIdRaw =
       item?.MiniBarID ?? item?.MinibarID ?? item?.minibarId ?? item?.id ?? null;
     const parsedMinibarId = Number(minibarIdRaw);
-    const name = item?.ItemName ?? item?.itemName ?? item?.Name ?? item?.name ?? "";
+    const name =
+      item?.ItemName ?? item?.itemName ?? item?.Name ?? item?.name ?? "";
     const priceRaw = Number(item?.Price ?? item?.price ?? 0);
     const price = Number.isFinite(priceRaw) ? priceRaw : 0;
     const displayName = String(name || "").trim();
@@ -548,9 +563,11 @@ class NhanTraphong extends Component {
   };
 
   mapMinibarUsageFromApi = (item) => {
-    const usageId = item?.ID ?? item?.UsageID ?? item?.usageId ?? item?.id ?? null;
+    const usageId =
+      item?.ID ?? item?.UsageID ?? item?.usageId ?? item?.id ?? null;
     const quantityRaw = Number(item?.Quantity ?? item?.quantity ?? 1);
-    const qty = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
+    const qty =
+      Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1;
     const itemName = item?.ItemName ?? item?.itemName ?? "";
     const priceRaw = Number(item?.Price ?? item?.price ?? 0);
     const minibarIdRaw =
@@ -565,7 +582,9 @@ class NhanTraphong extends Component {
         : null;
     const matchedByName = this.findMinibarOptionByName(itemName);
     const matchedOption = matchedById || matchedByName;
-    const price = Number.isFinite(priceRaw) ? priceRaw : matchedOption?.price || 0;
+    const price = Number.isFinite(priceRaw)
+      ? priceRaw
+      : matchedOption?.price || 0;
     const totalRaw = Number(item?.Total ?? item?.total ?? qty * price);
     const total = Number.isFinite(totalRaw) ? totalRaw : qty * price;
     const minibarId = matchedOption?.minibarId ?? minibarIdFromApi;
@@ -586,7 +605,11 @@ class NhanTraphong extends Component {
     };
   };
 
-  fetchMinibarOptionsByRoom = async (roomId, showError = false, stayId = null) => {
+  fetchMinibarOptionsByRoom = async (
+    roomId,
+    showError = false,
+    stayId = null,
+  ) => {
     if (!roomId) {
       this.setState({ minibarOptions: [], minibarCatalogLoading: false });
       if (showError) {
@@ -621,7 +644,9 @@ class NhanTraphong extends Component {
     } catch (err) {
       this.setState({ minibarOptions: [] });
       if (showError) {
-        window.alert(err.message || "Không thể tải danh mục minibar theo phòng.");
+        window.alert(
+          err.message || "Không thể tải danh mục minibar theo phòng.",
+        );
       }
     } finally {
       this.setState({ minibarCatalogLoading: false });
@@ -654,7 +679,9 @@ class NhanTraphong extends Component {
     try {
       this.setState({ minibarUsageLoading: true, minibarItems: [] });
 
-      const payload = await this.request(MINIBAR_USAGES_BY_STAY_API_URL(stayId));
+      const payload = await this.request(
+        MINIBAR_USAGES_BY_STAY_API_URL(stayId),
+      );
       const rawItems = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.data)
@@ -791,14 +818,27 @@ class NhanTraphong extends Component {
     }
   };
 
-  fetchWalkinAvailableRooms = async () => {
+  fetchWalkinAvailableRooms = async (checkOutDate) => {
+    const expectedCheckOut = this.buildExpectedCheckoutDateTime(checkOutDate);
+
+    if (!expectedCheckOut) {
+      this.setState((prev) => ({
+        walkinRoomsLoading: false,
+        walkinAvailableRooms: [],
+        walkInForm: { ...prev.walkInForm, roomId: "" },
+      }));
+      return;
+    }
+
     try {
       this.setState({
         walkinRoomsLoading: true,
         walkinAvailableRooms: [],
       });
 
-      const payload = await this.request(ROOMS_API_URL);
+      const payload = await this.request(
+        `${AVAILABLE_ROOMS_API_URL}?ExpectedCheckOut=${encodeURIComponent(expectedCheckOut)}`,
+      );
       const rawItems = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.data)
@@ -806,7 +846,9 @@ class NhanTraphong extends Component {
           : [];
 
       const walkinAvailableRooms = rawItems
-        .filter((item) => this.isWalkinAvailableRoom(item?.Status))
+        .filter((item) =>
+          item?.Status ? this.isWalkinAvailableRoom(item?.Status) : true,
+        )
         .map(this.mapRoomFromApi)
         .filter((room) => room.roomId !== null)
         .sort((a, b) =>
@@ -844,7 +886,10 @@ class NhanTraphong extends Component {
         walkinAvailableRooms: [],
         walkInForm: { ...prev.walkInForm, roomId: "" },
       }));
-      window.alert(err.message || "Không thể tải danh sách phòng trống.");
+      window.alert(
+        err.message ||
+          "Không thể tải danh sách phòng trống theo ngày trả phòng dự kiến.",
+      );
     } finally {
       this.setState({ walkinRoomsLoading: false });
     }
@@ -1075,7 +1120,9 @@ class NhanTraphong extends Component {
       return;
     }
 
-    const currentDate = this.extractInputDateFromPlan(currentItem?.checkOutPlan);
+    const currentDate = this.extractInputDateFromPlan(
+      currentItem?.checkOutPlan,
+    );
     if (currentDate && extendForm.newCheckOut <= currentDate) {
       window.alert("Ngày Check-out mới phải lớn hơn ngày dự kiến hiện tại.");
       return;
@@ -1098,9 +1145,7 @@ class NhanTraphong extends Component {
       });
 
       window.alert(
-        response?.Message ||
-          response?.message ||
-          "Gia hạn lưu trú thành công.",
+        response?.Message || response?.message || "Gia hạn lưu trú thành công.",
       );
 
       this.closeModal();
@@ -1227,7 +1272,7 @@ class NhanTraphong extends Component {
 
     if (type === "walkin") {
       nextState.walkinAvailableRooms = [];
-      nextState.walkinRoomsLoading = true;
+      nextState.walkinRoomsLoading = false;
       nextState.walkInForm = { ...this.state.walkInForm, roomId: "" };
     }
 
@@ -1258,10 +1303,6 @@ class NhanTraphong extends Component {
 
     if (type === "checkin" && item?.reservationId) {
       this.fetchAvailableRoomsForCheckin(item.reservationId);
-    }
-
-    if (type === "walkin") {
-      this.fetchWalkinAvailableRooms();
     }
 
     if (type === "transfer") {
@@ -1315,9 +1356,24 @@ class NhanTraphong extends Component {
   };
 
   handleWalkInInput = (field) => (e) => {
-    this.setState({
-      walkInForm: { ...this.state.walkInForm, [field]: e.target.value },
-    });
+    const value = e.target.value;
+
+    if (field !== "checkOut") {
+      this.setState((prev) => ({
+        walkInForm: { ...prev.walkInForm, [field]: value },
+      }));
+      return;
+    }
+
+    this.setState(
+      (prev) => ({
+        walkInForm: { ...prev.walkInForm, checkOut: value, roomId: "" },
+        walkinAvailableRooms: value ? prev.walkinAvailableRooms : [],
+      }),
+      () => {
+        this.fetchWalkinAvailableRooms(value);
+      },
+    );
   };
 
   handleTransferInput = (field) => (e) => {
@@ -1346,7 +1402,9 @@ class NhanTraphong extends Component {
     if (modalType !== "checkout") return;
 
     if (minibarUsageLoading || minibarCatalogLoading) {
-      window.alert("Danh sách minibar đang tải, vui lòng thử lại sau vài giây.");
+      window.alert(
+        "Danh sách minibar đang tải, vui lòng thử lại sau vài giây.",
+      );
       return;
     }
 
@@ -1357,13 +1415,12 @@ class NhanTraphong extends Component {
 
     const hasPendingDraft = minibarItems.some(
       (item) =>
-        item.isDraft &&
-        !item.minibarId &&
-        !item.isCreating &&
-        !item.isDeleting,
+        item.isDraft && !item.minibarId && !item.isCreating && !item.isDeleting,
     );
     if (hasPendingDraft) {
-      window.alert("Vui lòng chọn minibar ở dòng hiện tại trước khi thêm dòng mới.");
+      window.alert(
+        "Vui lòng chọn minibar ở dòng hiện tại trước khi thêm dòng mới.",
+      );
       return;
     }
 
@@ -1737,7 +1794,11 @@ class NhanTraphong extends Component {
 
   mapPenaltyFromApi = (item) => {
     const penaltyIdRaw =
-      item?.PenaltyID ?? item?.PenaltyId ?? item?.penaltyId ?? item?.ID ?? item?.id;
+      item?.PenaltyID ??
+      item?.PenaltyId ??
+      item?.penaltyId ??
+      item?.ID ??
+      item?.id;
     const parsedPenaltyId = Number(penaltyIdRaw);
     const amountRaw = Number(item?.Amount ?? item?.amount ?? 0);
     const amount = Number.isFinite(amountRaw) ? amountRaw : 0;
@@ -1988,8 +2049,7 @@ class NhanTraphong extends Component {
       modalType === "transfer" &&
       (transferSubmitting || transferRoomsLoading || !transferRoom);
     const disableExtendConfirm =
-      modalType === "extend" &&
-      (extendSubmitting || !extendForm.newCheckOut);
+      modalType === "extend" && (extendSubmitting || !extendForm.newCheckOut);
     const disableCheckoutConfirm =
       modalType === "checkout" && checkoutSubmitting;
     const disableModalConfirm =
@@ -2039,12 +2099,18 @@ class NhanTraphong extends Component {
                 <select
                   value={walkInForm.roomId}
                   onChange={this.handleWalkInInput("roomId")}
-                  disabled={walkinRoomsLoading || walkinSubmitting}
+                  disabled={
+                    walkinRoomsLoading ||
+                    walkinSubmitting ||
+                    !walkInForm.checkOut
+                  }
                 >
                   <option value="">
-                    {walkinRoomsLoading
-                      ? "Đang tải phòng trống..."
-                      : "Chọn phòng trống"}
+                    {!walkInForm.checkOut
+                      ? "Chọn ngày trả phòng trước"
+                      : walkinRoomsLoading
+                        ? "Đang tải phòng trống..."
+                        : "Chọn phòng trống"}
                   </option>
                   {walkinAvailableRooms.map((room) => (
                     <option key={room.roomId} value={room.roomId}>
@@ -2054,9 +2120,16 @@ class NhanTraphong extends Component {
                     </option>
                   ))}
                 </select>
-                {!walkinRoomsLoading && walkinAvailableRooms.length === 0 && (
-                  <small>Hiện không có phòng trống để walk-in.</small>
+                {!walkInForm.checkOut && (
+                  <small>
+                    Vui lòng chọn ngày trả phòng dự kiến để tải phòng trống.
+                  </small>
                 )}
+                {walkInForm.checkOut &&
+                  !walkinRoomsLoading &&
+                  walkinAvailableRooms.length === 0 && (
+                    <small>Hiện không có phòng trống để walk-in.</small>
+                  )}
               </div>
               <div className="ntp-field">
                 <label>Ngày trả phòng dự kiến *</label>
@@ -2136,9 +2209,10 @@ class NhanTraphong extends Component {
                     </option>
                   ))}
                 </select>
-                {!transferRoomsLoading && transferAvailableRooms.length === 0 && (
-                  <small>Không có phòng trống để chuyển.</small>
-                )}
+                {!transferRoomsLoading &&
+                  transferAvailableRooms.length === 0 && (
+                    <small>Không có phòng trống để chuyển.</small>
+                  )}
               </div>
               <div className="ntp-field">
                 <label>Lý do chuyển phòng</label>
@@ -2211,7 +2285,9 @@ class NhanTraphong extends Component {
                 </div>
               )}
               {!serviceUsageLoading && serviceItems.length === 0 && (
-                <div className="ntp-note-box">Chưa có dịch vụ nào được ghi nhận.</div>
+                <div className="ntp-note-box">
+                  Chưa có dịch vụ nào được ghi nhận.
+                </div>
               )}
               {serviceItems.map((item) => (
                 <div key={item.id} className="ntp-minibar-row">
@@ -2252,7 +2328,9 @@ class NhanTraphong extends Component {
                   <button
                     className="ntp-btn-danger"
                     onClick={() => this.removeServiceItem(item.id)}
-                    disabled={item.isCreating || item.isUpdatingQty || item.isDeleting}
+                    disabled={
+                      item.isCreating || item.isUpdatingQty || item.isDeleting
+                    }
                   >
                     {item.isDeleting ? "Đang xóa..." : "Xóa"}
                   </button>
@@ -2284,7 +2362,9 @@ class NhanTraphong extends Component {
               </div>
               <div className="ntp-sub-title">Minibar</div>
               {minibarCatalogLoading && (
-                <div className="ntp-note-box">Đang tải danh mục minibar theo phòng...</div>
+                <div className="ntp-note-box">
+                  Đang tải danh mục minibar theo phòng...
+                </div>
               )}
               {!minibarCatalogLoading && minibarOptions.length === 0 && (
                 <div className="ntp-note-box">
@@ -2297,14 +2377,20 @@ class NhanTraphong extends Component {
                 </div>
               )}
               {!minibarUsageLoading && minibarItems.length === 0 && (
-                <div className="ntp-note-box">Chưa có minibar nào được ghi nhận.</div>
+                <div className="ntp-note-box">
+                  Chưa có minibar nào được ghi nhận.
+                </div>
               )}
               {minibarItems.map((item) => (
                 <div key={item.id} className="ntp-minibar-row">
                   <select
                     value={item.minibarId}
                     onChange={(e) =>
-                      this.updateMinibarItem(item.id, "minibarId", e.target.value)
+                      this.updateMinibarItem(
+                        item.id,
+                        "minibarId",
+                        e.target.value,
+                      )
                     }
                     disabled={
                       !item.isDraft ||
@@ -2338,7 +2424,9 @@ class NhanTraphong extends Component {
                   <button
                     className="ntp-btn-danger"
                     onClick={() => this.removeMinibarItem(item.id)}
-                    disabled={item.isCreating || item.isUpdatingQty || item.isDeleting}
+                    disabled={
+                      item.isCreating || item.isUpdatingQty || item.isDeleting
+                    }
                   >
                     {item.isDeleting ? "Đang xóa..." : "Xóa"}
                   </button>
@@ -2353,10 +2441,14 @@ class NhanTraphong extends Component {
               </button>
               <div className="ntp-sub-title">Phí phạt</div>
               {penaltyLoading && (
-                <div className="ntp-note-box">Đang tải danh sách phí phạt...</div>
+                <div className="ntp-note-box">
+                  Đang tải danh sách phí phạt...
+                </div>
               )}
               {!penaltyLoading && penalties.length === 0 && (
-                <div className="ntp-note-box">Chưa có phí phạt nào được ghi nhận.</div>
+                <div className="ntp-note-box">
+                  Chưa có phí phạt nào được ghi nhận.
+                </div>
               )}
               <div className="ntp-penalty-row">
                 <input
@@ -2399,7 +2491,9 @@ class NhanTraphong extends Component {
                         <button
                           className="ntp-btn ntp-btn-danger"
                           onClick={() => this.removePenalty(p.id)}
-                          disabled={p.isDeleting || penaltyLoading || penaltyAdding}
+                          disabled={
+                            p.isDeleting || penaltyLoading || penaltyAdding
+                          }
                         >
                           {p.isDeleting ? "Đang xóa..." : "Xóa"}
                         </button>

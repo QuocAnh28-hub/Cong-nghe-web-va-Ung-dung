@@ -1407,21 +1407,30 @@ EXEC sp_GetReservationCountByDate
 CREATE PROCEDURE sp_GetPendingInvoices
 AS
 BEGIN
+    SET NOCOUNT ON;
+
     SELECT 
         s.StayID,
-        g.FullName AS CustomerName,
+        g.FullName AS GuestName,
+        g.IdentityNumber,
 
-        stayInfo.FirstCheckIn,
-        stayInfo.LastCheckOut,
+        s.ActualCheckIn,
+        s.ActualCheckOut,
 
-        -- Chi tiết tiền
-        ISNULL(stayInfo.TotalRoomCharge, 0) AS RoomCharge,
+        -- Tiền phòng
+        ISNULL(rh.TotalRoomCharge, 0) AS RoomCharge,
+
+        -- Service
         ISNULL(sv.TotalServiceCharge, 0) AS ServiceCharge,
+
+        -- Minibar
         ISNULL(mb.TotalMinibarCharge, 0) AS MinibarCharge,
+
+        -- Penalty
         ISNULL(pn.TotalPenalty, 0) AS PenaltyCharge,
 
         -- Tổng tiền
-        ISNULL(stayInfo.TotalRoomCharge, 0)
+        ISNULL(rh.TotalRoomCharge, 0)
         + ISNULL(sv.TotalServiceCharge, 0)
         + ISNULL(mb.TotalMinibarCharge, 0)
         + ISNULL(pn.TotalPenalty, 0) AS TotalAmount
@@ -1431,45 +1440,50 @@ BEGIN
     LEFT JOIN Invoices i ON s.StayID = i.StayID
 
     -------------------------------------------------
-    -- Room + thời gian (đã bao gồm tiền phòng)
+    -- ROOM (gom theo StayID)
     -------------------------------------------------
-    OUTER APPLY (
+    LEFT JOIN (
         SELECT 
-            MIN(CheckInTime) AS FirstCheckIn,
-            MAX(CheckOutTime) AS LastCheckOut,
+            StayID,
             SUM(RateAtThatTime) AS TotalRoomCharge
         FROM RoomStayHistory
-        WHERE StayID = s.StayID
-    ) stayInfo
+        GROUP BY StayID
+    ) rh ON rh.StayID = s.StayID
 
     -------------------------------------------------
-    -- Service
+    -- SERVICE
     -------------------------------------------------
-    OUTER APPLY (
-        SELECT SUM(su.Quantity * sv.Price) AS TotalServiceCharge
+    LEFT JOIN (
+        SELECT 
+            su.StayID,
+            SUM(su.Quantity * sv.Price) AS TotalServiceCharge
         FROM ServiceUsages su
         JOIN Services sv ON su.ServiceID = sv.ServiceID
-        WHERE su.StayID = s.StayID
-    ) sv
+        GROUP BY su.StayID
+    ) sv ON sv.StayID = s.StayID
 
     -------------------------------------------------
-    -- Minibar
+    -- MINIBAR
     -------------------------------------------------
-    OUTER APPLY (
-        SELECT SUM(mu.Quantity * mi.Price) AS TotalMinibarCharge
+    LEFT JOIN (
+        SELECT 
+            mu.StayID,
+            SUM(mu.Quantity * mi.Price) AS TotalMinibarCharge
         FROM MinibarUsages mu
         JOIN MinibarItems mi ON mu.MinibarID = mi.MinibarID
-        WHERE mu.StayID = s.StayID
-    ) mb
+        GROUP BY mu.StayID
+    ) mb ON mb.StayID = s.StayID
 
     -------------------------------------------------
-    -- Penalty
+    -- PENALTY
     -------------------------------------------------
-    OUTER APPLY (
-        SELECT SUM(Amount) AS TotalPenalty
+    LEFT JOIN (
+        SELECT 
+            StayID,
+            SUM(Amount) AS TotalPenalty
         FROM Penalties
-        WHERE StayID = s.StayID
-    ) pn
+        GROUP BY StayID
+    ) pn ON pn.StayID = s.StayID
 
     -------------------------------------------------
     WHERE 
@@ -1736,7 +1750,7 @@ BEGIN
 
     ORDER BY rs.CheckInTime
 END
-EXEC sp_GetRoomStayHistory_CheckedOut_ByStayID 33
+EXEC sp_GetRoomStayHistory_CheckedOut_ByStayID 3
 
 --Thanh toán hoá đơn-----------------------------------------------------------------------------------
 CREATE PROCEDURE sp_PayInvoice
@@ -2585,7 +2599,7 @@ BEGIN
 
     SET @GuestID = SCOPE_IDENTITY()
 
-    -- 4. Tạo Stay
+    -- 4. Tạo Stay (🔥 FIX ở đây)
     INSERT INTO Stays 
     (ReservationID, GuestID, ActualCheckIn, ExpectedCheckOut, Status)
     VALUES 
@@ -2610,6 +2624,88 @@ EXEC sp_CheckIn_WalkIn_OneRoom
     @CCCD = '001203000991',
     @RoomID = 33,
     @ExpectedCheckOut = '2026-04-08';
+
+---Load phòng trống và không có lịch đặt để checkIN walkin -----------------------
+CREATE PROCEDURE sp_GetAvailableRooms_Advanced
+    @ExpectedCheckOut DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Now DATETIME = GETDATE();
+
+    -------------------------------------------------
+    -- 1. Lấy danh sách RoomType còn slot
+    -------------------------------------------------
+    ;WITH RoomTypeAvailability AS (
+        SELECT 
+            rt.RoomTypeID,
+
+            -- Tổng số phòng
+            TotalRooms = COUNT(r.RoomID),
+
+            -- Số phòng đang có khách ở
+            OccupiedRooms = (
+                SELECT COUNT(*)
+                FROM RoomStayHistory rsh
+                JOIN Rooms r2 ON rsh.RoomID = r2.RoomID
+                WHERE r2.RoomTypeID = rt.RoomTypeID
+                  AND rsh.CheckInTime < @ExpectedCheckOut
+                  AND (
+                        rsh.CheckOutTime IS NULL 
+                        OR rsh.CheckOutTime > @Now
+                  )
+            ),
+
+            -- Số phòng đã được đặt
+            BookedRooms = (
+                SELECT ISNULL(SUM(rr.Quantity), 0)
+                FROM ReservationRooms rr
+                JOIN Reservations res ON rr.ReservationID = res.ReservationID
+                WHERE rr.RoomTypeID = rt.RoomTypeID
+                  AND res.Status IN ('BOOKED','CHECKED_IN')
+                  AND res.CheckInDate < @ExpectedCheckOut
+                  AND res.CheckOutDate > @Now
+            )
+
+        FROM RoomTypes rt
+        JOIN Rooms r ON r.RoomTypeID = rt.RoomTypeID
+        GROUP BY rt.RoomTypeID
+    )
+
+    -------------------------------------------------
+    -- 2. Lấy các phòng cụ thể
+    -------------------------------------------------
+    SELECT r.*
+    FROM Rooms r
+    JOIN RoomTypeAvailability a 
+        ON r.RoomTypeID = a.RoomTypeID
+    WHERE 
+        -------------------------------------------------
+        -- Phòng usable
+        -------------------------------------------------
+        r.Status = 'AVAILABLE'
+
+        -------------------------------------------------
+        -- Không có người ở phòng này
+        -------------------------------------------------
+        AND NOT EXISTS (
+            SELECT 1
+            FROM RoomStayHistory rsh
+            WHERE rsh.RoomID = r.RoomID
+              AND rsh.CheckInTime < @ExpectedCheckOut
+              AND (
+                    rsh.CheckOutTime IS NULL 
+                    OR rsh.CheckOutTime > @Now
+              )
+        )
+
+        -------------------------------------------------
+        -- RoomType còn slot
+        -------------------------------------------------
+        AND (a.TotalRooms - a.OccupiedRooms - a.BookedRooms) > 0
+END
+EXEC sp_GetAvailableRooms_Advanced @ExpectedCheckOut = '2026-04-15'
 
 ---Chuyển phòng------------------------------------------------------------------
 CREATE PROCEDURE sp_TransferRoom
@@ -3162,15 +3258,38 @@ BEGIN
     WHERE StayID = @StayID
 
     -------------------------------------------------
-    -- 5. Đếm số phòng đã đặt
+    -- ❗ CASE 1: WALK-IN (không có reservation)
     -------------------------------------------------
-    SELECT @TotalBookedRooms = SUM(Quantity)
+    IF @ReservationID IS NULL
+    BEGIN
+        -- Nếu không còn phòng nào đang ở → hoàn thành stay
+        IF NOT EXISTS (
+            SELECT 1
+            FROM RoomStayHistory
+            WHERE StayID = @StayID
+              AND CheckOutTime IS NULL
+        )
+        BEGIN
+            UPDATE Stays
+            SET 
+                ActualCheckOut = @Now,
+                Status = 'COMPLETED'
+            WHERE StayID = @StayID
+        END
+
+        RETURN
+    END
+
+    -------------------------------------------------
+    -- ❗ CASE 2: CÓ RESERVATION
+    -------------------------------------------------
+
+    -- 5. Đếm số phòng đã đặt
+    SELECT @TotalBookedRooms = ISNULL(SUM(Quantity), 0)
     FROM ReservationRooms
     WHERE ReservationID = @ReservationID
 
-    -------------------------------------------------
     -- 6. Đếm số phòng đã check-in
-    -------------------------------------------------
     SELECT @TotalCheckedInRooms = COUNT(*)
     FROM RoomStayHistory rsh
     JOIN Stays s ON rsh.StayID = s.StayID
@@ -3180,7 +3299,7 @@ BEGIN
     -- 7. Check điều kiện hoàn thành
     -------------------------------------------------
     IF 
-        -- Không còn phòng nào đang ở
+        -- Không còn phòng nào đang ở trong stay này
         NOT EXISTS (
             SELECT 1
             FROM RoomStayHistory

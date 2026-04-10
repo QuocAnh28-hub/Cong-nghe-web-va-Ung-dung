@@ -3,15 +3,13 @@ const { sql } = require("../config/db");
 const getRooms = async (req, res) => {
   console.log("getRooms called");
   try {
-    const result = await sql.query`EXEC GetRooms`;
-    if (!result.recordset) {
-      return res.status(404).json({ error: "Không tìm thấy dữ liệu phòng" });
-    }
+    const request = new sql.Request();
+    const result = await request.execute("GetRooms");
 
-    return res.json(result.recordset);
+    return res.json(result.recordset || []);
   } catch (err) {
     console.error("getRooms Error:", err);
-    return res.status(500).json({ error: "Lỗi server", detail: err.message });
+    return res.status(500).json({ error: "Loi server", detail: err.message });
   }
 };
 
@@ -47,13 +45,63 @@ const getRoomCalendar = async (req, res) => {
   }
 };
 
+const toDateTime = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const getAvailableRoomsAdvanced = async (req, res) => {
+  console.log("getAvailableRoomsAdvanced called", req.query, req.body);
+  try {
+    const expectedCheckOut = toDateTime(
+      req.query.ExpectedCheckOut ||
+        req.query.expectedCheckOut ||
+        req.body?.ExpectedCheckOut,
+    );
+
+    if (!expectedCheckOut) {
+      return res.status(400).json({
+        error:
+          "Thieu hoac sai tham so: ExpectedCheckOut (ISO datetime). Vi du: 2026-04-15T12:00:00",
+      });
+    }
+
+    const request = new sql.Request();
+    request.input("ExpectedCheckOut", sql.DateTime, expectedCheckOut);
+    const result = await request.execute("sp_GetAvailableRooms_Advanced");
+
+    return res.json(result.recordset || []);
+  } catch (err) {
+    console.error("getAvailableRoomsAdvanced Error:", err);
+    return res.status(500).json({ error: "Loi server", detail: err.message });
+  }
+};
+
 const addRoom = async (req, res) => {
   console.log("addRoom called", req.body);
   try {
     const { RoomNumber, Status, RoomTypeID } = req.body;
     const roomTypeIdNum = Number(RoomTypeID);
 
-    if (!RoomNumber || !Status || !Number.isInteger(roomTypeIdNum) || roomTypeIdNum <= 0) {
+    if (
+      !RoomNumber ||
+      !Status ||
+      !Number.isInteger(roomTypeIdNum) ||
+      roomTypeIdNum <= 0
+    ) {
       return res.status(400).json({
         error: "Thieu hoac sai tham so: RoomNumber, Status, RoomTypeID",
       });
@@ -94,7 +142,12 @@ const updateRoom = async (req, res) => {
       return res.status(400).json({ error: "RoomID khong hop le" });
     }
 
-    if (!RoomNumber || !Status || !Number.isInteger(roomTypeIdNum) || roomTypeIdNum <= 0) {
+    if (
+      !RoomNumber ||
+      !Status ||
+      !Number.isInteger(roomTypeIdNum) ||
+      roomTypeIdNum <= 0
+    ) {
       return res.status(400).json({
         error: "Thieu hoac sai tham so: RoomNumber, Status, RoomTypeID",
       });
@@ -136,4 +189,10 @@ const updateRoom = async (req, res) => {
   }
 };
 
-module.exports = { getRooms, getRoomCalendar, addRoom, updateRoom };
+module.exports = {
+  getRooms,
+  getRoomCalendar,
+  getAvailableRoomsAdvanced,
+  addRoom,
+  updateRoom,
+};
