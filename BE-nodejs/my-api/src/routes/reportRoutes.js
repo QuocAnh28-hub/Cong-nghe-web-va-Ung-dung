@@ -9,6 +9,7 @@ const {
   getRevenueByDayInMonth,
   getRevenueByRoomTypeInMonth,
   getRoomTypeUsagePercentInMonth,
+  getRevenueByCustomerType,
 } = require("../controllers/reportController");
 
 router.get("/room-occupancy-by-month", getRoomOccupancyByMonth);
@@ -18,5 +19,6 @@ router.get("/reservation-count-by-month", getReservationCountByMonth);
 router.get("/revenue-by-day-in-month", getRevenueByDayInMonth);
 router.get("/revenue-by-room-type-in-month", getRevenueByRoomTypeInMonth);
 router.get("/room-type-usage-percent-in-month", getRoomTypeUsagePercentInMonth);
+router.get("/revenue-by-customer-type", getRevenueByCustomerType);
 
 module.exports = router;

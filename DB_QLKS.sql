@@ -3460,7 +3460,52 @@ END
 EXEC sp_GetRevenueByDayInMonth @Month = 3, @Year = 2026
 
 ---Biểu đồ doanh thu theo kênh (Đặt phòng/ Walk-in)---------------
---sp_GetGuestTypeByMonth
+CREATE PROCEDURE sp_GetRevenueByCustomerType
+    @Month INT,
+    @Year INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Tổng doanh thu trong tháng
+    DECLARE @TotalRevenue DECIMAL(18,2);
+
+    SELECT 
+        @TotalRevenue = ISNULL(SUM(i.TotalAmount), 0)
+    FROM Invoices i
+    WHERE 
+        MONTH(i.Date) = @Month
+        AND YEAR(i.Date) = @Year;
+
+    -- Doanh thu theo loại khách + %
+    SELECT 
+        t.CustomerType,
+        ISNULL(SUM(i.TotalAmount), 0) AS TotalRevenue,
+
+        CASE 
+            WHEN @TotalRevenue = 0 THEN 0
+            ELSE ROUND(ISNULL(SUM(i.TotalAmount), 0) * 100.0 / @TotalRevenue, 2)
+        END AS Percentage
+
+    FROM (
+        SELECT N'Walk-in' AS CustomerType
+        UNION ALL
+        SELECT N'Đặt trước'
+    ) t
+
+    LEFT JOIN Stays s 
+        ON (t.CustomerType = N'Walk-in' AND s.ReservationID IS NULL)
+        OR (t.CustomerType = N'Đặt trước' AND s.ReservationID IS NOT NULL)
+
+    LEFT JOIN Invoices i 
+        ON i.StayID = s.StayID
+        AND MONTH(i.Date) = @Month
+        AND YEAR(i.Date) = @Year
+
+    GROUP BY t.CustomerType
+END
+
+EXEC sp_GetRevenueByCustomerType @Month = 3, @Year = 2026
 
 ---Biểu đồ doanh thu theo loại phòng------------------------------
 CREATE alter PROCEDURE sp_GetRevenueByRoomTypeInMonth

@@ -76,6 +76,9 @@ const getRevenueByRoomTypeInMonth = async (req, res) =>
 const getRoomTypeUsagePercentInMonth = async (req, res) =>
   executeReportProcedureList(req, res, "sp_GetRoomTypeUsagePercentInMonth", "getRoomTypeUsagePercentInMonth");
 
+const getRevenueByCustomerType = async (req, res) =>
+  executeReportProcedureList(req, res, "sp_GetRevenueByCustomerType", "getRevenueByCustomerType");
+
 module.exports = {
   getRoomOccupancyByMonth,
   getNetRevenueByMonth,
@@ -84,4 +87,5 @@ module.exports = {
   getRevenueByDayInMonth,
   getRevenueByRoomTypeInMonth,
   getRoomTypeUsagePercentInMonth,
+  getRevenueByCustomerType,
 };
