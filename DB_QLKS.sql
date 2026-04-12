@@ -2573,6 +2573,7 @@ END
 
 ---CheckIn theo khách WalkIn----------------------------------------------------------------
 CREATE PROCEDURE sp_CheckIn_WalkIn_OneRoom
+ALTER PROCEDURE sp_CheckIn_WalkIn_OneRoom
     @FullName NVARCHAR(150),
     @CCCD NVARCHAR(20),
     @RoomID INT,
@@ -2585,27 +2586,58 @@ BEGIN
         @GuestID INT,
         @StayID INT,
         @Price DECIMAL(12,2),
-        @RoomTypeID INT
+        @RoomTypeID INT,
+        @RoomStatus NVARCHAR(20)
 
-    -- 1. Lấy RoomType
-    SELECT @RoomTypeID = RoomTypeID
+    -------------------------------------------------
+    -- ❗ 0. CHECK PHÒNG CÓ TỒN TẠI + TRỐNG KHÔNG
+    -------------------------------------------------
+    SELECT 
+        @RoomTypeID = RoomTypeID,
+        @RoomStatus = Status
     FROM Rooms
     WHERE RoomID = @RoomID
 
-    -- 2. Lấy giá hiện tại
+    IF @RoomTypeID IS NULL
+    BEGIN
+        RAISERROR(N'Phòng không tồn tại', 16, 1);
+        RETURN;
+    END
+
+    IF @RoomStatus <> 'AVAILABLE'
+    BEGIN
+        RAISERROR(N'Phòng không trống', 16, 1);
+        RETURN;
+    END
+
+    -------------------------------------------------
+    -- 1. Lấy giá hiện tại
+    -------------------------------------------------
     SELECT TOP 1 @Price = Price
     FROM Rates
     WHERE RoomTypeID = @RoomTypeID
       AND GETDATE() BETWEEN StartDate AND EndDate
     ORDER BY StartDate DESC
 
-    -- 3. Tạo Guest
+    -- Nếu không có giá mùa → lấy giá mặc định
+    IF @Price IS NULL
+    BEGIN
+        SELECT @Price = DefaultPrice
+        FROM RoomTypes
+        WHERE RoomTypeID = @RoomTypeID
+    END
+
+    -------------------------------------------------
+    -- 2. Tạo Guest
+    -------------------------------------------------
     INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
     VALUES (@FullName, 'CCCD', @CCCD)
 
     SET @GuestID = SCOPE_IDENTITY()
 
-    -- 4. Tạo Stay (🔥 FIX ở đây)
+    -------------------------------------------------
+    -- 3. Tạo Stay
+    -------------------------------------------------
     INSERT INTO Stays 
     (ReservationID, GuestID, ActualCheckIn, ExpectedCheckOut, Status)
     VALUES 
@@ -2613,13 +2645,17 @@ BEGIN
 
     SET @StayID = SCOPE_IDENTITY()
 
-    -- 5. RoomStayHistory
+    -------------------------------------------------
+    -- 4. RoomStayHistory
+    -------------------------------------------------
     INSERT INTO RoomStayHistory
     (StayID, RoomID, CheckInTime, RateAtThatTime)
     VALUES
     (@StayID, @RoomID, GETDATE(), @Price)
 
-    -- 6. Update phòng
+    -------------------------------------------------
+    -- 5. Update phòng
+    -------------------------------------------------
     UPDATE Rooms
     SET Status = 'OCCUPIED'
     WHERE RoomID = @RoomID
