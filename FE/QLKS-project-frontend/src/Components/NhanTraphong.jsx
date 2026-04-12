@@ -1,4 +1,4 @@
-﻿﻿﻿import React, { Component } from "react";
+﻿﻿import React, { Component } from "react";
 import "../style/NhanTraphong.css";
 import { FeatureHeader } from "./Common";
 
@@ -329,6 +329,21 @@ class NhanTraphong extends Component {
   isTransferAvailableRoom = (status) => {
     const normalized = this.normalizeRoomStatus(status);
     return ["AVAILABLE", "VACANT", "EMPTY"].includes(normalized);
+  };
+
+  getTomorrowDate = () => {
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  isValidCheckoutDateForWalkin = (checkoutDate) => {
+    if (!checkoutDate) return false;
+    const tomorrow = this.getTomorrowDate();
+    return checkoutDate >= tomorrow;
   };
 
   mapStayingFromApi = (item) => {
@@ -971,6 +986,11 @@ class NhanTraphong extends Component {
       return;
     }
 
+    if (!this.isValidCheckoutDateForWalkin(expectedCheckOut)) {
+      window.alert("Ngày checkout phải từ hôm sau trở đi.");
+      return;
+    }
+
     try {
       this.setState({ walkinSubmitting: true });
       const response = await this.request(CHECKIN_WALKIN_API_URL, {
@@ -1362,6 +1382,12 @@ class NhanTraphong extends Component {
       this.setState((prev) => ({
         walkInForm: { ...prev.walkInForm, [field]: value },
       }));
+      return;
+    }
+
+    // Validate checkout date must be at least tomorrow
+    if (value && !this.isValidCheckoutDateForWalkin(value)) {
+      window.alert("Ngày checkout phải từ hôm sau trở đi.");
       return;
     }
 
@@ -2135,6 +2161,7 @@ class NhanTraphong extends Component {
                 <label>Ngày trả phòng dự kiến *</label>
                 <input
                   type="date"
+                  min={this.getTomorrowDate()}
                   value={walkInForm.checkOut}
                   onChange={this.handleWalkInInput("checkOut")}
                 />

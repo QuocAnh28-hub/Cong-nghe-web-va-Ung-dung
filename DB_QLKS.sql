@@ -1443,12 +1443,16 @@ BEGIN
     -- ROOM (gom theo StayID)
     -------------------------------------------------
     LEFT JOIN (
-        SELECT 
-            StayID,
-            SUM(RateAtThatTime) AS TotalRoomCharge
-        FROM RoomStayHistory
-        GROUP BY StayID
-    ) rh ON rh.StayID = s.StayID
+    SELECT 
+        StayID,
+		SUM(
+            CASE 
+                WHEN DATEDIFF(DAY, CheckInTime, CheckOutTime) = 0 
+                    THEN 1
+                ELSE DATEDIFF(DAY, CheckInTime, CheckOutTime)
+            END * RateAtThatTime) AS TotalRoomCharge
+    FROM RoomStayHistory
+    GROUP BY StayID) rh ON rh.StayID = s.StayID
 
     -------------------------------------------------
     -- SERVICE
@@ -1489,6 +1493,7 @@ BEGIN
     WHERE 
         s.Status = 'COMPLETED'
         AND (i.InvoiceID IS NULL OR i.Status != 'PAID')
+	ORDER BY s.ActualCheckOut DESC
 END
 EXEC sp_GetPendingInvoices
 
@@ -1783,6 +1788,7 @@ BEGIN
     JOIN Stays s ON i.StayID = s.StayID
     JOIN Guests g ON s.GuestID = g.GuestID
     WHERE i.Status = 'PAID'
+	ORDER BY i.Date DESC
 END
 EXEC sp_GetInvoiceHistory
 
