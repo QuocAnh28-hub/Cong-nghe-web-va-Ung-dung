@@ -1,10 +1,11 @@
 import React, { Component } from "react";
 import "../style/Quanlyphong.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const ROOMS_API_URL = "http://localhost:3000/api/rooms";
 const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 6;
 const ALL_STATUS_VALUE = "all";
 const DEFAULT_STATUS = "AVAILABLE";
 const DEFAULT_STATUS_OPTIONS = [
@@ -276,7 +277,7 @@ class Quanlyphong extends Component {
 
       await this.fetchRooms();
       this.closeModal();
-      alert(isEdit ? "Cập nhật phòng thành công." : "Thêm phòng thành công.");
+      toast.success(isEdit ? "Cập nhật phòng thành công." : "Thêm phòng thành công.");
     } catch (error) {
       this.setState({
         error: error.message || "Không thể lưu thông tin phòng.",

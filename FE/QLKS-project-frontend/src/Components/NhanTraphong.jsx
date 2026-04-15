@@ -1,6 +1,7 @@
 ﻿﻿import React, { Component } from "react";
 import "../style/NhanTraphong.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
 const WAITING_CHECKIN_CUSTOMERS_API_URL = `${RESERVATIONS_API_URL}/waiting-checkin-customers`;
@@ -1004,7 +1005,7 @@ class NhanTraphong extends Component {
         }),
       });
 
-      window.alert(
+      toast.success(
         response?.Message ||
           response?.message ||
           "Check-in walk-in thành công.",
@@ -1013,7 +1014,7 @@ class NhanTraphong extends Component {
       this.closeModal();
       await this.fetchCurrentStayingCustomers();
     } catch (err) {
-      window.alert(err.message || "Check-in walk-in thất bại.");
+      toast.error(err.message || "Check-in walk-in thất bại.");
     } finally {
       this.setState({ walkinSubmitting: false });
     }
@@ -1044,7 +1045,7 @@ class NhanTraphong extends Component {
         }),
       });
 
-      window.alert(
+      toast.success(
         response?.Message || response?.message || "Check-in thành công.",
       );
 
@@ -1054,7 +1055,7 @@ class NhanTraphong extends Component {
         this.fetchCurrentStayingCustomers(),
       ]);
     } catch (err) {
-      window.alert(err.message || "Check-in thất bại.");
+      toast.error(err.message || "Check-in thất bại.");
     } finally {
       this.setState({ checkinSubmitting: false });
     }
@@ -1064,7 +1065,7 @@ class NhanTraphong extends Component {
     const { currentItem, transferRoom } = this.state;
 
     if (!currentItem?.stayId) {
-      window.alert("Không tìm thấy StayID để thực hiện chuyển phòng.");
+      toast.error("Không tìm thấy StayID để thực hiện chuyển phòng.");
       return;
     }
 
@@ -1114,14 +1115,14 @@ class NhanTraphong extends Component {
         }),
       });
 
-      window.alert(
+      toast.success(
         response?.Message || response?.message || "Chuyển phòng thành công.",
       );
 
       this.closeModal();
       await this.fetchCurrentStayingCustomers();
     } catch (err) {
-      window.alert(err.message || "Chuyển phòng thất bại.");
+      toast.error(err.message || "Chuyển phòng thất bại.");
     } finally {
       this.setState({ transferSubmitting: false });
     }
@@ -1164,14 +1165,14 @@ class NhanTraphong extends Component {
         }),
       });
 
-      window.alert(
+      toast.success(
         response?.Message || response?.message || "Gia hạn lưu trú thành công.",
       );
 
       this.closeModal();
       await this.fetchCurrentStayingCustomers();
     } catch (err) {
-      window.alert(err.message || "Gia hạn lưu trú thất bại.");
+      toast.error(err.message || "Gia hạn lưu trú thất bại.");
     } finally {
       this.setState({ extendSubmitting: false });
     }
@@ -1212,14 +1213,14 @@ class NhanTraphong extends Component {
         }),
       });
 
-      window.alert(
+      toast.success(
         response?.Message || response?.message || "Check-out phòng thành công.",
       );
 
       this.closeModal();
       await this.fetchCurrentStayingCustomers();
     } catch (err) {
-      window.alert(err.message || "Check-out phòng thất bại.");
+      toast.error(err.message || "Check-out phòng thất bại.");
     } finally {
       this.setState({ checkoutSubmitting: false });
     }

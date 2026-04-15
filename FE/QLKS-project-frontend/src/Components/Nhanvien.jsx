@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import "../style/Nhanvien.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const getRoleBadge = (role) => {
   if (role === "Quản trị viên") {
@@ -150,7 +151,7 @@ const Nhanvien = () => {
         )
       );
     } catch (err) {
-      window.alert(err.message || "Xóa nhân viên không thành công.");
+      toast.error(err.message || "Xóa nhân viên không thành công.");
     }
   };
 
@@ -253,6 +254,7 @@ const Nhanvien = () => {
         phone: "",
       });
       handleCloseModal();
+      toast.success(isEdit ? "Cập nhật nhân viên thành công." : "Thêm nhân viên thành công.");
     } catch (err) {
       setSubmitError(err.message || "Lỗi khi thêm nhân viên");
     } finally {

@@ -1,6 +1,7 @@
 ﻿import React, { Component } from "react";
 import "../style/Loaiphong.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const API_URL = "http://localhost:3000/api/room-types";
 
@@ -49,6 +50,7 @@ class Loaiphong extends Component {
       this.setState({ types, loading: false });
     } catch (error) {
       console.error("Không load được loại phòng:", error);
+      toast.error("Lỗi tải loại phòng.");
       this.setState({
         error: error.message || "Không thể tải danh sách loại phòng.",
         loading: false,
@@ -161,12 +163,13 @@ class Loaiphong extends Component {
       await response.json();
       await this.loadRoomTypes();
       this.setState({ isModalOpen: false, submitLoading: false });
-      alert(isEdit ? "Cập nhật loại phòng thành công." : "Thêm loại phòng thành công.");
+      toast.success(isEdit ? "Cập nhật loại phòng thành công." : "Thêm loại phòng thành công.");
     } catch (error) {
       this.setState({
         error: error.message || "Không thể lưu loại phòng.",
         submitLoading: false,
       });
+      toast.error("Không thể lưu loại phòng.");
     }
   };
 
@@ -189,9 +192,10 @@ class Loaiphong extends Component {
 
       await response.json();
       await this.loadRoomTypes();
-      alert("Xóa loại phòng thành công.");
+      toast.success("Xóa loại phòng thành công.");
     } catch (error) {
       this.setState({ error: error.message || "Không thể xóa loại phòng." });
+      toast.error("Không thể xóa loại phòng.");
     }
   };
 

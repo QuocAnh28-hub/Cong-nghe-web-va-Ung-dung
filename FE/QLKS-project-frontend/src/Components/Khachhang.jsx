@@ -1,9 +1,10 @@
 ﻿import React, { useEffect, useState } from "react";
 import "../style/Khachhang.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const API_URL = "http://localhost:3000/api/customers";
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 6;
 
 const getDefaultForm = () => ({
   FullName: "",
@@ -113,7 +114,7 @@ const Khachhang = () => {
     e.preventDefault();
 
     if (!form.FullName.trim() || !form.Phone.trim()) {
-      alert("Vui long nhap ho ten va so dien thoai.");
+      toast.error("Vui long nhap ho ten va so dien thoai.");
       return;
     }
 
@@ -142,10 +143,11 @@ const Khachhang = () => {
       }
 
       await fetchCustomers();
-      alert(isEdit ? "Cập nhật khách hàng thành công." : "Thêm khách hàng thành công.");
+      toast.success(isEdit ? "Cập nhật khách hàng thành công." : "Thêm khách hàng thành công.");
       handleCloseModal();
     } catch (err) {
       setError(err.message || "Khong the luu thong tin khach hang.");
+      toast.error(err.message || "Khong the luu thong tin khach hang.");
     } finally {
       setSubmitLoading(false);
     }

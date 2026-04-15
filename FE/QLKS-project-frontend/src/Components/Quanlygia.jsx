@@ -1,6 +1,7 @@
 ﻿import React, { Component } from "react";
 import "../style/Quanlygia.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
 const RATES_API_URL = "http://localhost:3000/api/rates";
@@ -112,6 +113,7 @@ class Quanlygia extends Component {
       this.setState({ roomTypes });
     } catch (error) {
       console.error(error);
+      toast.error("Lỗi tải loại phòng.");
     }
   };
 

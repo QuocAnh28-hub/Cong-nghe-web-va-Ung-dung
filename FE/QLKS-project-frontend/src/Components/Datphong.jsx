@@ -1,11 +1,12 @@
 import React, { Component } from "react";
 import "../style/Datphong.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
 const CUSTOMERS_API_URL = "http://localhost:3000/api/customers";
 const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 5;
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Tất cả trạng thái" },
@@ -120,12 +121,12 @@ class Datphong extends Component {
     const updates = {};
 
     if (this.state.error && this.state.error !== prevState.error) {
-      window.alert(this.state.error);
+      toast.error(this.state.error);
       updates.error = "";
     }
 
     if (this.state.notice && this.state.notice !== prevState.notice) {
-      window.alert(this.state.notice);
+      toast.info(this.state.notice);
       updates.notice = "";
     }
 
@@ -200,6 +201,7 @@ class Datphong extends Component {
         error: err.message || "Không thể tải danh sách lịch đặt.",
         reservations: [],
       });
+      toast.error(this.state.error);
     } finally {
       this.setState({ loading: false });
     }
@@ -233,6 +235,7 @@ class Datphong extends Component {
         error: err.message || "Không thể tải danh sách khách hàng.",
         customers: [],
       });
+      toast.error(this.state.error);
     } finally {
       this.setState({ lookupLoading: false });
     }
@@ -263,6 +266,7 @@ class Datphong extends Component {
         error: err.message || "Không thể tải danh sách loại phòng.",
         roomTypes: [],
       });
+      toast.error(this.state.error);
     } finally {
       this.setState({ lookupLoading: false });
     }
@@ -413,7 +417,7 @@ class Datphong extends Component {
 
         if (!selectedCustomer || selectedCustomer.userId === null) {
           throw new Error(
-            "KhÃ¡ch hÃ ng Ä‘Ã£ chá»n khÃ´ng cÃ³ UserID há»£p lá»‡.",
+            "Khách hàng đã chọn không có UserID hợp lệ.",
           );
         }
 
@@ -439,6 +443,7 @@ class Datphong extends Component {
           }),
         });
         successMessage = "Thêm lịch đặt cho khách mới thành công.";
+        toast.success(successMessage);
       }
 
       await this.fetchReservations();
@@ -455,6 +460,7 @@ class Datphong extends Component {
         error: err.message || "Không thể lưu lịch đặt.",
         notice: "",
       });
+      toast.error(this.state.error);
     } finally {
       this.setState({ submitLoading: false });
     }
@@ -497,11 +503,13 @@ class Datphong extends Component {
           response?.message ||
           "Đã hủy đặt phòng thành công.",
       });
+      toast.info(this.state.notice);
     } catch (err) {
       this.setState({
         error: err.message || "Không thể hủy lịch đặt.",
         notice: "",
       });
+      toast.error(this.state.error);
     } finally {
       this.setState({ actionLoadingId: null });
     }
