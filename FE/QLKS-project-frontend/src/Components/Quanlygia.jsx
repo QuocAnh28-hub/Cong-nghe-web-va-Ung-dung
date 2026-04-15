@@ -87,7 +87,10 @@ class Quanlygia extends Component {
     loading: false,
     error: null,
     submitLoading: false,
+    currentPage: 1,
   };
+
+  ITEMS_PER_PAGE = 6;
 
   componentDidMount() {
     this.fetchRates();
@@ -401,6 +404,15 @@ class Quanlygia extends Component {
     );
   };
 
+  handlePageChange = (page) => {
+    const { currentPage } = this.state;
+    const filteredList = this.filterPrices();
+    const totalPages = Math.ceil(filteredList.length / this.ITEMS_PER_PAGE);
+    if (page >= 1 && page <= totalPages) {
+      this.setState({ currentPage: page });
+    }
+  };
+
   render() {
     const {
       isModalOpen,
@@ -413,6 +425,10 @@ class Quanlygia extends Component {
       submitLoading,
     } = this.state;
     const list = this.filterPrices();
+    const totalPages = Math.ceil(list.length / this.ITEMS_PER_PAGE);
+    const startIndex = (this.state.currentPage - 1) * this.ITEMS_PER_PAGE;
+    const endIndex = startIndex + this.ITEMS_PER_PAGE;
+    const paginatedList = list.slice(startIndex, endIndex);
     const typeOptions = roomTypes.length ? roomTypes : ROOM_TYPES;
 
     return (
@@ -479,7 +495,7 @@ class Quanlygia extends Component {
                     </td>
                   </tr>
                 ) : (
-                  list.map((item) => (
+                  paginatedList.map((item) => (
                     <tr key={item.id}>
                       <td>{item.roomType}</td>
                       <td>{item.seasonName}</td>
@@ -507,6 +523,44 @@ class Quanlygia extends Component {
                 )}
               </tbody>
             </table>
+            {list.length > 0 && (
+              <div className="qlgia-pagination">
+                <button
+                  type="button"
+                  className="qlgia-page-btn"
+                  onClick={() => this.handlePageChange(this.state.currentPage - 1)}
+                  disabled={this.state.currentPage === 1}
+                  aria-label="Trang trước"
+                >
+                  ‹
+                </button>
+
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`qlgia-page-btn ${page === this.state.currentPage ? "active" : ""}`}
+                    onClick={() => this.handlePageChange(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  className="qlgia-page-btn"
+                  onClick={() =>
+                    this.handlePageChange(
+                      Math.min(this.state.currentPage + 1, totalPages)
+                    )
+                  }
+                  disabled={this.state.currentPage === totalPages}
+                  aria-label="Trang sau"
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
         {isModalOpen && (

@@ -36,6 +36,8 @@ const getDefaultInvoiceData = () => ({
 });
 
 class Hoadon extends Component {
+  ITEMS_PER_PAGE = 6;
+
   state = {
     pendingRooms: [],
     pendingLoading: true,
@@ -50,6 +52,8 @@ class Hoadon extends Component {
     modalError: "",
     paySubmitting: false,
     invoiceData: getDefaultInvoiceData(),
+    currentPagePending: 1,
+    currentPageHistory: 1,
   };
 
   componentDidMount() {
@@ -776,6 +780,22 @@ class Hoadon extends Component {
     );
   };
 
+  handlePageChangePending = (page) => {
+    const { pendingRooms } = this.state;
+    const totalPages = Math.ceil(pendingRooms.length / this.ITEMS_PER_PAGE);
+    if (page >= 1 && page <= totalPages) {
+      this.setState({ currentPagePending: page });
+    }
+  };
+
+  handlePageChangeHistory = (page) => {
+    const filteredHistory = this.getFilteredHistory();
+    const totalPages = Math.ceil(filteredHistory.length / this.ITEMS_PER_PAGE);
+    if (page >= 1 && page <= totalPages) {
+      this.setState({ currentPageHistory: page });
+    }
+  };
+
   render() {
     const {
       pendingRooms,
@@ -784,8 +804,22 @@ class Hoadon extends Component {
       historyLoading,
       historyError,
       searchHistory,
+      currentPagePending,
+      currentPageHistory,
     } = this.state;
     const filteredHistory = this.getFilteredHistory();
+
+    // Pagination for pending rooms
+    const totalPagesPending = Math.ceil(pendingRooms.length / this.ITEMS_PER_PAGE);
+    const startIndexPending = (currentPagePending - 1) * this.ITEMS_PER_PAGE;
+    const endIndexPending = startIndexPending + this.ITEMS_PER_PAGE;
+    const paginatedPendingRooms = pendingRooms.slice(startIndexPending, endIndexPending);
+
+    // Pagination for history
+    const totalPagesHistory = Math.ceil(filteredHistory.length / this.ITEMS_PER_PAGE);
+    const startIndexHistory = (currentPageHistory - 1) * this.ITEMS_PER_PAGE;
+    const endIndexHistory = startIndexHistory + this.ITEMS_PER_PAGE;
+    const paginatedHistory = filteredHistory.slice(startIndexHistory, endIndexHistory);
 
     return (
       <div className="hoadon">
@@ -832,7 +866,7 @@ class Hoadon extends Component {
 
                 {!pendingLoading &&
                   !pendingError &&
-                  pendingRooms.map((room) => (
+                  paginatedPendingRooms.map((room) => (
                     <tr key={room.id}>
                       <td>{room.guestName}</td>
                       <td>{room.checkinDate}</td>
@@ -850,6 +884,44 @@ class Hoadon extends Component {
                   ))}
               </tbody>
             </table>
+            {pendingRooms.length > 0 && (
+              <div className="hoadon-pagination">
+                <button
+                  type="button"
+                  className="hoadon-page-btn"
+                  onClick={() => this.handlePageChangePending(currentPagePending - 1)}
+                  disabled={currentPagePending === 1}
+                  aria-label="Trang trước"
+                >
+                  ‹
+                </button>
+
+                {Array.from({ length: totalPagesPending }, (_, idx) => idx + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`hoadon-page-btn ${page === currentPagePending ? "active" : ""}`}
+                    onClick={() => this.handlePageChangePending(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  className="hoadon-page-btn"
+                  onClick={() =>
+                    this.handlePageChangePending(
+                      Math.min(currentPagePending + 1, totalPagesPending)
+                    )
+                  }
+                  disabled={currentPagePending === totalPagesPending}
+                  aria-label="Trang sau"
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -894,7 +966,7 @@ class Hoadon extends Component {
                   )}
                 {!historyLoading &&
                   !historyError &&
-                  filteredHistory.map((inv) => (
+                  paginatedHistory.map((inv) => (
                     <tr key={inv.id}>
                       <td>{inv.guestName}</td>
                       <td>{inv.date}</td>
@@ -904,6 +976,44 @@ class Hoadon extends Component {
                   ))}
               </tbody>
             </table>
+            {filteredHistory.length > 0 && (
+              <div className="hoadon-pagination">
+                <button
+                  type="button"
+                  className="hoadon-page-btn"
+                  onClick={() => this.handlePageChangeHistory(currentPageHistory - 1)}
+                  disabled={currentPageHistory === 1}
+                  aria-label="Trang trước"
+                >
+                  ‹
+                </button>
+
+                {Array.from({ length: totalPagesHistory }, (_, idx) => idx + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`hoadon-page-btn ${page === currentPageHistory ? "active" : ""}`}
+                    onClick={() => this.handlePageChangeHistory(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  className="hoadon-page-btn"
+                  onClick={() =>
+                    this.handlePageChangeHistory(
+                      Math.min(currentPageHistory + 1, totalPagesHistory)
+                    )
+                  }
+                  disabled={currentPageHistory === totalPagesHistory}
+                  aria-label="Trang sau"
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

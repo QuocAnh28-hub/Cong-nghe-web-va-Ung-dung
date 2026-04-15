@@ -36,6 +36,8 @@ const Nhanvien = () => {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [submitError, setSubmitError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -85,6 +87,7 @@ const Nhanvien = () => {
     });
     setSubmitError(null);
     setShowModal(true);
+    setCurrentPage(1);
   };
 
   const handleCloseModal = () => {
@@ -164,6 +167,17 @@ const Nhanvien = () => {
       nv.phone.toLowerCase().includes(term)
     );
   });
+
+  const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -317,7 +331,7 @@ const Nhanvien = () => {
                 <td colSpan="6">Không tìm thấy nhân viên phù hợp.</td>
               </tr>
             ) : (
-              filteredEmployees.map((nv, idx) => (
+              paginatedEmployees.map((nv, idx) => (
                 <tr key={idx}>
                   <td>{nv.fullName}</td>
                   <td>{getRoleBadge(nv.role)}</td>
@@ -337,6 +351,42 @@ const Nhanvien = () => {
             )}
           </tbody>
         </table>
+        {filteredEmployees.length > 0 && (
+          <div className="nhanvien-pagination">
+            <button
+              type="button"
+              className="nhanvien-page-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="Trang trước"
+            >
+              ‹
+            </button>
+
+            {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                className={`nhanvien-page-btn ${page === currentPage ? "active" : ""}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className="nhanvien-page-btn"
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              aria-label="Trang sau"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal thêm nhân viên */}

@@ -26,6 +26,8 @@ const Dichvu = () => {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   const fetchServices = async () => {
     try {
@@ -55,6 +57,17 @@ const Dichvu = () => {
       service.ServiceName.toLowerCase().includes(search.toLowerCase()) ||
       String(service.ServiceID).includes(search),
   );
+
+  const totalPages = Math.ceil(filteredList.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedList = filteredList.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   const handleOpenModal = (service = null) => {
     if (service) {
@@ -208,7 +221,7 @@ const Dichvu = () => {
                 <td colSpan="5">Không có dữ liệu dịch vụ.</td>
               </tr>
             ) : (
-              filteredList.map((service) => (
+              paginatedList.map((service) => (
                 <tr key={service.ServiceID}>
                   <td>{service.ServiceID}</td>
                   <td>
@@ -239,6 +252,42 @@ const Dichvu = () => {
             )}
           </tbody>
         </table>
+        {filteredList.length > 0 && (
+          <div className="dichvu-pagination">
+            <button
+              type="button"
+              className="dichvu-page-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="Trang trước"
+            >
+              ‹
+            </button>
+
+            {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                className={`dichvu-page-btn ${page === currentPage ? "active" : ""}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className="dichvu-page-btn"
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              aria-label="Trang sau"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
       {showModal && (

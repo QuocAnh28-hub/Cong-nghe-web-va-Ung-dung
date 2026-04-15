@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
 const CUSTOMERS_API_URL = "http://localhost:3000/api/customers";
 const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 6;
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Tất cả trạng thái" },
