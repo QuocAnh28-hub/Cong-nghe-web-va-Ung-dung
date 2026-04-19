@@ -48,12 +48,12 @@ export const TrangKhachHang_Header = ({ fullname, onLogout }) => {
         </nav>
 
         <div className="customer-user">
-          <div className="customer-user__chip">
+          <Link to="/trangkhachhang/thongtin" className="customer-user__chip">
             <span className="customer-user__avatar">
               <i className="fa-solid fa-user-tie"></i>
             </span>
             <span className="customer-user__name">{fullname}</span>
-          </div>
+          </Link>
           <button
             type="button"
             className="customer-user__logout"

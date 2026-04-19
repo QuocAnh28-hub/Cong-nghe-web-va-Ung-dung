@@ -161,6 +161,7 @@ class Login extends Component {
         localStorage.setItem("role", result.account.Role);
         localStorage.setItem("fullname", result.account.FullName);
         localStorage.setItem("phone", result.account.Phone);
+        localStorage.setItem("email", result.account.Email);
 
         const role = result.account.Role.trim().toLowerCase();
         if (role === "customer") {

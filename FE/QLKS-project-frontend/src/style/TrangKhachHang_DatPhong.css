@@ -158,18 +158,18 @@
 
 .booking-headline h1 {
   margin: 0;
-  font-size: clamp(2.3rem, 3vw, 3.2rem);
+  font-size: 30pt;
 }
 
 .booking-headline p {
   margin: 14px 0 0;
   color: var(--text-sub);
-  font-size: 1.45rem;
+  font-size: 14pt;
 }
 
 .booking-new-btn {
   min-width: 220px;
-  padding: 14px 24px;
+  padding: 12px 20px;
   border-radius: 16px;
   text-decoration: none;
   display: inline-flex;
@@ -178,8 +178,8 @@
   gap: 10px;
   background: linear-gradient(90deg, #4f46ff 0%, #5a39f0 100%);
   color: #ffffff;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 14pt;
+  font-weight: 600;
   box-shadow: 0 16px 34px rgba(79, 70, 255, 0.28);
 }
 
@@ -210,19 +210,19 @@
 
 .booking-empty-state h2 {
   margin: 0;
-  font-size: 2.1rem;
+  font-size: 30pt;
 }
 
 .booking-empty-state p {
   margin: 14px 0 0;
   color: #607998;
-  font-size: 1.45rem;
+  font-size: 14pt;
 }
 
 .booking-cta-btn {
   margin-top: 36px;
   min-width: 260px;
-  padding: 16px 26px;
+  padding: 12px 20px;
   border-radius: 16px;
   text-decoration: none;
   display: inline-flex;
@@ -231,8 +231,8 @@
   gap: 10px;
   background: linear-gradient(90deg, #4f46ff 0%, #5a39f0 100%);
   color: #ffffff;
-  font-size: 1.45rem;
-  font-weight: 700;
+  font-size: 14pt;
+  font-weight: 600;
   box-shadow: 0 16px 34px rgba(79, 70, 255, 0.28);
 }
 

@@ -164,15 +164,15 @@
 
 .room-section-heading h1 {
   margin: 0;
-  font-size: clamp(2.8rem, 4.6vw, 4.4rem);
+  font-size: 30pt;
   line-height: 1.08;
   color: #0d2047;
 }
 
 .room-section-heading p {
   margin: 20px 0 0;
-  font-size: clamp(1.05rem, 1.4vw, 1.35rem);
-  line-height: 1.7;
+  font-size: 14pt;
+  line-height: 1.2;
   color: var(--text-sub);
 }
 
@@ -294,7 +294,7 @@
 .room-card__button {
   width: 100%;
   margin-top: 28px;
-  padding: 18px 22px;
+  padding: 12px 22px;
   border: none;
   border-radius: 16px;
   display: inline-flex;
@@ -303,8 +303,8 @@
   gap: 10px;
   background: linear-gradient(90deg, #4f46ff 0%, #5a39f0 100%);
   color: #ffffff;
-  font-size: 1.28rem;
-  font-weight: 800;
+  font-size: 16pt;
+  font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   box-shadow: 0 16px 34px rgba(79, 70, 255, 0.28);
