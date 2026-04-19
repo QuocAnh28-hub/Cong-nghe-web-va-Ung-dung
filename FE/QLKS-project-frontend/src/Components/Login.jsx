@@ -167,7 +167,7 @@ class Login extends Component {
         if (role === "customer") {
           window.location.href = "/trangkhachhang";
         } else if (role === "admin" || role === "receptionist") {
-          window.location.href = "/";
+          window.location.href = "/quantri";
         } else {
           this.setState({ message: "Role không hợp lệ" });
         }

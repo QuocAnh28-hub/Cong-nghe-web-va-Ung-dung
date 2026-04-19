@@ -17,9 +17,10 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Navigate to="/trangkhachhang" replace />} />
 
         <Route
-          path="/"
+          path="/quantri"
           element={
             <PrivateRoute>
               <QLKhachSan />
@@ -29,20 +30,12 @@ function App() {
 
         <Route
           path="/trangkhachhang"
-          element={
-            <PrivateRoute>
-              <TrangKhachHang />
-            </PrivateRoute>
-          }
+          element={<TrangKhachHang />}
         />
 
         <Route
           path="/trangkhachhang/phongnghi"
-          element={
-            <PrivateRoute>
-              <TrangKhachHang_PhongNghi />
-            </PrivateRoute>
-          }
+          element={<TrangKhachHang_PhongNghi />}
         />
 
         <Route

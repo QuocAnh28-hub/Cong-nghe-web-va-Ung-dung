@@ -147,7 +147,7 @@ class TrangKhachHang_ThongTin extends Component {
               <article className="profile-card">
                 <div className="profile-card__avatar-wrap">
                   <div className="profile-card__avatar">
-                    <i className="fa-solid fa-user-astronaut" />
+                    <i className="fa-solid fa-user-tie"></i>
                   </div>
                   <button type="button" className="profile-card__camera" aria-label="Đổi ảnh đại diện">
                     <i className="fa-solid fa-camera" />

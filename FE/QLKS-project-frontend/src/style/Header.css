@@ -70,13 +70,13 @@
 .header-right-text h5 {
   font-family: 'Times New Roman', Times, serif;
   font-size: 14pt;
-  color: rgb(218, 218, 218);
+  color: rgb(255, 255, 255);
   margin: 0;
 }
 
 .header-profile-popup {
   position: absolute;
-  top: calc(100% + 12px);
+  top: calc(100% + 5px);
   right: 0;
   width: 320px;
   padding: 18px;

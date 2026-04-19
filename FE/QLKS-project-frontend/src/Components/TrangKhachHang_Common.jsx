@@ -3,6 +3,10 @@ import { Link, NavLink } from "react-router-dom";
 import "../style/TrangKhachHang.css";
 
 export const TrangKhachHang_Header = ({ fullname, onLogout }) => {
+  const isLogin = localStorage.getItem("isLogin") === "true";
+  const displayName = isLogin ? fullname || "Khách hàng" : "Đăng nhập";
+  const profileLink = isLogin ? "/trangkhachhang/thongtin" : "/login";
+
   return (
     <header className="customer-header">
       <div className="customer-topbar">
@@ -48,20 +52,22 @@ export const TrangKhachHang_Header = ({ fullname, onLogout }) => {
         </nav>
 
         <div className="customer-user">
-          <Link to="/trangkhachhang/thongtin" className="customer-user__chip">
+          <Link to={profileLink} className="customer-user__chip">
             <span className="customer-user__avatar">
               <i className="fa-solid fa-user-tie"></i>
             </span>
-            <span className="customer-user__name">{fullname}</span>
+            <span className="customer-user__name">{displayName}</span>
           </Link>
-          <button
-            type="button"
-            className="customer-user__logout"
-            onClick={onLogout}
-            aria-label={"Đăng xuất"}
-          >
-            <i className="fa-solid fa-arrow-right-from-bracket" />
-          </button>
+          {isLogin && (
+            <button
+              type="button"
+              className="customer-user__logout"
+              onClick={onLogout}
+              aria-label={"Đăng xuất"}
+            >
+              <i className="fa-solid fa-arrow-right-from-bracket" />
+            </button>
+          )}
         </div>
       </div>
     </header>
