@@ -1,55 +1,43 @@
 ﻿import React, { Component } from "react";
 import { Link } from "react-router-dom";
 import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
-import roomImage1 from "../img/AnhPhong_1.jpg";
-import roomImage2 from "../img/AnhPhong_2.jpg";
-import roomImage3 from "../img/AnhPhong_3.jpg";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 
-const roomTypes = [
-  {
-    name: "Standard Room",
-    price: "$120 / Đêm",
-    capacity: "2 khách",
-    description:
-      "A comfortable and cozy room for a relaxing stay. Features a queen-size bed and modern amenities.",
-    image: roomImage1,
-    imageClass: "room-card__image room-card__image--standard",
-    features: ["Free Wi-Fi", "Air Conditioning", "Smart TV", "Mini Bar"],
-  },
-  {
-    name: "Deluxe Ocean View",
-    price: "$250 / Đêm",
-    capacity: "2 khách",
-    description:
-      "Experience luxury with a breathtaking view. Includes a king-size bed and a private balcony.",
-    image: roomImage2,
-    imageClass: "room-card__image room-card__image--deluxe",
-    features: ["Ocean View", "Private Balcony", "King Bed", "Room Service"],
-  },
-  {
-    name: "Executive Suite",
-    price: "$500 / Đêm",
-    capacity: "4 khách",
-    description:
-      "The ultimate luxury experience. Spacious living area, premium amenities, and exclusive access to the VIP lounge.",
-    image: roomImage3,
-    imageClass: "room-card__image room-card__image--suite",
-    features: ["VIP Lounge Access", "Jacuzzi", "Separate Living Area", "Personal Butler"],
-  },
-];
+const roomImages = [1, 2, 3, 4, 6, 7, 8].map(
+  (number) => new URL(`../img/AnhPhong_${number}.jpg`, import.meta.url).href
+);
+
+const formatPrice = (value) => {
+  if (value == null) return "";
+  return Number(value).toLocaleString("vi-VN") + " đ";
+};
 
 class TrangKhachHang_PhongNghi extends Component {
   state = {
     fullname: "",
+    roomTypes: [],
+    loading: true,
+    error: null,
   };
 
   componentDidMount() {
     const fullname = localStorage.getItem("fullname");
-    this.setState({
-      fullname: fullname,
-    });
+    this.setState({ fullname });
+    this.loadRoomTypes();
   }
+
+  loadRoomTypes = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/pages-for-customer");
+      if (!response.ok) {
+        throw new Error("Không thể tải dữ liệu loại phòng");
+      }
+      const roomTypes = await response.json();
+      this.setState({ roomTypes, loading: false });
+    } catch (error) {
+      this.setState({ error: error.message || "Lỗi tải dữ liệu", loading: false });
+    }
+  };
 
   handleLogout = () => {
     const xacNhan = window.confirm("Bạn có chắc muốn đăng xuất không?");
@@ -67,11 +55,10 @@ class TrangKhachHang_PhongNghi extends Component {
   };
 
   render() {
-    const { fullname } = this.state;
+    const { fullname, roomTypes, loading, error } = this.state;
 
     return (
       <div className="room-page">
-        
         <TrangKhachHang_Header fullname={fullname} onLogout={this.handleLogout} />
 
         <main className="room-main">
@@ -86,45 +73,66 @@ class TrangKhachHang_PhongNghi extends Component {
           </section>
 
           <section className="room-list" id="dat-phong">
-            {roomTypes.map((room) => (
-              <article className="room-card" key={room.name}>
-                <div className="room-card__media">
-                  <img src={room.image} alt={room.name} className={room.imageClass} />
-                  <span className="room-card__price">{room.price}</span>
-                </div>
+            {loading && <p>Đang tải danh sách phòng...</p>}
+            {error && <p className="room-error">{error}</p>}
 
-                <div className="room-card__content">
-                  <div className="room-card__title-row">
-                    <h2>{room.name}</h2>
-                    <span className="room-card__capacity">
-                      <i className="fa-solid fa-user-group" />
-                      {room.capacity}
-                    </span>
+            {!loading && !error && roomTypes.length === 0 && (
+              <p>Không có loại phòng nào để hiển thị.</p>
+            )}
+
+            {roomTypes.map((room, index) => {
+              const image = roomImages[index % roomImages.length];
+              const defaultPrice = formatPrice(room.GiaMacDinh);
+              const salePrice = room.GiaTheoMua != null ? formatPrice(room.GiaTheoMua) : null;
+
+              return (
+                <article className="room-card" key={room.RoomTypeID || room.TenLoaiPhong || index}>
+                  <div className="room-card__media">
+                    <img src={image} alt={room.TenLoaiPhong} className="room-card__image" />
+                    <div className="room-card__price">
+                      {salePrice ? (
+                        <>
+                          <span className="room-card__price--sale">{salePrice}</span>
+                          <span
+                            className="room-card__price--original"
+                            style={{ textDecoration: "line-through", marginLeft: "0.75rem", color: "#999" }}
+                          >
+                            {defaultPrice}
+                          </span>
+                        </>
+                      ) : (
+                        <span>{defaultPrice}</span>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="room-card__description">{room.description}</p>
-
-                  <div className="room-card__features">
-                    {room.features.map((feature) => (
-                      <span className="room-feature" key={feature}>
-                        <i className="fa-solid fa-check" />
-                        {feature}
+                  <div className="room-card__content">
+                    <div className="room-card__title-row">
+                      <h2>{room.TenLoaiPhong}</h2>
+                      <span className="room-card__capacity">
+                        <i className="fa-solid fa-user-group" />
+                        {room.SucChua} khách
                       </span>
-                    ))}
-                  </div>
+                    </div>
 
-                  <Link to="/trangkhachhang/datphong" className="room-card__button">
-                    Đặt phòng ngay
-                    <i className="fa-solid fa-arrow-right" />
-                  </Link>
-                </div>
-              </article>
-            ))}
+                    <p className="room-card__description">{room.MoTa}</p>
+
+                    {room.MuaApDung && (
+                      <p className="room-card__promotion">Mùa: {room.MuaApDung}</p>
+                    )}
+
+                    <Link to="/trangkhachhang/datphong" className="room-card__button">
+                      Đặt phòng ngay
+                      <i className="fa-solid fa-arrow-right" />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </section>
         </main>
 
         <TrangKhachHang_Footer />
-        
       </div>
     );
   }

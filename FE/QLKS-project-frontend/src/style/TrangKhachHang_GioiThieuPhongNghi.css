@@ -261,11 +261,11 @@
 }
 
 .room-card__description {
-  margin: 18px 0 24px;
+  margin: 18px 0 0px;
   color: var(--text-sub);
   font-size: 1.05rem;
   line-height: 1.75;
-  min-height: 116px;
+  min-height: 80px;
 }
 
 .room-card__features {
@@ -293,7 +293,7 @@
 
 .room-card__button {
   width: 100%;
-  margin-top: 28px;
+  margin-top: 0px;
   padding: 12px 22px;
   border: none;
   border-radius: 16px;

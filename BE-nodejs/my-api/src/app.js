@@ -12,6 +12,7 @@ const reservationRoutes = require("./routes/reservationRoutes");
 const overviewRoutes = require("./routes/overviewRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
+const pagesForCustomerRoutes = require("./routes/pagesForCustomerRoutes");
 
 const app = express();
 
@@ -30,5 +31,6 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/overview", overviewRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/pages-for-customer", pagesForCustomerRoutes);
 
 module.exports = app;

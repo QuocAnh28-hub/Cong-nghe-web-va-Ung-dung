@@ -3792,6 +3792,40 @@ END
 EXEC sp_GetRoomTypeUsagePercentInMonth @Month = 4, @Year = 2026
 
 
+----------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------PROC TRANG KHÁCH HÀNG-----------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------
+---Proc lấy ra các loại phòng----------------------------------------
+CREATE PROC sp_GetAllRoomTypesWithCurrentRate
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        RT.RoomTypeID,
+        RT.Name AS TenLoaiPhong,
+        RT.Description AS MoTa,
+        RT.Capacity AS SucChua,
+        RT.DefaultPrice AS GiaMacDinh,
+        R.Price AS GiaTheoMua,
+        R.Season AS MuaApDung
+    FROM RoomTypes RT
+    OUTER APPLY
+    (
+        SELECT TOP 1 
+            RateID,
+            Price,
+            Season
+        FROM Rates
+        WHERE RoomTypeID = RT.RoomTypeID
+          AND CAST(GETDATE() AS DATE) BETWEEN StartDate AND EndDate
+        ORDER BY StartDate DESC
+    ) R
+    ORDER BY RT.RoomTypeID
+END
+
+EXEC sp_GetAllRoomTypesWithCurrentRate
+
 
 delete from Customers
 delete from Guests
@@ -3833,177 +3867,3 @@ select * from ServiceUsages
 select * from Stays
 select * from Users
 select * from Admin
-
-
-
-INSERT INTO Users (Email, PasswordHash, Role)
-VALUES
-('a@gmail.com','123','CUSTOMER'),
-('b@gmail.com','123','CUSTOMER'),
-('c@gmail.com','123','CUSTOMER'),
-('d@gmail.com','123','CUSTOMER'),
-('e@gmail.com','123','CUSTOMER'),
-('f@gmail.com','123','CUSTOMER'),
-('g@gmail.com','123','CUSTOMER'),
-('h@gmail.com','123','CUSTOMER'),
-('i@gmail.com','123','CUSTOMER'),
-('j@gmail.com','123','CUSTOMER'),
-('k@gmail.com','123','CUSTOMER'),
-('l@gmail.com','123','CUSTOMER'),
-('m@gmail.com','123','CUSTOMER'),
-('n@gmail.com','123','CUSTOMER'),
-('o@gmail.com','123','CUSTOMER'),
-('p@gmail.com','123','CUSTOMER'),
-('q@gmail.com','123','CUSTOMER'),
-('r@gmail.com','123','CUSTOMER'),
-('s@gmail.com','123','CUSTOMER'),
-('t@gmail.com','123','CUSTOMER');
-
-INSERT INTO Customers (FullName, Phone, UserID)
-SELECT 
-    N'Khách ' + CAST(u.UserID AS NVARCHAR),
-    '09000000' + RIGHT('000' + CAST(u.UserID AS NVARCHAR), 3),
-    u.UserID
-FROM Users u
-LEFT JOIN Customers c ON u.UserID = c.UserID
-WHERE c.UserID IS NULL;
-
-INSERT INTO RoomTypes (Name, Description, Capacity, DefaultPrice)
-VALUES
-(N'Single', N'1 người', 1, 300000),
-(N'Double', N'2 người', 2, 500000),
-(N'Family', N'4 người', 4, 800000),
-(N'VIP', N'Cao cấp', 2, 1500000),
-(N'Deluxe', N'Sang trọng', 2, 1000000);
-
-INSERT INTO Rooms (RoomNumber, RoomTypeID)
-VALUES
-('105',8),('106',8),('103',8),('104',8),
-('205',9),('202',9),('203',9),('204',9),
-('301',10),('302',10),('303',10),('304',10),
-('401',11),('402',11),('403',11),('404',11),
-('501',12),('502',12),('503',12),('504',12);
-
-INSERT INTO Rates (RoomTypeID, Price, StartDate, EndDate, Season)
-VALUES
-(8,300000,'2026-01-01','2026-12-31','Normal'),
-(9,500000,'2026-01-01','2026-12-31','Normal'),
-(10,800000,'2026-01-01','2026-12-31','Normal'),
-(11,1500000,'2026-01-01','2026-12-31','Normal'),
-(12,1000000,'2026-01-01','2026-12-31','Normal');
-
-INSERT INTO Reservations (UserID, CheckInDate, CheckOutDate, Status)
-VALUES
-(6,'2025-03-01','2025-03-03','COMPLETED'),
-(7,'2025-03-02','2025-03-05','COMPLETED'),
-(8,'2025-03-03','2025-03-06','COMPLETED'),
-(9,'2025-03-04','2025-03-07','COMPLETED'),
-(10,'2025-03-05','2025-03-08','COMPLETED'),
-(11,'2025-03-06','2025-03-09','CHECKED_IN'),
-(12,'2025-03-07','2025-03-10','BOOKED'),
-(13,'2025-03-08','2025-03-11','BOOKED'),
-(14,'2025-03-09','2025-03-12','CANCELLED'),
-(15,'2025-03-10','2025-03-13','COMPLETED');
-
-INSERT INTO ReservationRooms (ReservationID, RoomTypeID, Quantity, PriceAtBooking)
-VALUES
-(1,8,1,300000),
-(2,9,1,500000),
-(3,10,1,800000),
-(4,11,1,1500000),
-(5,12,1,1000000),
-(6,8,1,300000),
-(7,9,1,500000),
-(8,10,1,800000),
-(9,11,1,1500000),
-(10,12,1,1000000);
-
-INSERT INTO Guests (FullName, IdentityType, IdentityNumber)
-VALUES
-(N'Nguyễn A','CCCD','111'),
-(N'Trần B','CCCD','222'),
-(N'Lê C','CCCD','333'),
-(N'Phạm D','CCCD','444'),
-(N'Hoàng E','CCCD','555'),
-(N'Vũ F','CCCD','666'),
-(N'Đặng G','CCCD','777'),
-(N'Bùi H','CCCD','888'),
-(N'Đỗ I','CCCD','999'),
-(N'Ngô K','CCCD','1010');
-
-INSERT INTO Stays (ReservationID, GuestID, ActualCheckIn, ActualCheckOut, Status)
-VALUES
-(1,1,'2025-03-01','2025-03-03','COMPLETED'),
-(2,2,'2025-03-02','2025-03-05','COMPLETED'),
-(3,3,'2025-03-03','2025-03-06','COMPLETED'),
-(4,4,'2025-03-04','2025-03-07','COMPLETED'),
-(5,5,'2025-03-05','2025-03-08','COMPLETED'),
-(6,6,'2025-03-06',NULL,'CHECKED_IN'),
-(10,7,'2025-03-10','2025-03-13','COMPLETED');
-
-INSERT INTO RoomStayHistory (StayID, RoomID, CheckInTime, CheckOutTime, RateAtThatTime)
-VALUES
-(1,20,'2025-03-01','2025-03-03',300000),
-(2,25,'2025-03-02','2025-03-05',500000),
-(3,28,'2025-03-03','2025-03-06',800000),
-(4,29,'2025-03-04','2025-03-07',1500000),
-(5,36,'2025-03-05','2025-03-08',1000000),
-(7,33,'2025-03-10','2025-03-13',300000);
-
-INSERT INTO Services (ServiceName, Price)
-VALUES
-(N'Giặt ủi',50000),
-(N'Ăn sáng',100000),
-(N'Spa',300000),
-(N'Đưa đón sân bay',200000),
-(N'Dọn phòng',50000);
-
-INSERT INTO ServiceUsages (StayID, ServiceID, Quantity)
-VALUES
-(1,1,2),
-(1,2,2),
-(2,2,3),
-(3,3,1),
-(4,4,1),
-(5,1,1),
-(5,5,2);
-
-INSERT INTO MinibarItems (RoomTypeID, ItemName, Price)
-VALUES
-(8,N'Nước suối',20000),
-(9,N'Bia',50000),
-(10,N'Nước suối',20000),
-(11,N'Bia',50000),
-(12,N'Nước suối',20000);
-
-INSERT INTO MinibarUsages (StayID, MinibarID, Quantity)
-VALUES
-(1,6,2),
-(1,2,1),
-(2,3,2),
-(3,4,3),
-(5,5,1);
-
-INSERT INTO Penalties (StayID, Reason, Amount)
-VALUES
-(1,N'Làm hỏng đồ',200000),
-(3,N'Hút thuốc',100000),
-(5,N'Mất khăn',50000);
-
-INSERT INTO Invoices (StayID, TotalAmount, VAT, Status)
-VALUES
-(1,1000000,100000,'PAID'),
-(2,1500000,150000,'PAID'),
-(3,2000000,200000,'OPEN');
-
-INSERT INTO InvoiceDetails (InvoiceID, ItemType, ItemName, Quantity, UnitPrice, Amount)
-VALUES
-(1,'ROOM','101',2,300000,600000),
-(1,'SERVICE','Ăn sáng',2,100000,200000),
-(2,'ROOM','201',3,500000,1500000),
-(3,'ROOM','301',3,800000,2400000);
-
-INSERT INTO Payments (InvoiceID, PaymentMethod, Amount)
-VALUES
-(1,'CASH',1100000),
-(2,'TRANSFER',1650000);
