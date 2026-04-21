@@ -97,15 +97,55 @@ class TrangKhachHang_ThongTin extends Component {
       phone: this.state.formData.phone.trim() || "Chưa cập nhật",
     };
 
-    localStorage.setItem("fullname", cleanedData.fullname);
-    localStorage.setItem("email", cleanedData.email);
-    localStorage.setItem("phone", cleanedData.phone);
+    // Lấy UserID từ localStorage
+    const userId = localStorage.getItem("userID") || localStorage.getItem("id");
 
-    this.setState({
-      ...cleanedData,
-      isEditing: false,
-      formData: cleanedData,
-    });
+    if (!userId) {
+      alert("Không tìm thấy UserID. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    // Gọi API để cập nhật thông tin
+    const apiUrl = `http://localhost:3000/api/pages-for-customer/user/${userId}`;
+    const payload = {
+      FullName: cleanedData.fullname,
+      Email: cleanedData.email,
+      Phone: cleanedData.phone,
+    };
+
+    fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Cập nhật thành công:", data);
+        
+        // Cập nhật localStorage
+        localStorage.setItem("fullname", cleanedData.fullname);
+        localStorage.setItem("email", cleanedData.email);
+        localStorage.setItem("phone", cleanedData.phone);
+
+        this.setState({
+          ...cleanedData,
+          isEditing: false,
+          formData: cleanedData,
+        });
+
+        alert("Cập nhật thông tin thành công!");
+      })
+      .catch((error) => {
+        console.error("Lỗi:", error);
+        alert("Có lỗi khi cập nhật thông tin. Vui lòng thử lại.");
+      });
   };
 
   renderField = (name, label, icon, isFullWidth = false) => {
