@@ -291,6 +291,7 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT 
+		u.UserID,
         u.Email,
         u.PasswordHash,
         u.Role,
@@ -304,6 +305,7 @@ BEGIN
     UNION ALL
 
     SELECT 
+		u.UserID,
         u.Email,
         u.PasswordHash,
         u.Role,
@@ -317,6 +319,7 @@ BEGIN
     UNION ALL
 
     SELECT 
+		u.UserID,
         u.Email,
         u.PasswordHash,
         u.Role,
@@ -3825,6 +3828,71 @@ BEGIN
 END
 
 EXEC sp_GetAllRoomTypesWithCurrentRate
+
+---Proc sửa thông tin---------------------------------------------------
+CREATE PROCEDURE sp_UpdateUserCustomerInfo
+    @UserID INT,
+    @FullName NVARCHAR(150),
+    @Phone NVARCHAR(20),
+    @Email NVARCHAR(150)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Kiểm tra UserID tồn tại
+        IF NOT EXISTS (SELECT 1 FROM Users WHERE UserID = @UserID)
+        BEGIN
+            RAISERROR(N'UserID không tồn tại.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Kiểm tra Email bị trùng với user khác
+        IF EXISTS (
+            SELECT 1 
+            FROM Users 
+            WHERE Email = @Email 
+              AND UserID <> @UserID
+        )
+        BEGIN
+            RAISERROR(N'Email đã được sử dụng.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Cập nhật bảng Users
+        UPDATE Users
+        SET Email = @Email
+        WHERE UserID = @UserID;
+
+        -- Cập nhật bảng Customers
+        UPDATE Customers
+        SET FullName = @FullName,
+            Phone = @Phone
+        WHERE UserID = @UserID;
+
+        COMMIT TRANSACTION;
+
+        PRINT N'Cập nhật thành công.';
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        SET @ErrorMessage = ERROR_MESSAGE();
+
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END
+
+EXEC sp_UpdateUserCustomerInfo
+    @UserID = 42,
+    @FullName = N'Test UpdateIFC',
+    @Phone = '0912345678',
+    @Email = 'testUDIFC@gmail.com';
 
 
 delete from Customers

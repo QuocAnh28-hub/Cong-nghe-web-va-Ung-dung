@@ -158,6 +158,7 @@ class Login extends Component {
 
       if (response.ok && result.account) {
         localStorage.setItem("isLogin", "true");
+        localStorage.setItem("userID", result.account.UserID);
         localStorage.setItem("role", result.account.Role);
         localStorage.setItem("fullname", result.account.FullName);
         localStorage.setItem("phone", result.account.Phone);
