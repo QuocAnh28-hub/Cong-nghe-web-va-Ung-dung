@@ -2575,7 +2575,6 @@ BEGIN
 END
 
 ---CheckIn theo khách WalkIn----------------------------------------------------------------
-CREATE PROCEDURE sp_CheckIn_WalkIn_OneRoom
 ALTER PROCEDURE sp_CheckIn_WalkIn_OneRoom
     @FullName NVARCHAR(150),
     @CCCD NVARCHAR(20),
@@ -2592,6 +2591,14 @@ BEGIN
         @RoomTypeID INT,
         @RoomStatus NVARCHAR(20)
 
+	-------------------------------------------------
+	-- CHECK NGÀY CHECKOUT HỢP LỆ -------------------
+	-------------------------------------------------
+	IF (@ExpectedCheckOut < GETDATE())
+	BEGIN
+		RAISERROR(N'Ngày check-out phải lớn hơn thời điểm hiện tại', 16, 1);
+		RETURN;
+	END
     -------------------------------------------------
     -- ❗ 0. CHECK PHÒNG CÓ TỒN TẠI + TRỐNG KHÔNG
     -------------------------------------------------
