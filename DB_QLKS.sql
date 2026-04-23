@@ -3901,6 +3901,50 @@ EXEC sp_UpdateUserCustomerInfo
     @Phone = '0912345678',
     @Email = 'testUDIFC@gmail.com';
 
+---Proc đổi mật khẩu-----------------------------------------------
+CREATE PROCEDURE sp_ChangePassword
+    @UserID INT,
+    @OldPassword NVARCHAR(255),
+    @NewPassword NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CurrentPassword NVARCHAR(255);
+
+    -- Lấy mật khẩu hiện tại
+    SELECT @CurrentPassword = PasswordHash
+    FROM Users
+    WHERE UserID = @UserID;
+
+    -- Kiểm tra User tồn tại
+    IF @CurrentPassword IS NULL
+    BEGIN
+        RAISERROR(N'Người dùng không tồn tại.', 16, 1);
+        RETURN;
+    END
+
+    -- Kiểm tra mật khẩu cũ
+    IF @CurrentPassword <> @OldPassword
+    BEGIN
+        RAISERROR(N'Mật khẩu cũ không đúng.', 16, 1);
+        RETURN;
+    END
+
+    -- Cập nhật mật khẩu mới
+    UPDATE Users
+    SET PasswordHash = @NewPassword
+    WHERE UserID = @UserID;
+
+    PRINT N'Đổi mật khẩu thành công.';
+END
+GO
+
+EXEC sp_ChangePassword 
+    @UserID = 4,
+    @OldPassword = '333',
+    @NewPassword = '123'
+
 
 delete from Customers
 delete from Guests

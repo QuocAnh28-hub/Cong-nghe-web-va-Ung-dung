@@ -1,6 +1,7 @@
 ﻿import React, { Component } from "react";
 import "../style/TrangKhachHang_ThongTin.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
+import { toast } from "react-toastify";
 
 const accountMenu = [
   {
@@ -31,6 +32,70 @@ class TrangKhachHang_ThongTin extends Component {
       email: "customer@example.com",
       phone: "Chưa cập nhật",
     },
+    showChangePassword: false,
+    passwordForm: {
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+    passwordLoading: false,
+  };
+  handleOpenChangePassword = () => {
+    this.setState({
+      showChangePassword: true,
+      passwordForm: { oldPassword: "", newPassword: "", confirmPassword: "" },
+    });
+  };
+
+  handleCloseChangePassword = () => {
+    this.setState({ showChangePassword: false });
+  };
+
+  handlePasswordInputChange = (e) => {
+    const { name, value } = e.target;
+    this.setState((prevState) => ({
+      passwordForm: {
+        ...prevState.passwordForm,
+        [name]: value,
+      },
+    }));
+  };
+
+  handleChangePassword = () => {
+    const { oldPassword, newPassword, confirmPassword } = this.state.passwordForm;
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error("Vui lòng nhập đầy đủ thông tin.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Mật khẩu mới và xác nhận không khớp.");
+      return;
+    }
+    const userId = localStorage.getItem("userID") || localStorage.getItem("id");
+    if (!userId) {
+      toast.error("Không tìm thấy UserID. Vui lòng đăng nhập lại.");
+      return;
+    }
+    this.setState({ passwordLoading: true });
+    fetch(`http://localhost:3000/api/pages-for-customer/user/${userId}/password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oldPassword, newPassword }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Đổi mật khẩu thất bại");
+        return res.json();
+      })
+      .then(() => {
+        toast.success("Đổi mật khẩu thành công!");
+        this.setState({ showChangePassword: false });
+      })
+      .catch((err) => {
+        toast.error("Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu cũ.");
+      })
+      .finally(() => {
+        this.setState({ passwordLoading: false });
+      });
   };
 
   componentDidMount() {
@@ -101,7 +166,7 @@ class TrangKhachHang_ThongTin extends Component {
     const userId = localStorage.getItem("userID") || localStorage.getItem("id");
 
     if (!userId) {
-      alert("Không tìm thấy UserID. Vui lòng đăng nhập lại.");
+      toast.error("Không tìm thấy UserID. Vui lòng đăng nhập lại.");
       return;
     }
 
@@ -128,7 +193,6 @@ class TrangKhachHang_ThongTin extends Component {
       })
       .then((data) => {
         console.log("Cập nhật thành công:", data);
-        
         // Cập nhật localStorage
         localStorage.setItem("fullname", cleanedData.fullname);
         localStorage.setItem("email", cleanedData.email);
@@ -140,11 +204,11 @@ class TrangKhachHang_ThongTin extends Component {
           formData: cleanedData,
         });
 
-        alert("Cập nhật thông tin thành công!");
+        toast.success("Cập nhật thông tin thành công!");
       })
       .catch((error) => {
         console.error("Lỗi:", error);
-        alert("Có lỗi khi cập nhật thông tin. Vui lòng thử lại.");
+        toast.error("Có lỗi khi cập nhật thông tin. Vui lòng thử lại.");
       });
   };
 
@@ -175,7 +239,7 @@ class TrangKhachHang_ThongTin extends Component {
   };
 
   render() {
-    const { fullname, email, isEditing } = this.state;
+    const { fullname, email, isEditing, showChangePassword, passwordForm, passwordLoading } = this.state;
 
     return (
       <div className="profile-page">
@@ -205,7 +269,12 @@ class TrangKhachHang_ThongTin extends Component {
 
               <div className="profile-shortcuts">
                 {accountMenu.map((item) => (
-                  <article className="profile-shortcut" key={item.title}>
+                  <article
+                    className="profile-shortcut"
+                    key={item.title}
+                    onClick={item.title === "Bảo mật" ? this.handleOpenChangePassword : undefined}
+                    style={item.title === "Bảo mật" ? { cursor: "pointer" } : {}}
+                  >
                     <span className="profile-shortcut__icon">
                       <i className={item.icon} />
                     </span>
@@ -260,6 +329,64 @@ class TrangKhachHang_ThongTin extends Component {
             </section>
           </section>
         </main>
+
+        {/* Popup đổi mật khẩu */}
+        {showChangePassword && (
+          <div className="change-password-modal-overlay">
+            <div className="change-password-modal">
+              <h2 className="change-password-title">Đổi mật khẩu</h2>
+              <div className="change-password-form">
+                <div>
+                  <label>Mật khẩu cũ</label>
+                  <input
+                    type="password"
+                    name="oldPassword"
+                    value={passwordForm.oldPassword}
+                    onChange={this.handlePasswordInputChange}
+                    className="change-password-input"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label>Mật khẩu mới</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={passwordForm.newPassword}
+                    onChange={this.handlePasswordInputChange}
+                    className="change-password-input"
+                  />
+                </div>
+                <div>
+                  <label>Xác nhận mật khẩu mới</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={passwordForm.confirmPassword}
+                    onChange={this.handlePasswordInputChange}
+                    className="change-password-input"
+                  />
+                </div>
+              </div>
+              <div className="change-password-actions">
+                <button
+                  onClick={this.handleCloseChangePassword}
+                  className="change-password-btn change-password-btn--cancel"
+                  disabled={passwordLoading}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={this.handleChangePassword}
+                  className="change-password-btn change-password-btn--save"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "Đang lưu..." : "Lưu"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <TrangKhachHang_Footer />
       </div>

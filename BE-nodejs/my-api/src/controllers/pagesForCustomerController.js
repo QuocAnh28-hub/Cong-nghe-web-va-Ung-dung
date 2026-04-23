@@ -60,4 +60,31 @@ const updateUserCustomerInfo = async (req, res) => {
   }
 };
 
-module.exports = { getRoomTypesWithCurrentRate, updateUserCustomerInfo };
+const changePassword = async (req, res) => {
+  console.log("changePassword called", req.params, req.body);
+  try {
+    const userID = Number.parseInt(req.params.userId, 10);
+    const { oldPassword, newPassword } = req.body;
+
+    if (!Number.isInteger(userID) || userID <= 0 || !oldPassword || !newPassword) {
+      return res.status(400).json({
+        error: "Du lieu khong hop le. Can userId, oldPassword, newPassword",
+      });
+    }
+
+    await sql.query`
+      EXEC sp_ChangePassword
+        @UserID=${userID},
+        @OldPassword=${oldPassword},
+        @NewPassword=${newPassword}
+    `;
+
+    return res.json({ message: "Doi mat khau thanh cong" });
+  } catch (err) {
+    console.error("changePassword Error:", err);
+    const message = extractSqlErrorMessage(err);
+    return res.status(400).json({ error: message });
+  }
+};
+
+module.exports = { getRoomTypesWithCurrentRate, updateUserCustomerInfo, changePassword };
