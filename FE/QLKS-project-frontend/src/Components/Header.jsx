@@ -1,5 +1,6 @@
 ﻿import React, { Component } from "react";
 import "../style/Header.css";
+import { toast } from "react-toastify";
 
 class Header extends Component {
   state = {
@@ -15,6 +16,73 @@ class Header extends Component {
       email: "",
       phone: "",
     },
+    showChangePassword: false,
+    passwordForm: {
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+    passwordLoading: false,
+  };
+  handleOpenChangePassword = () => {
+    this.setState({
+      showChangePassword: true,
+      passwordForm: { oldPassword: "", newPassword: "", confirmPassword: "" },
+    });
+  };
+
+  handleCloseChangePassword = () => {
+    this.setState({ showChangePassword: false });
+  };
+
+  handlePasswordInputChange = (e) => {
+    const { name, value } = e.target;
+    this.setState((prevState) => ({
+      passwordForm: {
+        ...prevState.passwordForm,
+        [name]: value,
+      },
+    }));
+  };
+
+  handleChangePassword = () => {
+    const { oldPassword, newPassword, confirmPassword } = this.state.passwordForm;
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error("Vui lòng nhập đầy đủ thông tin.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Mật khẩu mới và xác nhận không khớp.");
+      return;
+    }
+    const userId = localStorage.getItem("userID") || localStorage.getItem("id");
+    if (!userId) {
+      toast.error("Không tìm thấy UserID. Vui lòng đăng nhập lại.");
+      return;
+    }
+    this.setState({ passwordLoading: true });
+    fetch(`http://localhost:3000/api/pages-for-customer/user/${userId}/password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oldPassword, newPassword }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Đổi mật khẩu thất bại");
+        return res.json();
+      })
+        .then(() => {        
+          toast.success("Đổi mật khẩu thành công!");        
+          this.setState({          
+            showChangePassword: false,          
+            passwordForm: { oldPassword: "", newPassword: "", confirmPassword: "" },        
+          });      
+      })
+      .catch(() => {
+        toast.error("Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu cũ.");
+      })
+      .finally(() => {
+        this.setState({ passwordLoading: false });
+      });
   };
 
   popupRef = React.createRef();
@@ -125,7 +193,7 @@ class Header extends Component {
 
   render() {
     const { Name, Role } = this.props;
-    const { isPopupOpen, isEditing, profile, formData } = this.state;
+    const { isPopupOpen, isEditing, profile, formData, showChangePassword, passwordForm, passwordLoading } = this.state;
 
     return (
       <div className="header">
@@ -191,6 +259,50 @@ class Header extends Component {
                   )}
                 </div>
               </div>
+
+              {/* Đổi mật khẩu tích hợp vào popup chỉnh sửa */}
+              {isEditing && (
+                <div className="header-profile-popup__changepw" style={{ marginTop: 18 }}>
+                  <h5 style={{ color: "#4f46ff", margin: 0, marginBottom: 10 }}>Đổi mật khẩu</h5>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <input
+                      type="password"
+                      name="oldPassword"
+                      placeholder="Mật khẩu cũ"
+                      value={passwordForm.oldPassword}
+                      onChange={this.handlePasswordInputChange}
+                      className="header-profile-popup__changepw-input"
+                    />
+                    <input
+                      type="password"
+                      name="newPassword"
+                      placeholder="Mật khẩu mới"
+                      value={passwordForm.newPassword}
+                      onChange={this.handlePasswordInputChange}
+                      className="header-profile-popup__changepw-input"
+                    />
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      placeholder="Xác nhận mật khẩu mới"
+                      value={passwordForm.confirmPassword}
+                      onChange={this.handlePasswordInputChange}
+                      className="header-profile-popup__changepw-input"
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={this.handleChangePassword}
+                      className="header-profile-popup__changepw-btn"
+                      style={{ border: "none", background: "#4f46ff", color: "#fff", borderRadius: 6, padding: "7px 16px", fontWeight: 600, cursor: "pointer" }}
+                      disabled={passwordLoading}
+                    >
+                      {passwordLoading ? "Đang lưu..." : "Đổi mật khẩu"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {isEditing && (
                 <div className="header-profile-popup__actions">
