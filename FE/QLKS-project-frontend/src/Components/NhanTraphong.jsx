@@ -1233,10 +1233,8 @@ class NhanTraphong extends Component {
     currentItem: null,
     stayData: [],
     stayLoading: false,
-    currentPageStay: 1,
     bookingData: [],
     bookingLoading: false,
-    currentPageBooking: 1,
     availableRooms: [],
     availableRoomsLoading: false,
     walkinAvailableRooms: [],
@@ -1976,15 +1974,7 @@ class NhanTraphong extends Component {
     }
   };
 
-  changeTab = (tab) => this.setState({ activeTab: tab, currentPageStay: 1, currentPageBooking: 1 });
-
-  handlePageChangeStay = (page) => {
-    this.setState({ currentPageStay: page });
-  };
-
-  handlePageChangeBooking = (page) => {
-    this.setState({ currentPageBooking: page });
-  };
+  changeTab = (tab) => this.setState({ activeTab: tab });
 
   handleConfirmModal = () => {
     const { modalType } = this.state;
@@ -2591,22 +2581,7 @@ class NhanTraphong extends Component {
       stayLoading,
       bookingData,
       bookingLoading,
-      currentPageStay,
-      currentPageBooking,
     } = this.state;
-
-    const ITEMS_PER_PAGE = 6;
-    const totalPagesStay = Math.ceil(stayData.length / ITEMS_PER_PAGE);
-    const paginatedStayData = stayData.slice(
-      (currentPageStay - 1) * ITEMS_PER_PAGE,
-      currentPageStay * ITEMS_PER_PAGE
-    );
-
-    const totalPagesBooking = Math.ceil(bookingData.length / ITEMS_PER_PAGE);
-    const paginatedBookingData = bookingData.slice(
-      (currentPageBooking - 1) * ITEMS_PER_PAGE,
-      currentPageBooking * ITEMS_PER_PAGE
-    );
 
     return (
       <div className="nhantraphong">
@@ -2674,7 +2649,7 @@ class NhanTraphong extends Component {
 
                 {activeTab === "stay" &&
                   !stayLoading &&
-                  paginatedStayData.map((item) => (
+                  stayData.map((item) => (
                     <tr key={item.id}>
                       <td>{item.guest}</td>
                       <td>{item.room}</td>
@@ -2729,7 +2704,7 @@ class NhanTraphong extends Component {
 
                 {activeTab === "pending" &&
                   !bookingLoading &&
-                  paginatedBookingData.map((item) => (
+                  bookingData.map((item) => (
                     <tr key={item.id}>
                       <td>{item.guest}</td>
                       <td>{item.roomType}</td>
@@ -2749,85 +2724,7 @@ class NhanTraphong extends Component {
             </table>
           </div>
 
-          {activeTab === "stay" && stayData.length > 0 && (
-            <div className="ntp-pagination">
-              <button
-                className="ntp-page-nav-btn"
-                onClick={() =>
-                  this.handlePageChangeStay(
-                    Math.max(1, currentPageStay - 1)
-                  )
-                }
-                disabled={currentPageStay === 1}
-              >
-                ‹
-              </button>
-              {Array.from({ length: totalPagesStay }, (_, i) => i + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    className={`ntp-page-btn ${
-                      page === currentPageStay ? "active" : ""
-                    }`}
-                    onClick={() => this.handlePageChangeStay(page)}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-              <button
-                className="ntp-page-nav-btn"
-                onClick={() =>
-                  this.handlePageChangeStay(
-                    Math.min(totalPagesStay, currentPageStay + 1)
-                  )
-                }
-                disabled={currentPageStay === totalPagesStay}
-              >
-                ›
-              </button>
-            </div>
-          )}
 
-          {activeTab === "pending" && bookingData.length > 0 && (
-            <div className="ntp-pagination">
-              <button
-                className="ntp-page-nav-btn"
-                onClick={() =>
-                  this.handlePageChangeBooking(
-                    Math.max(1, currentPageBooking - 1)
-                  )
-                }
-                disabled={currentPageBooking === 1}
-              >
-                ‹
-              </button>
-              {Array.from({ length: totalPagesBooking }, (_, i) => i + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    className={`ntp-page-btn ${
-                      page === currentPageBooking ? "active" : ""
-                    }`}
-                    onClick={() => this.handlePageChangeBooking(page)}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-              <button
-                className="ntp-page-nav-btn"
-                onClick={() =>
-                  this.handlePageChangeBooking(
-                    Math.min(totalPagesBooking, currentPageBooking + 1)
-                  )
-                }
-                disabled={currentPageBooking === totalPagesBooking}
-              >
-                ›
-              </button>
-            </div>
-          )}
         </div>
 
         {showModal && this.renderModal()}

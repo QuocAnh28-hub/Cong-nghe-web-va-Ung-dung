@@ -104,7 +104,7 @@
 .header-profile-popup__edit {
   border: none;
   background: transparent;
-  color: #4f46ff;
+  color: #2563eb;
   font-weight: 700;
   cursor: pointer;
 }
@@ -143,7 +143,7 @@
 }
 
 .header-profile-popup__field input:focus {
-  border-color: #4f46ff;
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(79, 70, 255, 0.1);
 }
 
@@ -171,7 +171,7 @@
 
 .header-profile-popup__save {
   border: none;
-  background: #4f46ff;
+  background: #2563eb;
   color: #ffffff;
 }
 
