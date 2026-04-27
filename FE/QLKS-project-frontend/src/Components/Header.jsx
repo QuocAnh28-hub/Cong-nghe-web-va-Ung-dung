@@ -180,6 +180,7 @@ class Header extends Component {
     const xacNhan = window.confirm("Bạn có chắc muốn đăng xuất không?");
 
     if (xacNhan) {
+      localStorage.removeItem("userID");
       localStorage.removeItem("token");
       localStorage.removeItem("isLogin");
       localStorage.removeItem("role");
