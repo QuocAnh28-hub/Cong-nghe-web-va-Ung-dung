@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import "../style/TrangKhachHang_DatPhong.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
+import { toast } from "react-toastify";
 
 class TrangKhachHang_DatPhong extends Component {
   state = {
@@ -9,6 +10,97 @@ class TrangKhachHang_DatPhong extends Component {
     reservations: [],
     loading: true,
     error: null,
+    showEditPopup: false,
+    editData: {
+      ReservationID: null,
+      RoomTypeName: "",
+      RoomTypeID: null,
+      CheckInDate: "",
+      CheckOutDate: "",
+      Quantity: 1,
+    },
+    editLoading: false,
+    editError: null,
+  };
+  // Mở popup sửa với dữ liệu đơn đặt phòng
+  handleEditClick = (reservation) => {
+    this.setState({
+      showEditPopup: true,
+      editData: {
+        ReservationID: reservation.ReservationID,
+        RoomTypeName: reservation.RoomTypeName,
+        RoomTypeID: reservation.RoomTypeID,
+        CheckInDate: reservation.CheckInDate ? reservation.CheckInDate.slice(0, 10) : "",
+        CheckOutDate: reservation.CheckOutDate ? reservation.CheckOutDate.slice(0, 10) : "",
+        Quantity: reservation.Quantity,
+      },
+      editError: null,
+    });
+  };
+
+  // Đóng popup sửa
+  handleCloseEditPopup = () => {
+    this.setState({ showEditPopup: false, editError: null });
+  };
+
+  // Xử lý thay đổi input trong popup
+  handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    this.setState((prevState) => ({
+      editData: {
+        ...prevState.editData,
+        [name]: value,
+      },
+    }));
+  };
+
+  // Gửi API cập nhật đơn đặt phòng
+  handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const { ReservationID, RoomTypeID, Quantity, CheckInDate, CheckOutDate } = this.state.editData;
+    this.setState({ editLoading: true, editError: null });
+    try {
+      const res = await fetch(`http://localhost:3000/api/reservations/${ReservationID}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          RoomTypeID,
+          Quantity: Number(Quantity),
+          CheckInDate,
+          CheckOutDate,
+        }),
+      });
+      if (!res.ok) throw new Error("Cập nhật đơn đặt phòng thất bại");
+      // Sau khi cập nhật thành công, reload lại danh sách
+      const userID = localStorage.getItem("userID");
+      if (userID) await this.fetchReservations(userID);
+      this.setState({ showEditPopup: false, editLoading: false });
+      toast.success("Cập nhật đơn đặt phòng thành công!");
+    } catch (error) {
+      this.setState({ editError: error.message || "Lỗi cập nhật", editLoading: false });
+    }
+  };
+
+  // Xử lý hủy đặt phòng
+  handleCancelReservation = async (reservationID) => {
+    const confirmCancel = window.confirm("Bạn có chắc muốn hủy đơn đặt phòng này không?");
+    if (!confirmCancel) return;
+    this.setState({ loading: true, error: null });
+    try {
+      const res = await fetch(`http://localhost:3000/api/reservations/${reservationID}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error("Hủy đặt phòng thất bại");
+      // Sau khi hủy thành công, reload lại danh sách
+      const userID = localStorage.getItem("userID");
+      if (userID) await this.fetchReservations(userID);
+      toast.success("Đã hủy đặt phòng thành công!");
+    } catch (error) {
+      this.setState({ error: error.message || "Lỗi hủy đặt phòng" });
+    } finally {
+      this.setState({ loading: false });
+    }
   };
 
   componentDidMount() {
@@ -50,7 +142,7 @@ class TrangKhachHang_DatPhong extends Component {
   };
 
   render() {
-    const { fullname, reservations, loading, error } = this.state;
+    const { fullname, reservations, loading, error, showEditPopup, editData, editLoading, editError } = this.state;
 
     return (
       <div className="booking-page">
@@ -93,7 +185,7 @@ class TrangKhachHang_DatPhong extends Component {
               <table className="booking-table">
                 <thead>
                   <tr>
-                    <th>Mã Đơn</th>
+                    <th>Mã Đơn Đặt</th>
                     <th>Loại phòng</th>
                     <th>Ngày nhận</th>
                     <th>Ngày trả</th>
@@ -114,14 +206,58 @@ class TrangKhachHang_DatPhong extends Component {
                       <td>{r.TotalPrice?.toLocaleString('vi-VN')} đ</td>
                       <td>{r.Status}</td>
                       <td>
-                        <button className="btn-edit" onClick={() => alert('Chức năng sửa sẽ được cập nhật sau!')}>Sửa</button>
-                        <button className="btn-cancel" onClick={() => alert('Chức năng hủy sẽ được cập nhật sau!')}>Hủy</button>
+                        {r.Status === 'BOOKED' ? (
+                          <button className="btn-edit" onClick={() => this.handleEditClick(r)}>Sửa</button>
+                        ) : (
+                          <button className="btn-edit" disabled style={{opacity:0.5, cursor:'not-allowed'}}>Sửa</button>
+                        )}
+                        {r.Status === 'BOOKED' ? (
+                          <button className="btn-cancel" onClick={() => this.handleCancelReservation(r.ReservationID)}>Hủy</button>
+                        ) : (
+                          <button className="btn-cancel" disabled style={{opacity:0.5, cursor:'not-allowed'}}>Hủy</button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </section>
+          )}
+
+          {/* Popup sửa đơn đặt phòng */}
+          {showEditPopup && (
+            <div className="edit-popup-overlay">
+              <form className="edit-popup-form" onSubmit={this.handleEditSubmit}>
+                <h2>Chỉnh sửa đơn đặt phòng</h2>
+                <div>
+                  <label>Mã Đơn Đặt:</label>
+                  <input type="text" value={editData.ReservationID} disabled />
+                </div>
+                <div>
+                  <label>Loại phòng:</label>
+                  <input type="text" value={editData.RoomTypeName} disabled />
+                </div>
+                <div>
+                  <label>Ngày nhận:</label>
+                  <input type="date" name="CheckInDate" value={editData.CheckInDate} onChange={this.handleEditInputChange} required />
+                </div>
+                <div>
+                  <label>Ngày trả:</label>
+                  <input type="date" name="CheckOutDate" value={editData.CheckOutDate} onChange={this.handleEditInputChange} required />
+                </div>
+                <div>
+                  <label>Số lượng:</label>
+                  <input type="number" name="Quantity" min="1" value={editData.Quantity} onChange={this.handleEditInputChange} required />
+                </div>
+                {editError && <div className="edit-popup-error">{editError}</div>}
+                <div className="edit-popup-actions">
+                  <button type="button" className="edit-popup-cancel" onClick={this.handleCloseEditPopup}>Hủy</button>
+                  <button type="submit" className="edit-popup-save" disabled={editLoading}>
+                    {editLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
         </main>
 

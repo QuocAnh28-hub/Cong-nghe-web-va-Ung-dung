@@ -263,9 +263,9 @@ class Header extends Component {
 
               {/* Đổi mật khẩu tích hợp vào popup chỉnh sửa */}
               {isEditing && (
-                <div className="header-profile-popup__changepw" style={{ marginTop: 18 }}>
-                  <h5 style={{ color: "#2563eb", margin: 0, marginBottom: 10 }}>Đổi mật khẩu</h5>
-                  <div style={{ display: "grid", gap: 12 }}>
+                <div className="header-profile-popup__changepw">
+                  <h5 className="header-profile-popup__changepw-title">Đổi mật khẩu</h5>
+                  <div className="header-profile-popup__changepw-inputs">
                     <input
                       type="password"
                       name="oldPassword"
@@ -291,12 +291,11 @@ class Header extends Component {
                       className="header-profile-popup__changepw-input"
                     />
                   </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+                  <div className="header-profile-popup__changepw-actions">
                     <button
                       type="button"
                       onClick={this.handleChangePassword}
                       className="header-profile-popup__changepw-btn"
-                      style={{ border: "none", background: "#2563eb", color: "#fff", borderRadius: 6, padding: "7px 16px", fontWeight: 600, cursor: "pointer" }}
                       disabled={passwordLoading}
                     >
                       {passwordLoading ? "Đang lưu..." : "Đổi mật khẩu"}

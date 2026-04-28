@@ -2080,7 +2080,7 @@ EXEC sp_CreateReservation_WithNewCustomer
 
 
 ---Load lịch đặt phòng của khách hàng--------------------------------
-CREATE PROCEDURE sp_GetReservationHistory_ByUser
+ALTER PROCEDURE sp_GetReservationHistory_ByUser
     @UserID INT
 AS
 BEGIN
@@ -2092,7 +2092,7 @@ BEGIN
         r.CheckOutDate,
         r.Status,
         r.CreatedAt,
-
+		rt.RoomTypeID,
         rt.Name AS RoomTypeName,
         rr.Quantity,
         rr.PriceAtBooking,
@@ -2107,7 +2107,7 @@ BEGIN
 
     ORDER BY r.CreatedAt DESC;
 END
-EXEC sp_GetReservationHistory_ByUser @UserID = 1;
+EXEC sp_GetReservationHistory_ByUser @UserID = 36;
 
 
 ----Load lịch đặt-------------------------------------------------------------------
@@ -2296,11 +2296,11 @@ BEGIN
     END CATCH
 END
 EXEC sp_UpdateReservation
-    @ReservationID = 12,
-    @RoomTypeID = 2,
-    @Quantity = 3,
-    @CheckInDate = '2026-04-11',
-    @CheckOutDate = '2026-04-13';
+    @ReservationID = 32,
+    @RoomTypeID = 9,
+    @Quantity = 1,
+    @CheckInDate = '2026-05-01',
+    @CheckOutDate = '2026-05-06';
 
 
 ---Xoá (Huỷ lịch đặt)-------------------------------------------------------------------------------------------

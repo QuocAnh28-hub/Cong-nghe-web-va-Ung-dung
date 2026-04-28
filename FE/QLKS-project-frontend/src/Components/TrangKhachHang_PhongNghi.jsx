@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
+import { toast } from "react-toastify";
 
 const roomImages = [1, 2, 3, 4, 6, 7, 8].map(
   (number) => new URL(`../img/AnhPhong_${number}.jpg`, import.meta.url).href
@@ -144,10 +145,10 @@ class TrangKhachHang_PhongNghi extends Component {
       }
 
       const result = await response.json();
-      alert(`Đặt phòng thành công! Mã đặt phòng: ${result.ReservationID}, Tổng tiền: ${result.TotalPrice.toLocaleString("vi-VN")} đ`);
+      toast.success("Đặt phòng thành công!");
       this.closeModal();
     } catch (error) {
-      alert(error.message);
+      toast.error(error.message);
     }
   };
 
