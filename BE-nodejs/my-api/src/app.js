@@ -18,6 +18,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/local-images", express.static("D:\\IMG"));
 
 app.use("/api/room-types", roomTypeRoutes);
 app.use("/api/login", authRoutes);

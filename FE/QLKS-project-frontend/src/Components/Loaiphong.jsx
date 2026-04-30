@@ -4,6 +4,7 @@ import { FeatureHeader } from "./Common";
 import { toast } from "react-toastify";
 
 const API_URL = "http://localhost:3000/api/room-types";
+const LOCAL_IMAGE_BASE_URL = "http://localhost:3000/local-images/";
 
 class Loaiphong extends Component {
   state = {
@@ -17,7 +18,10 @@ class Loaiphong extends Component {
       description: "",
       capacity: "",
       price: "",
+      imageUrl: "",
     },
+    imageFile: null,
+    imagePreview: null,
     loading: false,
     submitLoading: false,
     error: "",
@@ -44,6 +48,7 @@ class Loaiphong extends Component {
             description: item.Description ?? "",
             capacity: item.Capacity ?? 0,
             price: item.DefaultPrice ?? 0,
+            imageUrl: item.ImageUrl ?? "",
           }))
         : [];
 
@@ -83,7 +88,10 @@ class Loaiphong extends Component {
         description: "",
         capacity: "",
         price: "",
+        imageUrl: "",
       },
+      imageFile: null,
+      imagePreview: null,
     });
   };
 
@@ -97,7 +105,10 @@ class Loaiphong extends Component {
         description: typeItem.description,
         capacity: typeItem.capacity,
         price: typeItem.price,
+        imageUrl: typeItem.imageUrl,
       },
+      imageFile: null,
+      imagePreview: typeItem.imageUrl || null,
     });
   };
 
@@ -111,6 +122,38 @@ class Loaiphong extends Component {
       currentType: { ...prev.currentType, [field]: value },
     }));
   };
+
+  handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Kiểm tra loại file
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn file ảnh.");
+      return;
+    }
+
+    // Giới hạn kích thước 1MB
+    if (file.size > 1 * 1024 * 1024) {
+      alert("Kích thước file không được vượt quá 1MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      this.setState((prev) => ({
+        imageFile: file,
+        imagePreview: reader.result,
+        currentType: {
+          ...prev.currentType,
+          imageUrl: `${LOCAL_IMAGE_BASE_URL}${encodeURIComponent(file.name)}`,
+        },
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+
 
   handleSubmit = async (e) => {
     e.preventDefault();
@@ -143,6 +186,10 @@ class Loaiphong extends Component {
       DefaultPrice: priceNum,
     };
 
+    if (currentType.imageUrl) {
+      payload.ImageUrl = currentType.imageUrl;
+    }
+
     const isEdit = modalMode === "edit";
     const url = isEdit ? `${API_URL}/${id}` : API_URL;
 
@@ -161,41 +208,19 @@ class Loaiphong extends Component {
       }
 
       await response.json();
+      
+      // Reload danh sách và chỉ show toast khi reload thành công
       await this.loadRoomTypes();
+      
       this.setState({ isModalOpen: false, submitLoading: false });
       toast.success(isEdit ? "Cập nhật loại phòng thành công." : "Thêm loại phòng thành công.");
     } catch (error) {
+      console.error("Lỗi save:", error);
       this.setState({
         error: error.message || "Không thể lưu loại phòng.",
         submitLoading: false,
       });
       toast.error("Không thể lưu loại phòng.");
-    }
-  };
-
-  deleteType = async (typeId) => {
-    if (!window.confirm("Xóa loại phòng này?")) {
-      return;
-    }
-
-    try {
-      this.setState({ error: "" });
-
-      const response = await fetch(`${API_URL}/${typeId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text();
-        throw new Error(responseText || `API error: ${response.status}`);
-      }
-
-      await response.json();
-      await this.loadRoomTypes();
-      toast.success("Xóa loại phòng thành công.");
-    } catch (error) {
-      this.setState({ error: error.message || "Không thể xóa loại phòng." });
-      toast.error("Không thể xóa loại phòng.");
     }
   };
 
@@ -205,6 +230,7 @@ class Loaiphong extends Component {
       isModalOpen,
       modalMode,
       currentType,
+      imagePreview,
       loading,
       submitLoading,
       error,
@@ -256,6 +282,7 @@ class Loaiphong extends Component {
             <table className="lp-table">
               <thead>
                 <tr>
+                  <th>Ảnh</th>
                   <th>Tên loại phòng</th>
                   <th>Mô tả</th>
                   <th>Sức chứa</th>
@@ -266,19 +293,49 @@ class Loaiphong extends Component {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="empty-row">
+                    <td colSpan="6" className="empty-row">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 ) : filteredTypes.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="empty-row">
+                    <td colSpan="6" className="empty-row">
                       Không có loại phòng phù hợp
                     </td>
                   </tr>
                 ) : (
                   filteredTypes.map((typeItem) => (
                     <tr key={typeItem.id}>
+                      <td>
+                        {typeItem.imageUrl ? (
+                          <img
+                            src={typeItem.imageUrl}
+                            alt={typeItem.name}
+                            style={{
+                              width: "60px",
+                              height: "60px",
+                              objectFit: "cover",
+                              borderRadius: "4px",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "60px",
+                              height: "60px",
+                              backgroundColor: "#e5e7eb",
+                              borderRadius: "4px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              color: "#6b7280",
+                            }}
+                          >
+                            Không có ảnh
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <strong>{typeItem.name}</strong>
                       </td>
@@ -291,12 +348,6 @@ class Loaiphong extends Component {
                           onClick={() => this.openEditModal(typeItem)}
                         >
                           <i className="fa fa-edit"></i>
-                        </button>
-                        <button
-                          className="btn-delete"
-                          onClick={() => this.deleteType(typeItem.id)}
-                        >
-                          <i className="fa fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -319,6 +370,39 @@ class Loaiphong extends Component {
                   : "Chỉnh sửa loại phòng"}
               </h2>
               <form onSubmit={this.handleSubmit}>
+                <label>
+                  Ảnh loại phòng
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      marginBottom: "12px",
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={this.handleImageChange}
+                      style={{ flex: 1 }}
+                    />
+                    {imagePreview && (
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        style={{
+                          width: "80px",
+                          height: "80px",
+                          objectFit: "cover",
+                          borderRadius: "4px",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    )}
+                  </div>
+                </label>
+
                 <label>
                   Tên loại phòng *
                   <input

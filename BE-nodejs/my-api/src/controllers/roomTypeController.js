@@ -17,25 +17,24 @@ const getRoomTypes = async (req, res) => {
 const addRoomType = async (req, res) => {
   console.log("addRoomType called", req.body);
   try {
-    const { Name, Description, Capacity, DefaultPrice } = req.body;
+    const { Name, Description, Capacity, DefaultPrice, ImageUrl } = req.body;
     if (!Name || !Capacity || !DefaultPrice) {
       return res.status(400).json({ error: "Thiếu tham số bắt buộc" });
     }
 
-    const result = await sql.query`
-      EXEC sp_AddRoomType 
-        @Name=${Name},
-        @Description=${Description || ""},
-        @Capacity=${Capacity},
-        @DefaultPrice=${DefaultPrice}
-    `;
+    const request = new sql.Request();
+    request.input("Name", sql.NVarChar(100), Name);
+    request.input("Description", sql.NVarChar(sql.MAX), Description ?? null);
+    request.input("Capacity", sql.Int, Capacity);
+    request.input("DefaultPrice", sql.Decimal(12, 2), DefaultPrice);
+    request.input("ImageUrl", sql.NVarChar(255), ImageUrl ?? null);
 
-    return res
-      .status(201)
-      .json({
-        message: "Thêm loại phòng thành công",
-        data: result.recordset || [],
-      });
+    const result = await request.execute("sp_AddRoomType");
+
+    return res.status(201).json({
+      message: "Thêm loại phòng thành công",
+      data: result.recordset || [],
+    });
   } catch (err) {
     console.error("addRoomType Error:", err);
     res
@@ -48,7 +47,7 @@ const updateRoomType = async (req, res) => {
   console.log("updateRoomType called", req.params, req.body);
   try {
     const RoomTypeID = parseInt(req.params.id, 10);
-    const { Name, Description, Capacity, DefaultPrice } = req.body;
+    const { Name, Description, Capacity, DefaultPrice, ImageUrl } = req.body;
 
     if (!RoomTypeID || !Name || !Capacity || !DefaultPrice) {
       return res
@@ -56,14 +55,15 @@ const updateRoomType = async (req, res) => {
         .json({ error: "Thiếu tham số bắt buộc hoặc id không hợp lệ" });
     }
 
-    const result = await sql.query`
-      EXEC sp_UpdateRoomType
-        @RoomTypeID=${RoomTypeID},
-        @Name=${Name},
-        @Description=${Description || ""},
-        @Capacity=${Capacity},
-        @DefaultPrice=${DefaultPrice}
-    `;
+    const request = new sql.Request();
+    request.input("RoomTypeID", sql.Int, RoomTypeID);
+    request.input("Name", sql.NVarChar(100), Name);
+    request.input("Description", sql.NVarChar(sql.MAX), Description ?? null);
+    request.input("Capacity", sql.Int, Capacity);
+    request.input("DefaultPrice", sql.Decimal(12, 2), DefaultPrice);
+    request.input("ImageUrl", sql.NVarChar(255), ImageUrl ?? null);
+
+    const result = await request.execute("sp_UpdateRoomType");
 
     return res.json({
       message: "Cập nhật loại phòng thành công",

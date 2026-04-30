@@ -47,6 +47,9 @@ CREATE TABLE RoomTypes (
     DefaultPrice DECIMAL(12,2)
 )
 
+ALTER TABLE RoomTypes
+ADD ImageUrl NVARCHAR(255);
+
 CREATE TABLE Rooms (
     RoomID INT IDENTITY(1,1) PRIMARY KEY,
     RoomNumber NVARCHAR(20) UNIQUE NOT NULL,
@@ -335,29 +338,31 @@ EXEC GetAccountInfo @Email = 'dohuuquocanh21dk@gmail.com', @PasswordHash = '123'
 
 
 --Thêm Loại phòng---------------------------------------------------------------------
-CREATE PROCEDURE sp_AddRoomType
+ALTER PROCEDURE sp_AddRoomType
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX) = NULL,
     @Capacity INT = NULL,
-    @DefaultPrice DECIMAL(12,2) = NULL
+    @DefaultPrice DECIMAL(12,2) = NULL,
+    @ImageUrl NVARCHAR(255) = NULL   -- thêm dòng này
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    INSERT INTO RoomTypes (Name, Description, Capacity, DefaultPrice)
-    VALUES (@Name, @Description, @Capacity, @DefaultPrice);
+    INSERT INTO RoomTypes (Name, Description, Capacity, DefaultPrice, ImageUrl)
+    VALUES (@Name, @Description, @Capacity, @DefaultPrice, @ImageUrl);
 
     -- Trả về ID vừa tạo
     SELECT SCOPE_IDENTITY() AS NewRoomTypeID;
 END;
 
---Sửa Loại phòng-------------------------------------------------------------------------
-CREATE PROCEDURE sp_UpdateRoomType
+--Sửa Loại phòng----------------------------------------------------------------------
+ALTER PROCEDURE sp_UpdateRoomType
     @RoomTypeID INT,
     @Name NVARCHAR(100),
     @Description NVARCHAR(MAX),
     @Capacity INT,
-    @DefaultPrice DECIMAL(12,2)
+    @DefaultPrice DECIMAL(12,2),
+    @ImageUrl NVARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -367,10 +372,10 @@ BEGIN
         Name = @Name,
         Description = @Description,
         Capacity = @Capacity,
-        DefaultPrice = @DefaultPrice
+        DefaultPrice = @DefaultPrice,
+        ImageUrl = COALESCE(@ImageUrl, ImageUrl) -- giữ ảnh cũ nếu NULL
     WHERE RoomTypeID = @RoomTypeID;
 
-    -- Check có update không
     IF @@ROWCOUNT = 0
     BEGIN
         RAISERROR ('RoomType không tồn tại', 16, 1);
