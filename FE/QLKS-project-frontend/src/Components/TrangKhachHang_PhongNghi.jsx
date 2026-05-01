@@ -4,9 +4,7 @@ import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 import { toast } from "react-toastify";
 
-const roomImages = [1, 2, 3, 4, 6, 7, 8].map(
-  (number) => new URL(`../img/AnhPhong_${number}.jpg`, import.meta.url).href
-);
+const LOCAL_IMAGE_BASE_URL = "http://localhost:3000/local-images/";
 
 const formatPrice = (value) => {
   if (value == null) return "";
@@ -41,6 +39,12 @@ class TrangKhachHang_PhongNghi extends Component {
         throw new Error("Không thể tải dữ liệu loại phòng");
       }
       const roomTypes = await response.json();
+      console.log("Room Types Data:", roomTypes);
+      if (roomTypes.length > 0) {
+        console.log("First room object:", roomTypes[0]);
+        console.log("All keys:", Object.keys(roomTypes[0]));
+        console.log("Full first room JSON:", JSON.stringify(roomTypes[0], null, 2));
+      }
       this.setState({ roomTypes, loading: false });
     } catch (error) {
       this.setState({ error: error.message || "Lỗi tải dữ liệu", loading: false });
@@ -179,14 +183,23 @@ class TrangKhachHang_PhongNghi extends Component {
             )}
 
             {roomTypes.map((room, index) => {
-              const image = roomImages[index % roomImages.length];
+              // Lấy ảnh từ API - kiểm tra cả ImageUri và ImageUrl
+              const imageUrl = room.ImageUri || room.ImageUrl || "";
+              console.log(`Room: ${room.TenLoaiPhong}, ImageUrl: ${imageUrl}`);
               const defaultPrice = formatPrice(room.GiaMacDinh);
               const salePrice = room.GiaTheoMua != null ? formatPrice(room.GiaTheoMua) : null;
 
               return (
                 <article className="room-card" key={room.RoomTypeID || room.TenLoaiPhong || index}>
                   <div className="room-card__media">
-                    <img src={image} alt={room.TenLoaiPhong} className="room-card__image" />
+                    <img 
+                      src={imageUrl} 
+                      alt={room.TenLoaiPhong} 
+                      className="room-card__image"
+                      onError={(e) => {
+                        e.target.src = `${LOCAL_IMAGE_BASE_URL}AnhPhong_${(index % 7) + 1}.jpg`;
+                      }}
+                    />
                     <div className="room-card__price">
                       {salePrice ? (
                         <>

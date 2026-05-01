@@ -3811,7 +3811,7 @@ EXEC sp_GetRoomTypeUsagePercentInMonth @Month = 4, @Year = 2026
 --------------------------------------------PROC TRANG KHÁCH HÀNG-----------------------------------------------------------
 ----------------------------------------------------------------------------------------------------------------------------
 ---Proc lấy ra các loại phòng----------------------------------------
-CREATE PROC sp_GetAllRoomTypesWithCurrentRate
+ALTER PROC sp_GetAllRoomTypesWithCurrentRate
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -3822,6 +3822,7 @@ BEGIN
         RT.Description AS MoTa,
         RT.Capacity AS SucChua,
         RT.DefaultPrice AS GiaMacDinh,
+		RT.ImageUrl,
         R.Price AS GiaTheoMua,
         R.Season AS MuaApDung
     FROM RoomTypes RT
