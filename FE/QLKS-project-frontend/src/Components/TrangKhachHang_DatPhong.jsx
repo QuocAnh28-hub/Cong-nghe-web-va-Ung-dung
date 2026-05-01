@@ -10,6 +10,14 @@ class TrangKhachHang_DatPhong extends Component {
     reservations: [],
     loading: true,
     error: null,
+    selectedStatus: "ALL",
+    statusOptions: [
+      { value: "ALL", label: "Tất cả" },
+      { value: "BOOKED", label: "Đã đặt" },
+      { value: "CANCELLED", label: "Đã hủy" },
+      { value: "CHECKED_IN", label: "Đã nhận phòng" },
+      { value: "COMPLETED", label: "Hoàn thành" },
+    ],
     showEditPopup: false,
     editData: {
       ReservationID: null,
@@ -125,6 +133,10 @@ class TrangKhachHang_DatPhong extends Component {
     }
   };
 
+  handleStatusFilterChange = (status) => {
+    this.setState({ selectedStatus: status });
+  };
+
   handleLogout = () => {
     const xacNhan = window.confirm("Bạn có chắc muốn đăng xuất không?");
 
@@ -142,7 +154,22 @@ class TrangKhachHang_DatPhong extends Component {
   };
 
   render() {
-    const { fullname, reservations, loading, error, showEditPopup, editData, editLoading, editError } = this.state;
+    const {
+      fullname,
+      reservations,
+      loading,
+      error,
+      showEditPopup,
+      editData,
+      editLoading,
+      editError,
+      selectedStatus,
+      statusOptions,
+    } = this.state;
+    const filteredReservations =
+      selectedStatus === "ALL"
+        ? reservations
+        : reservations.filter((r) => r.Status === selectedStatus);
 
     return (
       <div className="booking-page">
@@ -162,8 +189,22 @@ class TrangKhachHang_DatPhong extends Component {
             </Link>
           </section>
 
+          <section className="booking-filter-bar">
+            <select
+              className="booking-filter-select"
+              value={selectedStatus}
+              onChange={(e) => this.handleStatusFilterChange(e.target.value)}
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </section>
+
           {loading && <p>Đang tải dữ liệu...</p>}
-          {error && <p style={{color: 'red'}}>{error}</p>}
+          {error && <p className="booking-error">{error}</p>}
 
           {!loading && !error && reservations.length === 0 && (
             <section className="booking-empty-state">
@@ -180,7 +221,17 @@ class TrangKhachHang_DatPhong extends Component {
             </section>
           )}
 
-          {!loading && !error && reservations.length > 0 && (
+          {!loading && !error && reservations.length > 0 && filteredReservations.length === 0 && (
+            <section className="booking-empty-state">
+              <div className="booking-empty-state__icon">
+                <i className="fa-regular fa-calendar"></i>
+              </div>
+              <h2>Không có đơn đặt phòng phù hợp</h2>
+              <p>Thử thay đổi bộ lọc.</p>
+            </section>
+          )}
+
+          {!loading && !error && filteredReservations.length > 0 && (
             <section className="booking-list">
               <table className="booking-table">
                 <thead>
@@ -196,7 +247,7 @@ class TrangKhachHang_DatPhong extends Component {
                   </tr>
                 </thead>
                 <tbody>
-                  {reservations.map((r) => (
+                  {filteredReservations.map((r) => (
                     <tr key={r.ReservationID}>
                       <td>{r.ReservationID}</td>
                       <td>{r.RoomTypeName}</td>

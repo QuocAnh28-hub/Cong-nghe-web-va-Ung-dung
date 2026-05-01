@@ -251,16 +251,7 @@ class Loaiphong extends Component {
 
         <div className="lp-main">
           {error && (
-            <div
-              className="lp-error"
-              style={{
-                marginBottom: "12px",
-                color: "#b91c1c",
-                backgroundColor: "#fee2e2",
-                padding: "10px 12px",
-                borderRadius: "8px",
-              }}
-            >
+            <div className="lp-error">
               {error}
             </div>
           )}
@@ -311,27 +302,10 @@ class Loaiphong extends Component {
                           <img
                             src={typeItem.imageUrl}
                             alt={typeItem.name}
-                            style={{
-                              width: "60px",
-                              height: "60px",
-                              objectFit: "cover",
-                              borderRadius: "4px",
-                            }}
+                            className="lp-image-thumb"
                           />
                         ) : (
-                          <div
-                            style={{
-                              width: "60px",
-                              height: "60px",
-                              backgroundColor: "#e5e7eb",
-                              borderRadius: "4px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "12px",
-                              color: "#6b7280",
-                            }}
-                          >
+                          <div className="lp-image-placeholder">
                             Không có ảnh
                           </div>
                         )}
@@ -372,15 +346,7 @@ class Loaiphong extends Component {
               <form onSubmit={this.handleSubmit}>
                 <label>
                   Ảnh loại phòng
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      marginBottom: "12px",
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "flex-start",
-                    }}
-                  >
+                  <div className="lp-image-upload-group">
                     <input
                       type="file"
                       accept="image/*"
@@ -391,13 +357,7 @@ class Loaiphong extends Component {
                       <img
                         src={imagePreview}
                         alt="Preview"
-                        style={{
-                          width: "80px",
-                          height: "80px",
-                          objectFit: "cover",
-                          borderRadius: "4px",
-                          border: "1px solid #ddd",
-                        }}
+                        className="lp-image-preview"
                       />
                     )}
                   </div>

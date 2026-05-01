@@ -385,11 +385,54 @@
   font-size: 1.25rem;
 }
 
-.booking-footer__links a:hover {
-  color: var(--primary);
+.booking-filter-bar {
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
-/* Nút thao tác trong bảng đặt phòng */
+.booking-filter-select {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1.5px solid #dbe4f1;
+  background: #ffffff;
+  color: #22385d;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.18s, background-color 0.18s, box-shadow 0.18s;
+  min-width: 160px;
+}
+
+.booking-filter-select:hover {
+  border-color: #4f46ff;
+  background: #f9f8ff;
+  box-shadow: 0 4px 12px rgba(79, 70, 255, 0.08);
+}
+
+.booking-filter-select:focus {
+  outline: none;
+  border-color: #4f46ff;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 255, 0.1);
+}
+
+.booking-error {
+  color: #e53e3e;
+  background-color: #fff5f5;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 4px solid #e53e3e;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.booking-list {
+  margin-top: 12px;
+}
+
+
 .btn-edit, .btn-cancel {
   padding: 7px 18px;
   border-radius: 8px;
