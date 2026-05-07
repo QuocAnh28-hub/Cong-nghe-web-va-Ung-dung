@@ -4,6 +4,9 @@ import "../style/TrangKhachHang_DatPhong.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 import { toast } from "react-toastify";
 
+const INVOICE_FULL_API_URL = (stayId) =>
+  `http://localhost:3000/api/invoices/full/${stayId}`;
+
 class TrangKhachHang_DatPhong extends Component {
   state = {
     fullname: "",
@@ -21,6 +24,7 @@ class TrangKhachHang_DatPhong extends Component {
     showEditPopup: false,
     editData: {
       ReservationID: null,
+      StayID: null,
       RoomTypeName: "",
       RoomTypeID: null,
       CheckInDate: "",
@@ -29,6 +33,13 @@ class TrangKhachHang_DatPhong extends Component {
     },
     editLoading: false,
     editError: null,
+    showInvoicePopup: false,
+    invoiceLoading: false,
+    invoiceError: null,
+    invoiceData: {
+      invoice: null,
+      details: [],
+    },
   };
   // Mở popup sửa với dữ liệu đơn đặt phòng
   handleEditClick = (reservation) => {
@@ -36,6 +47,7 @@ class TrangKhachHang_DatPhong extends Component {
       showEditPopup: true,
       editData: {
         ReservationID: reservation.ReservationID,
+        StayID: reservation.StayID ?? reservation.stayID ?? null,
         RoomTypeName: reservation.RoomTypeName,
         RoomTypeID: reservation.RoomTypeID,
         CheckInDate: reservation.CheckInDate ? reservation.CheckInDate.slice(0, 10) : "",
@@ -60,6 +72,47 @@ class TrangKhachHang_DatPhong extends Component {
         [name]: value,
       },
     }));
+  };
+
+  formatCurrency = (value) => {
+    const amount = Number(value);
+    if (Number.isNaN(amount)) return "0 đ";
+    return amount.toLocaleString("vi-VN") + " đ";
+  };
+
+  handleViewInvoiceClick = async (reservation) => {
+    const stayId = Number(reservation.StayID ?? reservation.stayID ?? reservation.stayId);
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      this.setState({ invoiceError: "Mã lưu trú không hợp lệ." });
+      return;
+    }
+
+    this.setState({
+      showInvoicePopup: true,
+      invoiceLoading: true,
+      invoiceError: null,
+      invoiceData: { invoice: null, details: [] },
+    });
+
+    try {
+      const res = await fetch(INVOICE_FULL_API_URL(stayId));
+      if (!res.ok) throw new Error("Không thể tải chi tiết hóa đơn");
+      const data = await res.json();
+      this.setState({
+        invoiceData: {
+          invoice: data.invoice ?? data,
+          details: Array.isArray(data.details) ? data.details : [],
+        },
+      });
+    } catch (error) {
+      this.setState({ invoiceError: error.message || "Lỗi tải chi tiết hóa đơn" });
+    } finally {
+      this.setState({ invoiceLoading: false });
+    }
+  };
+
+  handleCloseInvoicePopup = () => {
+    this.setState({ showInvoicePopup: false, invoiceError: null, invoiceData: { invoice: null, details: [] } });
   };
 
   // Gửi API cập nhật đơn đặt phòng
@@ -258,14 +311,23 @@ class TrangKhachHang_DatPhong extends Component {
                       <td>{r.Status}</td>
                       <td>
                         {r.Status === 'BOOKED' ? (
-                          <button className="btn-edit" onClick={() => this.handleEditClick(r)}>Sửa</button>
+                          <>
+                            <button className="btn-edit" onClick={() => this.handleEditClick(r)}>Sửa</button>
+                            <button className="btn-cancel" onClick={() => this.handleCancelReservation(r.ReservationID)}>Hủy</button>
+                          </>
+                        ) : r.Status === 'COMPLETED' ? (
+                          <button className="btn-view" onClick={() => this.handleViewInvoiceClick(r)}>
+                            Xem hóa đơn
+                          </button>
                         ) : (
-                          <button className="btn-edit" disabled style={{opacity:0.5, cursor:'not-allowed'}}>Sửa</button>
-                        )}
-                        {r.Status === 'BOOKED' ? (
-                          <button className="btn-cancel" onClick={() => this.handleCancelReservation(r.ReservationID)}>Hủy</button>
-                        ) : (
-                          <button className="btn-cancel" disabled style={{opacity:0.5, cursor:'not-allowed'}}>Hủy</button>
+                          <>
+                            <button className="btn-edit" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                              Sửa
+                            </button>
+                            <button className="btn-cancel" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                              Hủy
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -308,6 +370,146 @@ class TrangKhachHang_DatPhong extends Component {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {this.state.showInvoicePopup && (
+            <div className="edit-popup-overlay" onClick={this.handleCloseInvoicePopup}>
+              <div className="invoice-popup-form" onClick={(e) => e.stopPropagation()}>
+                <div className="invoice-popup-header">
+                  <h2>Chi tiết hóa đơn</h2>
+                  <button className="invoice-popup-close" onClick={this.handleCloseInvoicePopup}>
+                    ×
+                  </button>
+                </div>
+                {this.state.invoiceLoading && <p>Đang tải chi tiết hóa đơn...</p>}
+                {!this.state.invoiceLoading && this.state.invoiceError && (
+                  <div>
+                    <p>{this.state.invoiceError}</p>
+                    <button className="edit-popup-cancel" onClick={this.handleCloseInvoicePopup}>
+                      Đóng
+                    </button>
+                  </div>
+                )}
+                {!this.state.invoiceLoading && !this.state.invoiceError && this.state.invoiceData.invoice && (
+                  <>
+                    <div>
+                      <p><strong>Mã lưu trú:</strong> {this.state.invoiceData.invoice.StayID}</p>
+                      <p><strong>Ngày tạo:</strong> {new Date(this.state.invoiceData.invoice.Date).toLocaleString('vi-VN')}</p>
+                      <p><strong>Khách hàng:</strong> {this.state.invoiceData.invoice.FullName}</p>
+                      <p><strong>Số điện thoại:</strong> {this.state.invoiceData.invoice.Phone}</p>
+                      <p><strong>Email:</strong> {this.state.invoiceData.invoice.Email}</p>
+                      <p><strong>Ngày nhận:</strong> {new Date(this.state.invoiceData.invoice.ActualCheckIn).toLocaleString('vi-VN')}</p>
+                      <p><strong>Ngày trả:</strong> {new Date(this.state.invoiceData.invoice.ActualCheckOut).toLocaleString('vi-VN')}</p>
+                    </div>
+
+                    <div>
+                      <h3>Phòng</h3>
+                      <table className="booking-table" style={{ width: '100%', marginBottom: 16 }}>
+                        <thead>
+                          <tr>
+                            <th>Phòng</th>
+                            <th>Đơn giá</th>
+                            <th>Số lượng ngày ở</th>
+                            <th>Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {this.state.invoiceData.details.filter((item) => String(item.ItemType).toUpperCase() === 'ROOM').map((item) => (
+                            <tr key={item.DetailID}>
+                              <td>{item.ItemName}</td>
+                              <td>{this.formatCurrency(item.UnitPrice)}</td>
+                              <td>{item.Quantity}</td>
+                              <td>{this.formatCurrency(item.Amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div>
+                      <h3>Dịch vụ</h3>
+                      <table className="booking-table" style={{ width: '100%', marginBottom: 16 }}>
+                        <thead>
+                          <tr>
+                            <th>Dịch vụ</th>
+                            <th>Số lượng</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {this.state.invoiceData.details.filter((item) => String(item.ItemType).toUpperCase() === 'SERVICE').map((item) => (
+                            <tr key={item.DetailID}>
+                              <td>{item.ItemName}</td>
+                              <td>{item.Quantity}</td>
+                              <td>{this.formatCurrency(item.UnitPrice)}</td>
+                              <td>{this.formatCurrency(item.Amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div>
+                      <h3>Minibar</h3>
+                      <table className="booking-table" style={{ width: '100%', marginBottom: 16 }}>
+                        <thead>
+                          <tr>
+                            <th>Sản phẩm</th>
+                            <th>Số lượng</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {this.state.invoiceData.details.filter((item) => String(item.ItemType).toUpperCase() === 'MINIBAR').map((item) => (
+                            <tr key={item.DetailID}>
+                              <td>{item.ItemName}</td>
+                              <td>{item.Quantity}</td>
+                              <td>{this.formatCurrency(item.UnitPrice)}</td>
+                              <td>{this.formatCurrency(item.Amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div>
+                      <h3>Phí phạt</h3>
+                      <table className="booking-table" style={{ width: '100%', marginBottom: 16 }}>
+                        <thead>
+                          <tr>
+                            <th>Lý do</th>
+                            <th>Số lượng</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {this.state.invoiceData.details.filter((item) => String(item.ItemType).toUpperCase() === 'PENALTY').map((item) => (
+                            <tr key={item.DetailID}>
+                              <td>{item.ItemName}</td>
+                              <td>{item.Quantity}</td>
+                              <td>{this.formatCurrency(item.UnitPrice)}</td>
+                              <td>{this.formatCurrency(item.Amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div>
+                      <p><strong>VAT:</strong> {this.state.invoiceData.invoice.VAT}%</p>
+                      <p><strong>Tổng tiền:</strong> {this.formatCurrency(this.state.invoiceData.invoice.TotalAmount)}</p>
+                    </div>
+
+                    <div className="edit-popup-actions">
+                      <button type="button" className="edit-popup-cancel" onClick={this.handleCloseInvoicePopup}>Đóng</button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </main>

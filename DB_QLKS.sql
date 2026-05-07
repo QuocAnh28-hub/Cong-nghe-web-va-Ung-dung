@@ -2095,6 +2095,7 @@ BEGIN
 
     SELECT 
         r.ReservationID,
+		st.StayID,
         r.CheckInDate,
         r.CheckOutDate,
         r.Status,
@@ -2109,6 +2110,7 @@ BEGIN
     FROM Reservations r
     JOIN ReservationRooms rr ON r.ReservationID = rr.ReservationID
     JOIN RoomTypes rt ON rr.RoomTypeID = rt.RoomTypeID
+	LEFT JOIN Stays st ON rr.ReservationID = st.ReservationID
 
     WHERE r.UserID = @UserID
 
@@ -3953,7 +3955,7 @@ EXEC sp_ChangePassword
     @OldPassword = '333',
     @NewPassword = '123'
 
----Load hoá đơn---------------------------
+---Load hoá đơn bằng mã lưu trú---------------------------
 CREATE PROCEDURE sp_GetFullInvoice_ByStayID
     @StayID INT
 AS
@@ -3990,7 +3992,6 @@ BEGIN
     WHERE i.StayID = @StayID;
 END
 EXEC sp_GetFullInvoice_ByStayID 51
-
 
 delete from Customers
 delete from Guests

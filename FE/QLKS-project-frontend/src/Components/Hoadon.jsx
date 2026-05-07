@@ -53,6 +53,7 @@ class Hoadon extends Component {
     modalLoading: false,
     modalError: "",
     paySubmitting: false,
+    creatingInvoiceId: null,
     invoiceData: getDefaultInvoiceData(),
     isHistoryModal: false,
     currentPagePending: 1,
@@ -614,6 +615,47 @@ class Hoadon extends Component {
     }
   };
 
+  createAndPayInvoice = async (room) => {
+    const stayId = Number(room?.stayId ?? room?.stayCode);
+
+    if (!Number.isInteger(stayId) || stayId < 1) {
+      window.alert("StayID không hợp lệ.");
+      return;
+    }
+
+    if (this.state.creatingInvoiceId) return;
+
+    try {
+      this.setState({ creatingInvoiceId: stayId });
+
+      const defaultInvoiceData = getDefaultInvoiceData();
+      const response = await this.request(CREATE_AND_PAY_INVOICE_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          StayID: stayId,
+          Method: defaultInvoiceData.method,
+          VAT: defaultInvoiceData.vat,
+        }),
+      });
+
+      window.alert(
+        response?.Message ||
+          response?.message ||
+          "Tạo hóa đơn và thanh toán thành công.",
+      );
+
+      await Promise.all([
+        this.fetchPendingInvoices(),
+        this.fetchInvoiceHistory(),
+      ]);
+    } catch (err) {
+      window.alert(err.message || "Tạo hóa đơn thất bại.");
+    } finally {
+      this.setState({ creatingInvoiceId: null });
+    }
+  };
+
   getFilteredHistory = () => {
     const { history, searchHistory } = this.state;
     const keyword = String(searchHistory || "")
@@ -874,6 +916,7 @@ class Hoadon extends Component {
       searchHistory,
       currentPagePending,
       currentPageHistory,
+      creatingInvoiceId,
     } = this.state;
     const filteredHistory = this.getFilteredHistory();
 
@@ -943,9 +986,12 @@ class Hoadon extends Component {
                       <td>
                         <button
                           className="btn-primary"
-                          onClick={() => this.openInvoiceModal(room)}
+                          onClick={() => this.createAndPayInvoice(room)}
+                          disabled={creatingInvoiceId === room.stayId}
                         >
-                          Tạo hóa đơn
+                          {creatingInvoiceId === room.stayId
+                            ? "Đang tạo..."
+                            : "Tạo hóa đơn"}
                         </button>
                       </td>
                     </tr>
