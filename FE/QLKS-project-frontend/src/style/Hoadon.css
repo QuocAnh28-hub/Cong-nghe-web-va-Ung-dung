@@ -101,10 +101,10 @@
 
 .modal-content {
   background: white;
-  padding: 20px;
+  padding: 10px;
   border-radius: 16px;
-  width: 80%;
-  max-width: 600px;
+  width: 100%;
+  max-width: 1000px;
   max-height: 80%;
   overflow-y: auto;
 }

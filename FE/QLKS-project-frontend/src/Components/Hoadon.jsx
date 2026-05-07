@@ -7,6 +7,8 @@ const PENDING_INVOICES_API_URL = "http://localhost:3000/api/invoices/pending";
 const INVOICE_HISTORY_API_URL = "http://localhost:3000/api/invoices/history";
 const CREATE_AND_PAY_INVOICE_API_URL =
   "http://localhost:3000/api/invoices/create-and-pay";
+const INVOICE_FULL_API_URL = (stayId) =>
+  `http://localhost:3000/api/invoices/full/${stayId}`;
 
 const ROOM_STAY_HISTORY_CHECKEDOUT_API_URL = (stayId) =>
   `${RESERVATIONS_API_URL}/stays/${stayId}/room-stay-history-checkedout`;
@@ -52,6 +54,7 @@ class Hoadon extends Component {
     modalError: "",
     paySubmitting: false,
     invoiceData: getDefaultInvoiceData(),
+    isHistoryModal: false,
     currentPagePending: 1,
     currentPageHistory: 1,
   };
@@ -253,18 +256,24 @@ class Hoadon extends Component {
   });
 
   mapInvoiceHistoryFromApi = (item) => {
+    const stayId = Number(item?.StayID ?? item?.stayId ?? item?.InvoiceID ?? item?.invoiceId ?? null);
+    const stayCode = String(item?.StayID ?? item?.stayId ?? item?.InvoiceID ?? item?.invoiceId ?? "-");
     const fullName = String(item?.FullName ?? item?.fullName ?? "-");
     const dateRaw =
-      item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
+      item?.LatestDate ?? item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
     const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
 
     return {
       id:
+        item?.StayID ??
+        item?.stayId ??
         item?.InvoiceID ??
         item?.invoiceId ??
         item?.ID ??
         item?.id ??
         `${fullName}-${dateRaw}-${totalAmount}`,
+      stayId,
+      stayCode,
       roomNumber: String(
         item?.RoomNumber ?? item?.roomNumber ?? item?.SoPhong ?? "-",
       ),
@@ -353,13 +362,17 @@ class Hoadon extends Component {
     }
   };
 
-  loadInvoiceDetailsByStay = async (stayId) => {
+  loadInvoiceDetailsByStay = async (stayId, fromHistory = false) => {
     if (!stayId) {
       this.setState({
         modalLoading: false,
-        modalError: "StayID không hợp lệ.",
+        modalError: "Mã lưu trú không hợp lệ.",
       });
       return;
+    }
+
+    if (fromHistory) {
+      return this.loadInvoiceDetailsFromFullInvoiceApi(stayId);
     }
 
     try {
@@ -409,10 +422,93 @@ class Hoadon extends Component {
     }
   };
 
-  openInvoiceModal = (room) => {
-    const stayId = Number(room?.stayId);
+  loadInvoiceDetailsFromFullInvoiceApi = async (stayId) => {
+    try {
+      this.setState({ modalLoading: true, modalError: "" });
+
+      const payload = await this.request(INVOICE_FULL_API_URL(stayId));
+      const invoice = payload?.invoice ?? payload;
+      const details = Array.isArray(payload?.details) ? payload.details : [];
+
+      const roomStays = details
+        .filter((item) => String(item?.ItemType ?? item?.itemType).toUpperCase() === "ROOM")
+        .map((item) => ({
+          id: item?.DetailID ?? item?.detailId ?? item?.id ?? Date.now() + Math.random(),
+          roomId: null,
+          roomNumber: String(item?.ItemName ?? item?.itemName ?? "-"),
+          roomType: String(item?.ItemType ?? item?.itemType ?? "ROOM"),
+          checkInTime: this.formatDateTimeForTable(
+            invoice?.ActualCheckIn ?? invoice?.actualCheckIn,
+          ),
+          checkOutTime: this.formatDateTimeForTable(
+            invoice?.ActualCheckOut ?? invoice?.actualCheckOut,
+          ),
+          amount: this.getNumber(item?.Amount ?? item?.amount),
+        }));
+
+      const services = details
+        .filter((item) => String(item?.ItemType ?? item?.itemType).toUpperCase() === "SERVICE")
+        .map((item) => {
+          const qty = this.getNumber(item?.Quantity ?? item?.quantity);
+          const price = this.getNumber(item?.UnitPrice ?? item?.unitPrice ?? item?.Price ?? item?.price);
+          const total = this.getNumber(item?.Amount ?? item?.amount) || qty * price;
+          return {
+            id: item?.DetailID ?? item?.detailId ?? item?.id ?? Date.now() + Math.random(),
+            name: String(item?.ItemName ?? item?.itemName ?? "Dịch vụ"),
+            quantity: qty,
+            price,
+            total,
+            usedDate: this.formatDateTimeForTable(invoice?.Date ?? invoice?.date),
+          };
+        });
+
+      const minibar = details
+        .filter((item) => String(item?.ItemType ?? item?.itemType).toUpperCase() === "MINIBAR")
+        .map((item) => {
+          const qty = this.getNumber(item?.Quantity ?? item?.quantity);
+          const price = this.getNumber(item?.UnitPrice ?? item?.unitPrice ?? item?.Price ?? item?.price);
+          const total = this.getNumber(item?.Amount ?? item?.amount) || qty * price;
+          return {
+            id: item?.DetailID ?? item?.detailId ?? item?.id ?? Date.now() + Math.random(),
+            name: String(item?.ItemName ?? item?.itemName ?? "Minibar"),
+            quantity: qty,
+            price,
+            total,
+          };
+        });
+
+      const penalties = details
+        .filter((item) => String(item?.ItemType ?? item?.itemType).toUpperCase() === "PENALTY")
+        .map((item) => ({
+          id: item?.DetailID ?? item?.detailId ?? item?.id ?? Date.now() + Math.random(),
+          reason: String(item?.ItemName ?? item?.itemName ?? "Phí phạt"),
+          amount: this.getNumber(item?.Amount ?? item?.amount),
+          createdAt: this.formatDateTimeForTable(invoice?.Date ?? invoice?.date),
+        }));
+
+      this.setState((prev) => ({
+        invoiceData: this.buildInvoiceData({
+          ...prev.invoiceData,
+          stayId,
+          roomStays,
+          services,
+          minibar,
+          penalties,
+        }),
+      }));
+    } catch (err) {
+      this.setState({
+        modalError: err.message || "Không thể tải chi tiết hóa đơn.",
+      });
+    } finally {
+      this.setState({ modalLoading: false });
+    }
+  };
+
+  openInvoiceModal = (room, fromHistory = false) => {
+    const stayId = Number(room?.stayId ?? room?.stayCode);
     if (!Number.isInteger(stayId) || stayId < 1) {
-      window.alert("Không tìm thấy StayID để tạo hóa đơn.");
+      window.alert("Không tìm thấy mã lưu trú để hiển thị hóa đơn.");
       return;
     }
 
@@ -423,13 +519,14 @@ class Hoadon extends Component {
         modalLoading: true,
         modalError: "",
         paySubmitting: false,
+        isHistoryModal: fromHistory,
         invoiceData: this.buildInvoiceData({
           ...getDefaultInvoiceData(),
           stayId,
         }),
       },
       () => {
-        this.loadInvoiceDetailsByStay(stayId);
+        this.loadInvoiceDetailsByStay(stayId, fromHistory);
       },
     );
   };
@@ -528,7 +625,12 @@ class Hoadon extends Component {
     return history.filter((inv) => {
       const roomNumber = String(inv.roomNumber || "").toLowerCase();
       const guestName = String(inv.guestName || "").toLowerCase();
-      return roomNumber.includes(keyword) || guestName.includes(keyword);
+      const stayCode = String(inv.stayCode || "").toLowerCase();
+      return (
+        roomNumber.includes(keyword) ||
+        guestName.includes(keyword) ||
+        stayCode.includes(keyword)
+      );
     });
   };
 
@@ -548,12 +650,6 @@ class Hoadon extends Component {
 
     if (!isModalOpen) return null;
 
-    const disableConfirm =
-      modalLoading ||
-      paySubmitting ||
-      !Number.isInteger(Number(invoiceData.stayId)) ||
-      !["CASH", "TRANSFER"].includes(invoiceData.method);
-
     return (
       <div className="modal-overlay" onClick={this.handleOverlayClick}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -572,7 +668,10 @@ class Hoadon extends Component {
               <button
                 className="btn-secondary"
                 onClick={() =>
-                  this.loadInvoiceDetailsByStay(invoiceData.stayId)
+                  this.loadInvoiceDetailsByStay(
+                    invoiceData.stayId,
+                    this.state.isHistoryModal,
+                  )
                 }
               >
                 Tải lại
@@ -699,39 +798,9 @@ class Hoadon extends Component {
               </div>
 
               {this.renderModalSectionHeader("Thông tin thanh toán")}
-              <label>
-                VAT (%)
-                <input
-                  type="number"
-                  min="0"
-                  value={invoiceData.vat}
-                  onChange={(e) => this.handleVatChange(e.target.value)}
-                />
-              </label>
-
-              <div className="payment-group">
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="CASH"
-                    checked={invoiceData.method === "CASH"}
-                    onChange={(e) => this.handleMethodChange(e.target.value)}
-                  />
-                  <span>CASH</span>
-                </label>
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="TRANSFER"
-                    checked={invoiceData.method === "TRANSFER"}
-                    onChange={(e) => this.handleMethodChange(e.target.value)}
-                  />
-                  <span>TRANSFER</span>
-                </label>
-              </div>
-
+              <p>
+                <strong>VAT (%):</strong> {invoiceData.vat}
+              </p>
               <p>
                 <strong>Tiền phòng:</strong>{" "}
                 {this.formatCurrency(invoiceData.roomTotal)}
@@ -767,10 +836,9 @@ class Hoadon extends Component {
                 </button>
                 <button
                   className="btn-primary"
-                  onClick={this.confirmPayment}
-                  disabled={disableConfirm}
+                  onClick={() => window.print()}
                 >
-                  {paySubmitting ? "Đang thanh toán..." : "Xác nhận thanh toán"}
+                  In hóa đơn
                 </button>
               </div>
             </>
@@ -940,6 +1008,7 @@ class Hoadon extends Component {
             <table className="table">
               <thead>
                 <tr>
+                  <th>Mã lưu trú</th>
                   <th>Tên khách</th>
                   <th>Ngày</th>
                   <th>Tổng tiền</th>
@@ -967,7 +1036,12 @@ class Hoadon extends Component {
                 {!historyLoading &&
                   !historyError &&
                   paginatedHistory.map((inv) => (
-                    <tr key={inv.id}>
+                    <tr
+                      key={inv.id}
+                      onClick={() => this.openInvoiceModal(inv, true)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td>{inv.stayCode}</td>
                       <td>{inv.guestName}</td>
                       <td>{inv.date}</td>
                       <td>{this.formatCurrency(inv.total)}</td>

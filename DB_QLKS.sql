@@ -1728,7 +1728,7 @@ BEGIN
 END
 
 ---Load những phòng khách đã ở (có thể nhiều phòng)-----------
-CREATE PROCEDURE sp_GetRoomStayHistory_CheckedOut_ByStayID
+ALTER PROCEDURE sp_GetRoomStayHistory_CheckedOut_ByStayID
     @StayID INT
 AS
 BEGIN
@@ -1763,7 +1763,7 @@ BEGIN
 
     ORDER BY rs.CheckInTime
 END
-EXEC sp_GetRoomStayHistory_CheckedOut_ByStayID 3
+EXEC sp_GetRoomStayHistory_CheckedOut_ByStayID 36
 
 --Thanh toán hoá đơn-----------------------------------------------------------------------------------
 CREATE PROCEDURE sp_PayInvoice
@@ -1784,19 +1784,21 @@ BEGIN
 END
 
 --Load lịch sử hoá đơn---------------------------------------------------------------------------------
-CREATE PROCEDURE sp_GetInvoiceHistory
+ALTER PROCEDURE sp_GetInvoiceHistory
 AS
 BEGIN
     SELECT 
+		s.StayID,
         g.FullName,
-        i.Date,
+        MAX(i.Date) AS LatestDate,
         i.TotalAmount,
         i.Status
     FROM Invoices i
     JOIN Stays s ON i.StayID = s.StayID
     JOIN Guests g ON s.GuestID = g.GuestID
     WHERE i.Status = 'PAID'
-	ORDER BY i.Date DESC
+	GROUP BY s.StayID, g.FullName, i.TotalAmount,i.Status
+    ORDER BY LatestDate DESC
 END
 EXEC sp_GetInvoiceHistory
 
@@ -3950,6 +3952,44 @@ EXEC sp_ChangePassword
     @UserID = 4,
     @OldPassword = '333',
     @NewPassword = '123'
+
+---Load hoá đơn---------------------------
+CREATE PROCEDURE sp_GetFullInvoice_ByStayID
+    @StayID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Invoice
+    SELECT 
+    i.InvoiceID,
+    i.StayID,
+    i.Date,
+    i.TotalAmount,
+    i.VAT,
+	s.ActualCheckIn,
+	s.ActualCheckOut,
+
+    ISNULL(c.FullName, g.FullName) AS FullName,
+    ISNULL(c.Phone, '') AS Phone,
+    ISNULL(u.Email, 'Không có') AS Email
+
+	FROM Invoices i
+	INNER JOIN Stays s ON i.StayID = s.StayID
+
+	LEFT JOIN Guests g ON s.GuestID = g.GuestID
+	LEFT JOIN Reservations r ON r.ReservationID = s.ReservationID
+	LEFT JOIN Users u ON r.UserID = u.UserID
+	LEFT JOIN Customers c ON u.UserID = c.UserID
+
+	WHERE i.StayID = @StayID;
+    -- 2. Details
+    SELECT id.*
+    FROM InvoiceDetails id
+    JOIN Invoices i ON id.InvoiceID = i.InvoiceID
+    WHERE i.StayID = @StayID;
+END
+EXEC sp_GetFullInvoice_ByStayID 51
 
 
 delete from Customers
