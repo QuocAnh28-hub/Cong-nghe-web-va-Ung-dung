@@ -52,6 +52,11 @@
   margin-right: 10px;
 }
 
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   border: 1px solid #ccd4e4;
   background: #fff;
@@ -158,6 +163,21 @@
   color: #22385d;
 }
 
+.invoice-api-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 18px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid #e3e8f7;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.invoice-api-summary p {
+  margin: 4px 0;
+}
+
 .hoadon .modal-content .hoadon-table-wrap {
   overflow-x: auto;
 }
@@ -219,6 +239,42 @@
   flex-direction: column;
   gap: 5px;
   margin: 12px 0;
+}
+
+.invoice-payment-controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(160px, 220px);
+  gap: 16px;
+  align-items: end;
+  padding: 14px;
+  margin: 8px 0 16px;
+  border: 1px solid #e3e8f7;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.payment-field label {
+  margin: 0 0 8px;
+  color: #22385d;
+  font-weight: 700;
+}
+
+.payment-field select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #ccd4e4;
+  border-radius: 8px;
+  background: #fff;
+  color: #22385d;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.payment-group-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
 }
 
 .payment-option {
@@ -289,6 +345,14 @@
 
   .hoadon .modal-content .table {
     min-width: 100%;
+  }
+
+  .invoice-payment-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-api-summary {
+    grid-template-columns: 1fr;
   }
 }
 

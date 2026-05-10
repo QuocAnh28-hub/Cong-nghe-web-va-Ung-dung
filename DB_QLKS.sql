@@ -3956,7 +3956,7 @@ EXEC sp_ChangePassword
     @NewPassword = '123'
 
 ---Load hoá đơn bằng mã lưu trú---------------------------
-CREATE PROCEDURE sp_GetFullInvoice_ByStayID
+ALTER PROCEDURE sp_GetFullInvoice_ByStayID
     @StayID INT
 AS
 BEGIN
@@ -3969,12 +3969,13 @@ BEGIN
     i.Date,
     i.TotalAmount,
     i.VAT,
+	p.PaymentMethod,
 	s.ActualCheckIn,
 	s.ActualCheckOut,
 
     ISNULL(c.FullName, g.FullName) AS FullName,
     ISNULL(c.Phone, '') AS Phone,
-    ISNULL(u.Email, 'Không có') AS Email
+    ISNULL(u.Email, '') AS Email
 
 	FROM Invoices i
 	INNER JOIN Stays s ON i.StayID = s.StayID
@@ -3983,6 +3984,7 @@ BEGIN
 	LEFT JOIN Reservations r ON r.ReservationID = s.ReservationID
 	LEFT JOIN Users u ON r.UserID = u.UserID
 	LEFT JOIN Customers c ON u.UserID = c.UserID
+	LEFT JOIN Payments p ON i.InvoiceID = p.InvoiceID
 
 	WHERE i.StayID = @StayID;
     -- 2. Details
@@ -3991,7 +3993,7 @@ BEGIN
     JOIN Invoices i ON id.InvoiceID = i.InvoiceID
     WHERE i.StayID = @StayID;
 END
-EXEC sp_GetFullInvoice_ByStayID 51
+EXEC sp_GetFullInvoice_ByStayID 37
 
 delete from Customers
 delete from Guests

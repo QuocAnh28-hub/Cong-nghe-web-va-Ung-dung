@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import "../style/Hoadon.css";
 import { FeatureHeader } from "./Common";
+import { toast } from "react-toastify";
 
 const RESERVATIONS_API_URL = "http://localhost:3000/api/reservations";
 const PENDING_INVOICES_API_URL = "http://localhost:3000/api/invoices/pending";
@@ -30,11 +31,13 @@ const getDefaultInvoiceData = () => ({
   minibarTotal: 0,
   penaltyTotal: 0,
   subtotal: 0,
-  vat: 8,
+  vat: 5,
   vatAmount: 0,
   total: 0,
+  apiTotal: null,
   method: "CASH",
   status: "PENDING",
+  invoiceInfo: null,
 });
 
 class Hoadon extends Component {
@@ -53,7 +56,6 @@ class Hoadon extends Component {
     modalLoading: false,
     modalError: "",
     paySubmitting: false,
-    creatingInvoiceId: null,
     invoiceData: getDefaultInvoiceData(),
     isHistoryModal: false,
     currentPagePending: 1,
@@ -111,6 +113,54 @@ class Hoadon extends Component {
   getNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  normalizePaymentMethod = (value) => {
+    if (value === null || value === undefined) return "";
+
+    const method = String(value).trim().toUpperCase();
+    if (
+      method === "TRANSFER"
+    ) {
+      return "TRANSFER";
+    }
+
+    if (
+      method === "CASH"
+    ) {
+      return "CASH";
+    }
+
+    return "";
+  };
+
+  getPaymentMethodFromApi = (...sources) => {
+    const methodKeys = [
+      "PaymentMethod"
+    ];
+
+    for (const source of sources) {
+      if (!source || typeof source !== "object") continue;
+
+      for (const key of methodKeys) {
+        const rawValue = source[key];
+        if (rawValue === null || rawValue === undefined) continue;
+
+        const method = String(rawValue).trim().toUpperCase();
+        if (
+          method === "TRANSFER"
+        ) {
+          return "TRANSFER";
+        }
+        if (
+          method === "CASH"
+        ) {
+          return "CASH";
+        }
+      }
+    }
+
+    return "";
   };
 
   formatCurrency = (value) =>
@@ -263,6 +313,7 @@ class Hoadon extends Component {
     const dateRaw =
       item?.LatestDate ?? item?.Date ?? item?.date ?? item?.CreatedAt ?? item?.createdAt;
     const totalAmount = this.getNumber(item?.TotalAmount ?? item?.totalAmount);
+    const method = this.getPaymentMethodFromApi(item);
 
     return {
       id:
@@ -281,6 +332,7 @@ class Hoadon extends Component {
       guestName: fullName,
       date: this.formatDateTimeForTable(dateRaw),
       total: totalAmount,
+      method,
       status: String(item?.Status ?? item?.status ?? "PAID"),
     };
   };
@@ -306,7 +358,11 @@ class Hoadon extends Component {
     const subtotal = roomTotal + serviceTotal + minibarTotal + penaltyTotal;
     const vat = this.getNumber(invoiceData.vat);
     const vatAmount = (subtotal * vat) / 100;
-    const total = subtotal + vatAmount;
+    const apiTotal = invoiceData.apiTotal;
+    const total =
+      apiTotal === null || apiTotal === undefined
+        ? subtotal + vatAmount
+        : this.getNumber(apiTotal);
 
     return {
       ...invoiceData,
@@ -430,6 +486,16 @@ class Hoadon extends Component {
       const payload = await this.request(INVOICE_FULL_API_URL(stayId));
       const invoice = payload?.invoice ?? payload;
       const details = Array.isArray(payload?.details) ? payload.details : [];
+      const paymentMethod =
+        this.normalizePaymentMethod(
+          invoice?.PaymentMethod ?? invoice?.paymentMethod,
+        ) ||
+        this.getPaymentMethodFromApi(
+          invoice,
+          payload,
+          payload?.payment,
+          payload?.Payment,
+        );
 
       const roomStays = details
         .filter((item) => String(item?.ItemType ?? item?.itemType).toUpperCase() === "ROOM")
@@ -491,6 +557,22 @@ class Hoadon extends Component {
         invoiceData: this.buildInvoiceData({
           ...prev.invoiceData,
           stayId,
+          vat: this.getNumber(invoice?.VAT ?? invoice?.vat ?? prev.invoiceData.vat),
+          apiTotal: invoice?.TotalAmount ?? invoice?.totalAmount ?? null,
+          method: paymentMethod || prev.invoiceData.method,
+          invoiceInfo: {
+            invoiceId: invoice?.InvoiceID ?? invoice?.invoiceId ?? null,
+            date: this.formatDateTimeForTable(invoice?.Date ?? invoice?.date),
+            guestName: invoice?.FullName ?? invoice?.fullName ?? "",
+            phone: invoice?.Phone ?? invoice?.phone ?? "",
+            email: invoice?.Email ?? invoice?.email ?? "",
+            actualCheckIn: this.formatDateTimeForTable(
+              invoice?.ActualCheckIn ?? invoice?.actualCheckIn,
+            ),
+            actualCheckOut: this.formatDateTimeForTable(
+              invoice?.ActualCheckOut ?? invoice?.actualCheckOut,
+            ),
+          },
           roomStays,
           services,
           minibar,
@@ -524,6 +606,7 @@ class Hoadon extends Component {
         invoiceData: this.buildInvoiceData({
           ...getDefaultInvoiceData(),
           stayId,
+          method: this.getPaymentMethodFromApi(room) || getDefaultInvoiceData().method,
         }),
       },
       () => {
@@ -591,17 +674,16 @@ class Hoadon extends Component {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          stayId: Number(stayId),
+          method,
+          vat: this.getNumber(vat),
           StayID: Number(stayId),
           Method: method,
           VAT: this.getNumber(vat),
         }),
       });
 
-      window.alert(
-        response?.Message ||
-          response?.message ||
-          "Thanh toán hóa đơn thành công.",
-      );
+      toast.success("Thanh toán hóa đơn thành công.");
 
       this.closeModal();
       await Promise.all([
@@ -609,50 +691,9 @@ class Hoadon extends Component {
         this.fetchInvoiceHistory(),
       ]);
     } catch (err) {
-      window.alert(err.message || "Thanh toán hóa đơn thất bại.");
+      toast.error(err.message || "Thanh toán hóa đơn thất bại.");
     } finally {
       this.setState({ paySubmitting: false });
-    }
-  };
-
-  createAndPayInvoice = async (room) => {
-    const stayId = Number(room?.stayId ?? room?.stayCode);
-
-    if (!Number.isInteger(stayId) || stayId < 1) {
-      window.alert("StayID không hợp lệ.");
-      return;
-    }
-
-    if (this.state.creatingInvoiceId) return;
-
-    try {
-      this.setState({ creatingInvoiceId: stayId });
-
-      const defaultInvoiceData = getDefaultInvoiceData();
-      const response = await this.request(CREATE_AND_PAY_INVOICE_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          StayID: stayId,
-          Method: defaultInvoiceData.method,
-          VAT: defaultInvoiceData.vat,
-        }),
-      });
-
-      window.alert(
-        response?.Message ||
-          response?.message ||
-          "Tạo hóa đơn và thanh toán thành công.",
-      );
-
-      await Promise.all([
-        this.fetchPendingInvoices(),
-        this.fetchInvoiceHistory(),
-      ]);
-    } catch (err) {
-      window.alert(err.message || "Tạo hóa đơn thất bại.");
-    } finally {
-      this.setState({ creatingInvoiceId: null });
     }
   };
 
@@ -680,6 +721,185 @@ class Hoadon extends Component {
     <h3 style={{ marginTop: 20, marginBottom: 10 }}>{title}</h3>
   );
 
+  escapePrintText = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  renderPrintRows = (items, columns, emptyText) => {
+    if (!items.length) {
+      return `<tr><td colspan="${columns.length}">${this.escapePrintText(emptyText)}</td></tr>`;
+    }
+
+    return items
+      .map(
+        (item) =>
+          `<tr>${columns
+            .map((column) => `<td>${this.escapePrintText(column.getValue(item))}</td>`)
+            .join("")}</tr>`,
+      )
+      .join("");
+  };
+
+  handlePrintInvoicePdf = () => {
+    const { invoiceData, selectedRoom } = this.state;
+    const invoiceInfo = invoiceData.invoiceInfo || {};
+    const guestName =
+      invoiceInfo.guestName || selectedRoom?.guestName || "Khách hàng";
+
+    const printWindow = window.open("", "_blank", "width=960,height=720");
+    if (!printWindow) {
+      toast.error("Trình duyệt đang chặn cửa sổ in. Vui lòng cho phép popup.");
+      return;
+    }
+
+    const roomRows = this.renderPrintRows(
+      invoiceData.roomStays,
+      [
+        { getValue: (item) => item.roomNumber },
+        { getValue: (item) => item.roomType },
+        { getValue: (item) => item.checkInTime },
+        { getValue: (item) => item.checkOutTime },
+        { getValue: (item) => this.formatCurrency(item.amount) },
+      ],
+      "Không có lịch sử phòng.",
+    );
+
+    const serviceRows = this.renderPrintRows(
+      invoiceData.services,
+      [
+        { getValue: (item) => item.name },
+        { getValue: (item) => item.quantity },
+        { getValue: (item) => this.formatCurrency(item.price) },
+        { getValue: (item) => this.formatCurrency(item.total) },
+      ],
+      "Không có dịch vụ.",
+    );
+
+    const minibarRows = this.renderPrintRows(
+      invoiceData.minibar,
+      [
+        { getValue: (item) => item.name },
+        { getValue: (item) => item.quantity },
+        { getValue: (item) => this.formatCurrency(item.price) },
+        { getValue: (item) => this.formatCurrency(item.total) },
+      ],
+      "Không có minibar.",
+    );
+
+    const penaltyRows = this.renderPrintRows(
+      invoiceData.penalties,
+      [
+        { getValue: (item) => item.reason },
+        { getValue: (item) => item.createdAt },
+        { getValue: (item) => this.formatCurrency(item.amount) },
+      ],
+      "Không có phí phạt.",
+    );
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Hoa don ${this.escapePrintText(invoiceInfo.invoiceId || invoiceData.stayId || "")}</title>
+          <style>
+            @page { size: A4; margin: 16mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #172033;
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              line-height: 1.45;
+            }
+            h1 { margin: 0 0 4px; font-size: 24px; text-transform: uppercase; }
+            h2 { margin: 22px 0 8px; font-size: 15px; color: #22385d; }
+            p { margin: 4px 0; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+            th, td { border: 1px solid #cfd7e6; padding: 7px 8px; text-align: left; }
+            th { background: #eef3fb; font-weight: 700; }
+            .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #22385d; padding-bottom: 12px; }
+            .hotel { font-weight: 700; color: #22385d; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-top: 14px; }
+            .summary { margin-left: auto; width: 320px; border: 1px solid #cfd7e6; padding: 10px 12px; }
+            .summary-row { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; }
+            .summary-row.total { border-top: 1px solid #cfd7e6; margin-top: 6px; padding-top: 8px; font-size: 15px; font-weight: 700; }
+            .print-note { margin-top: 18px; color: #64748b; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="hotel">QAS Hotel</div>
+              <h1>Hóa đơn thanh toán</h1>
+              <p>Mã hóa đơn: <strong>${this.escapePrintText(invoiceInfo.invoiceId || "-")}</strong></p>
+              <p>Mã lưu trú: <strong>${this.escapePrintText(invoiceData.stayId || "-")}</strong></p>
+            </div>
+            <div>
+              <p>Ngày tạo: <strong>${this.escapePrintText(invoiceInfo.date || "-")}</strong></p>
+              <p>Phương thức: <strong>${this.escapePrintText(invoiceData.method)}</strong></p>
+              <p>VAT: <strong>${this.escapePrintText(invoiceData.vat)}%</strong></p>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <p>Khách hàng: <strong>${this.escapePrintText(guestName)}</strong></p>
+            <p>Số điện thoại: <strong>${this.escapePrintText(invoiceInfo.phone || "-")}</strong></p>
+            <p>Email: <strong>${this.escapePrintText(invoiceInfo.email || "-")}</strong></p>
+            <p>Nhận phòng: <strong>${this.escapePrintText(invoiceInfo.actualCheckIn || "-")}</strong></p>
+            <p>Trả phòng: <strong>${this.escapePrintText(invoiceInfo.actualCheckOut || "-")}</strong></p>
+          </div>
+
+          <h2>Danh sách phòng</h2>
+          <table>
+            <thead><tr><th>Phòng</th><th>Loại phòng</th><th>Check-in</th><th>Check-out</th><th>Tiền phòng</th></tr></thead>
+            <tbody>${roomRows}</tbody>
+          </table>
+
+          <h2>Dịch vụ</h2>
+          <table>
+            <thead><tr><th>Tên dịch vụ</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+            <tbody>${serviceRows}</tbody>
+          </table>
+
+          <h2>Minibar</h2>
+          <table>
+            <thead><tr><th>Tên minibar</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+            <tbody>${minibarRows}</tbody>
+          </table>
+
+          <h2>Phí phạt</h2>
+          <table>
+            <thead><tr><th>Lý do</th><th>Ngày tạo</th><th>Số tiền</th></tr></thead>
+            <tbody>${penaltyRows}</tbody>
+          </table>
+
+          <div class="summary">
+            <div class="summary-row"><span>Tiền phòng</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.roomTotal))}</strong></div>
+            <div class="summary-row"><span>Tiền dịch vụ</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.serviceTotal))}</strong></div>
+            <div class="summary-row"><span>Tiền minibar</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.minibarTotal))}</strong></div>
+            <div class="summary-row"><span>Tiền phạt</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.penaltyTotal))}</strong></div>
+            <div class="summary-row"><span>Tạm tính</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.subtotal))}</strong></div>
+            <div class="summary-row"><span>VAT</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.vatAmount))}</strong></div>
+            <div class="summary-row total"><span>Tổng thanh toán</span><strong>${this.escapePrintText(this.formatCurrency(invoiceData.total))}</strong></div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   renderModal = () => {
     const {
       isModalOpen,
@@ -688,6 +908,7 @@ class Hoadon extends Component {
       modalError,
       paySubmitting,
       invoiceData,
+      isHistoryModal,
     } = this.state;
 
     if (!isModalOpen) return null;
@@ -723,6 +944,39 @@ class Hoadon extends Component {
 
           {!modalLoading && !modalError && (
             <>
+              {invoiceData.invoiceInfo && (
+                <div className="invoice-api-summary">
+                  <p>
+                    <strong>Mã hóa đơn:</strong>{" "}
+                    {invoiceData.invoiceInfo.invoiceId ?? "-"}
+                  </p>
+                  <p>
+                    <strong>Ngày tạo:</strong>{" "}
+                    {invoiceData.invoiceInfo.date || "-"}
+                  </p>
+                  <p>
+                    <strong>Khách hàng:</strong>{" "}
+                    {invoiceData.invoiceInfo.guestName || selectedRoom?.guestName || "-"}
+                  </p>
+                  <p>
+                    <strong>Số điện thoại:</strong>{" "}
+                    {invoiceData.invoiceInfo.phone || "-"}
+                  </p>
+                  <p>
+                    <strong>Email:</strong>{" "}
+                    {invoiceData.invoiceInfo.email || "-"}
+                  </p>
+                  <p>
+                    <strong>Nhận phòng:</strong>{" "}
+                    {invoiceData.invoiceInfo.actualCheckIn || "-"}
+                  </p>
+                  <p>
+                    <strong>Trả phòng:</strong>{" "}
+                    {invoiceData.invoiceInfo.actualCheckOut || "-"}
+                  </p>
+                </div>
+              )}
+
               {this.renderModalSectionHeader("Danh sách phòng đã ở")}
               <div className="hoadon-table-wrap">
                 <table className="table">
@@ -840,6 +1094,58 @@ class Hoadon extends Component {
               </div>
 
               {this.renderModalSectionHeader("Thông tin thanh toán")}
+
+              {!isHistoryModal && (
+                <div className="invoice-payment-controls">
+                  <div className="payment-field">
+                    <label>Phương thức thanh toán</label>
+                    <div className="payment-group payment-group-inline">
+                      <label className="payment-option">
+                        <input
+                          type="radio"
+                          name="invoice-payment-method"
+                          value="CASH"
+                          checked={invoiceData.method === "CASH"}
+                          onChange={(e) =>
+                            this.handleMethodChange(e.target.value)
+                          }
+                        />
+                        <span>CASH</span>
+                      </label>
+                      <label className="payment-option">
+                        <input
+                          type="radio"
+                          name="invoice-payment-method"
+                          value="TRANSFER"
+                          checked={invoiceData.method === "TRANSFER"}
+                          onChange={(e) =>
+                            this.handleMethodChange(e.target.value)
+                          }
+                        />
+                        <span>TRANSFER</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="payment-field">
+                    <label htmlFor="invoice-vat">Mức VAT (%)</label>
+                    <select
+                      id="invoice-vat"
+                      value={invoiceData.vat}
+                      onChange={(e) => this.handleVatChange(e.target.value)}
+                    >
+                      <option value="0">0%</option>
+                      <option value="5">5%</option>
+                      <option value="10">10%</option>
+                      <option value="15">15%</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <p>
+                <strong>Phương thức:</strong> {invoiceData.method}
+              </p>
               <p>
                 <strong>VAT (%):</strong> {invoiceData.vat}
               </p>
@@ -876,12 +1182,24 @@ class Hoadon extends Component {
                 <button className="btn-secondary" onClick={this.closeModal}>
                   Đóng
                 </button>
-                <button
-                  className="btn-primary"
-                  onClick={() => window.print()}
-                >
-                  In hóa đơn
-                </button>
+                {isHistoryModal ? (
+                  <button
+                    className="btn-primary"
+                    onClick={this.handlePrintInvoicePdf}
+                  >
+                    In hóa đơn
+                  </button>
+                ) : (
+                  <button
+                    className="btn-primary"
+                    onClick={this.confirmPayment}
+                    disabled={paySubmitting}
+                  >
+                    {paySubmitting
+                      ? "Đang thanh toán..."
+                      : "Xác nhận thanh toán"}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -916,7 +1234,6 @@ class Hoadon extends Component {
       searchHistory,
       currentPagePending,
       currentPageHistory,
-      creatingInvoiceId,
     } = this.state;
     const filteredHistory = this.getFilteredHistory();
 
@@ -986,12 +1303,9 @@ class Hoadon extends Component {
                       <td>
                         <button
                           className="btn-primary"
-                          onClick={() => this.createAndPayInvoice(room)}
-                          disabled={creatingInvoiceId === room.stayId}
+                          onClick={() => this.openInvoiceModal(room, false)}
                         >
-                          {creatingInvoiceId === room.stayId
-                            ? "Đang tạo..."
-                            : "Tạo hóa đơn"}
+                          Tạo hóa đơn
                         </button>
                       </td>
                     </tr>
