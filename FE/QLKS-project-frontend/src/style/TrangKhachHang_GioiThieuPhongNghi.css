@@ -176,6 +176,83 @@
   color: var(--text-sub);
 }
 
+.room-filter-panel {
+  margin: 0 0 30px;
+  padding: 18px;
+  border: 1px solid rgba(216, 225, 237, 0.95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 32px rgba(21, 41, 81, 0.08);
+}
+
+.room-filter-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr)) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.room-filter-field label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.room-filter-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-main);
+  font: inherit;
+  background: #fff;
+}
+
+.room-filter-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 255, 0.1);
+}
+
+.room-filter-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.room-filter-submit,
+.room-filter-reset {
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.room-filter-submit {
+  border: none;
+  color: #fff;
+  background: var(--primary);
+}
+
+.room-filter-submit:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.room-filter-reset {
+  border: 1px solid var(--line);
+  color: var(--text-sub);
+  background: #fff;
+}
+
+.room-filter-submit:disabled,
+.room-filter-reset:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .room-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -268,6 +345,27 @@
   min-height: 80px;
 }
 
+.room-card__availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.room-card__availability--available {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.room-card__availability--empty {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
 .room-card__features {
   display: flex;
   flex-wrap: wrap;
@@ -312,6 +410,12 @@
 
 .room-card__button:hover {
   background: linear-gradient(90deg, #4338ff 0%, #4f2eea 100%);
+}
+
+.room-card__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .room-footer {
@@ -382,6 +486,19 @@
 
   .room-list {
     grid-template-columns: 1fr;
+  }
+
+  .room-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .room-filter-actions {
+    justify-content: stretch;
+  }
+
+  .room-filter-submit,
+  .room-filter-reset {
+    flex: 1;
   }
 }
 
@@ -518,6 +635,12 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.form-group small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+}
+
 .form-group input:focus {
   outline: none;
   border-color: #4f46ff;
@@ -561,6 +684,5 @@
 .btn-confirm:hover {
   background: #3b31e8;
 }
-
 
 

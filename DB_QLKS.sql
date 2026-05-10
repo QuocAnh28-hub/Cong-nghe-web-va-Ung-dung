@@ -3995,6 +3995,126 @@ BEGIN
 END
 EXEC sp_GetFullInvoice_ByStayID 37
 
+-------Tìm kiếm phòng trống(checkIn, checkOut, Số người, Số lượng phòng)
+CREATE PROCEDURE sp_SearchAvailableRoomTypes
+    @CheckInDate DATE,
+    @CheckOutDate DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -------------------------------------------------
+    -- 1. Tổng số phòng mỗi loại
+    -------------------------------------------------
+    WITH TotalRooms AS (
+        SELECT 
+            r.RoomTypeID,
+            COUNT(*) AS TotalRooms
+        FROM Rooms r
+        GROUP BY r.RoomTypeID
+    ),
+
+    -------------------------------------------------
+    -- 2. Phòng đã được đặt
+    -------------------------------------------------
+    ReservedRooms AS (
+        SELECT 
+            rr.RoomTypeID,
+            SUM(rr.Quantity) AS ReservedCount
+        FROM ReservationRooms rr
+        JOIN Reservations res 
+            ON rr.ReservationID = res.ReservationID
+        WHERE res.Status IN ('BOOKED', 'CHECKED_IN')
+        AND (
+            res.CheckInDate < @CheckOutDate
+            AND res.CheckOutDate > @CheckInDate
+        )
+        GROUP BY rr.RoomTypeID
+    ),
+
+    -------------------------------------------------
+    -- 3. Phòng đang ở
+    -------------------------------------------------
+    OccupiedRooms AS (
+        SELECT 
+            r.RoomTypeID,
+            COUNT(DISTINCT r.RoomID) AS OccupiedCount
+        FROM RoomStayHistory rsh
+        JOIN Rooms r 
+            ON rsh.RoomID = r.RoomID
+        JOIN Stays s 
+            ON s.StayID = rsh.StayID
+        WHERE s.Status = 'CHECKED_IN'
+        AND (
+            rsh.CheckInTime < @CheckOutDate
+            AND ISNULL(rsh.CheckOutTime, s.ExpectedCheckOut) > @CheckInDate
+        )
+        GROUP BY r.RoomTypeID
+    )
+
+    -------------------------------------------------
+    -- 4. Kết quả
+    -------------------------------------------------
+    SELECT 
+        rt.RoomTypeID,
+        rt.Name,
+        rt.Capacity,
+        rt.Description,
+        rt.ImageUrl,
+
+        -------------------------------------------------
+        -- 🎯 GIÁ
+        -------------------------------------------------
+        rt.DefaultPrice AS GiaMacDinh,
+        ISNULL(rate.Price, rt.DefaultPrice) AS GiaTheoMua,
+        rate.Season AS MuaApDung,
+
+        tr.TotalRooms,
+        ISNULL(rr.ReservedCount, 0) AS ReservedRooms,
+        ISNULL(oroom.OccupiedCount, 0) AS OccupiedRooms,
+
+        tr.TotalRooms
+        - ISNULL(rr.ReservedCount, 0)
+        - ISNULL(oroom.OccupiedCount, 0) AS AvailableRooms
+
+    FROM RoomTypes rt
+    JOIN TotalRooms tr 
+        ON rt.RoomTypeID = tr.RoomTypeID
+
+    LEFT JOIN ReservedRooms rr 
+        ON rt.RoomTypeID = rr.RoomTypeID
+
+    LEFT JOIN OccupiedRooms oroom 
+        ON rt.RoomTypeID = oroom.RoomTypeID
+
+    -------------------------------------------------
+    -- 🔥 LẤY GIÁ THEO MÙA
+    -------------------------------------------------
+    OUTER APPLY (
+        SELECT TOP 1 
+            r.Price,
+            r.Season
+        FROM Rates r
+        WHERE r.RoomTypeID = rt.RoomTypeID
+        AND @CheckInDate BETWEEN r.StartDate AND r.EndDate
+        ORDER BY r.StartDate DESC
+    ) rate
+
+    -------------------------------------------------
+    -- 5. Filter
+    -------------------------------------------------
+    WHERE (
+        tr.TotalRooms
+        - ISNULL(rr.ReservedCount, 0)
+        - ISNULL(oroom.OccupiedCount, 0)
+    ) > 0
+
+    ORDER BY AvailableRooms DESC
+END
+EXEC sp_SearchAvailableRoomTypes 
+    @CheckInDate = '2026-04-12',
+    @CheckOutDate = '2026-04-20'
+
 delete from Customers
 delete from Guests
 delete from InvoiceDetails

@@ -1,10 +1,12 @@
 ﻿import React, { Component } from "react";
-import { Link } from "react-router-dom";
 import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 import { toast } from "react-toastify";
 
 const LOCAL_IMAGE_BASE_URL = "http://localhost:3000/local-images/";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/pages-for-customer";
+const AVAILABLE_ROOM_TYPES_API_URL =
+  "http://localhost:3000/api/pages-for-customer/available-room-types";
 
 const formatPrice = (value) => {
   if (value == null) return "";
@@ -17,6 +19,11 @@ class TrangKhachHang_PhongNghi extends Component {
     roomTypes: [],
     loading: true,
     error: null,
+    filterForm: {
+      checkInDate: "",
+      checkOutDate: "",
+    },
+    isAvailabilityFilterActive: false,
     showModal: false,
     selectedRoom: null,
     bookingForm: {
@@ -32,23 +39,106 @@ class TrangKhachHang_PhongNghi extends Component {
     this.loadRoomTypes();
   }
 
-  loadRoomTypes = async () => {
+  getNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  normalizeRoomType = (room) => ({
+    ...room,
+    RoomTypeID: room.RoomTypeID ?? room.roomTypeId ?? room.id,
+    TenLoaiPhong: room.TenLoaiPhong ?? room.Name ?? room.name ?? "",
+    SucChua: room.SucChua ?? room.Capacity ?? room.capacity ?? 0,
+    MoTa: room.MoTa ?? room.Description ?? room.description ?? "",
+    ImageUrl: room.ImageUrl ?? room.ImageUri ?? room.imageUrl ?? "",
+    GiaMacDinh: room.GiaMacDinh ?? room.DefaultPrice ?? room.defaultPrice,
+    GiaTheoMua: room.GiaTheoMua ?? room.SeasonalPrice ?? room.seasonalPrice,
+    MuaApDung: room.MuaApDung ?? room.SeasonName ?? room.seasonName,
+    TotalRooms: this.getNumber(room.TotalRooms ?? room.totalRooms),
+    ReservedRooms: this.getNumber(room.ReservedRooms ?? room.reservedRooms),
+    OccupiedRooms: this.getNumber(room.OccupiedRooms ?? room.occupiedRooms),
+    AvailableRooms:
+      room.AvailableRooms ?? room.availableRooms ?? room.SoPhongTrong ?? null,
+  });
+
+  extractRoomTypes = (payload) => {
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+    return items.map(this.normalizeRoomType);
+  };
+
+  loadRoomTypes = async ({ checkInDate = "", checkOutDate = "" } = {}) => {
     try {
-      const response = await fetch("http://localhost:3000/api/pages-for-customer");
+      this.setState({ loading: true, error: null });
+
+      const params = new URLSearchParams();
+      if (checkInDate && checkOutDate) {
+        params.set("CheckInDate", checkInDate);
+        params.set("CheckOutDate", checkOutDate);
+      }
+
+      const url =
+        checkInDate && checkOutDate
+          ? `${AVAILABLE_ROOM_TYPES_API_URL}?${params.toString()}`
+          : ROOM_TYPES_API_URL;
+
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Không thể tải dữ liệu loại phòng");
       }
-      const roomTypes = await response.json();
-      console.log("Room Types Data:", roomTypes);
-      if (roomTypes.length > 0) {
-        console.log("First room object:", roomTypes[0]);
-        console.log("All keys:", Object.keys(roomTypes[0]));
-        console.log("Full first room JSON:", JSON.stringify(roomTypes[0], null, 2));
-      }
-      this.setState({ roomTypes, loading: false });
+      const payload = await response.json();
+      this.setState({
+        roomTypes: this.extractRoomTypes(payload),
+        loading: false,
+        isAvailabilityFilterActive: Boolean(checkInDate && checkOutDate),
+      });
     } catch (error) {
       this.setState({ error: error.message || "Lỗi tải dữ liệu", loading: false });
     }
+  };
+
+  handleFilterInputChange = (e) => {
+    const { name, value } = e.target;
+    this.setState((prevState) => ({
+      filterForm: {
+        ...prevState.filterForm,
+        [name]: value,
+      },
+    }));
+  };
+
+  handleFilterSubmit = (e) => {
+    e.preventDefault();
+    const { checkInDate, checkOutDate } = this.state.filterForm;
+
+    if (!checkInDate || !checkOutDate) {
+      toast.error("Vui lòng chọn ngày nhận và ngày trả phòng.");
+      return;
+    }
+
+    if (new Date(checkOutDate) <= new Date(checkInDate)) {
+      toast.error("Ngày trả phòng phải sau ngày nhận phòng.");
+      return;
+    }
+
+    this.loadRoomTypes({ checkInDate, checkOutDate });
+  };
+
+  handleClearFilter = () => {
+    this.setState(
+      {
+        filterForm: {
+          checkInDate: "",
+          checkOutDate: "",
+        },
+        isAvailabilityFilterActive: false,
+      },
+      () => this.loadRoomTypes(),
+    );
   };
 
   handleLogout = () => {
@@ -68,12 +158,14 @@ class TrangKhachHang_PhongNghi extends Component {
   };
 
   openBookingModal = (room) => {
+    const { filterForm } = this.state;
+
     this.setState({
       showModal: true,
       selectedRoom: room,
       bookingForm: {
-        ngayNhan: "",
-        ngayTra: "",
+        ngayNhan: filterForm.checkInDate || "",
+        ngayTra: filterForm.checkOutDate || "",
         soPhong: 1,
       },
     });
@@ -121,6 +213,16 @@ class TrangKhachHang_PhongNghi extends Component {
       return;
     }
 
+    const availableRooms = Number(selectedRoom.AvailableRooms);
+    if (
+      Number.isFinite(availableRooms) &&
+      availableRooms >= 0 &&
+      bookingForm.soPhong > availableRooms
+    ) {
+      alert(`Chỉ còn ${availableRooms} phòng trống cho loại phòng này.`);
+      return;
+    }
+
     const userID = localStorage.getItem("userID");
     if (!userID) {
       alert("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
@@ -148,7 +250,6 @@ class TrangKhachHang_PhongNghi extends Component {
         throw new Error("Đặt phòng thất bại. Vui lòng thử lại sau.");
       }
 
-      const result = await response.json();
       toast.success("Đặt phòng thành công!");
       this.closeModal();
     } catch (error) {
@@ -157,7 +258,17 @@ class TrangKhachHang_PhongNghi extends Component {
   };
 
   render() {
-    const { fullname, roomTypes, loading, error, showModal, selectedRoom, bookingForm } = this.state;
+    const {
+      fullname,
+      roomTypes,
+      loading,
+      error,
+      filterForm,
+      isAvailabilityFilterActive,
+      showModal,
+      selectedRoom,
+      bookingForm,
+    } = this.state;
 
     return (
       <div className="room-page">
@@ -174,6 +285,46 @@ class TrangKhachHang_PhongNghi extends Component {
             </div>
           </section>
 
+          <section className="room-filter-panel">
+            <form className="room-filter-form" onSubmit={this.handleFilterSubmit}>
+              <div className="room-filter-field">
+                <label htmlFor="checkInDate">Ngày nhận phòng</label>
+                <input
+                  type="date"
+                  id="checkInDate"
+                  name="checkInDate"
+                  value={filterForm.checkInDate}
+                  onChange={this.handleFilterInputChange}
+                />
+              </div>
+              <div className="room-filter-field">
+                <label htmlFor="checkOutDate">Ngày trả phòng</label>
+                <input
+                  type="date"
+                  id="checkOutDate"
+                  name="checkOutDate"
+                  value={filterForm.checkOutDate}
+                  onChange={this.handleFilterInputChange}
+                />
+              </div>
+              <div className="room-filter-actions">
+                <button type="submit" className="room-filter-submit" disabled={loading}>
+                  {loading ? "Đang lọc..." : "Lọc phòng trống"}
+                </button>
+                {isAvailabilityFilterActive && (
+                  <button
+                    type="button"
+                    className="room-filter-reset"
+                    onClick={this.handleClearFilter}
+                    disabled={loading}
+                  >
+                    Xóa lọc
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+
           <section className="room-list" id="dat-phong">
             {loading && <p>Đang tải danh sách phòng...</p>}
             {error && <p className="room-error">{error}</p>}
@@ -184,10 +335,22 @@ class TrangKhachHang_PhongNghi extends Component {
 
             {roomTypes.map((room, index) => {
               // Lấy ảnh từ API - kiểm tra cả ImageUri và ImageUrl
-              const imageUrl = room.ImageUri || room.ImageUrl || "";
-              console.log(`Room: ${room.TenLoaiPhong}, ImageUrl: ${imageUrl}`);
+              const imageUrl = room.ImageUrl || room.ImageUri || "";
               const defaultPrice = formatPrice(room.GiaMacDinh);
-              const salePrice = room.GiaTheoMua != null ? formatPrice(room.GiaTheoMua) : null;
+              const defaultPriceValue = Number(room.GiaMacDinh);
+              const seasonPriceValue = Number(room.GiaTheoMua);
+              const hasSeasonPrice =
+                room.GiaTheoMua !== null &&
+                room.GiaTheoMua !== undefined &&
+                Number.isFinite(defaultPriceValue) &&
+                Number.isFinite(seasonPriceValue) &&
+                seasonPriceValue !== defaultPriceValue;
+              const salePrice = hasSeasonPrice
+                ? formatPrice(room.GiaTheoMua)
+                : null;
+              const availableRooms = Number(room.AvailableRooms);
+              const hasAvailabilityInfo =
+                isAvailabilityFilterActive && Number.isFinite(availableRooms);
 
               return (
                 <article className="room-card" key={room.RoomTypeID || room.TenLoaiPhong || index}>
@@ -226,6 +389,19 @@ class TrangKhachHang_PhongNghi extends Component {
                       </span>
                     </div>
 
+                    {hasAvailabilityInfo && (
+                      <p
+                        className={`room-card__availability ${
+                          availableRooms > 0
+                            ? "room-card__availability--available"
+                            : "room-card__availability--empty"
+                        }`}
+                      >
+                        <i className="fa-solid fa-door-open" />
+                        Còn {availableRooms} phòng trống
+                      </p>
+                    )}
+
                     <p className="room-card__description">{room.MoTa}</p>
 
                     {room.MuaApDung && (
@@ -235,8 +411,11 @@ class TrangKhachHang_PhongNghi extends Component {
                     <button 
                       className="room-card__button"
                       onClick={() => this.openBookingModal(room)}
+                      disabled={hasAvailabilityInfo && availableRooms < 1}
                     >
-                      Đặt phòng ngay
+                      {hasAvailabilityInfo && availableRooms < 1
+                        ? "Hết phòng"
+                        : "Đặt phòng ngay"}
                       <i className="fa-solid fa-arrow-right" />
                     </button>
                   </div>
@@ -290,9 +469,16 @@ class TrangKhachHang_PhongNghi extends Component {
                     value={bookingForm.soPhong}
                     onChange={this.handleInputChange}
                     min="1"
-                    max="10"
+                    max={
+                      Number.isFinite(Number(selectedRoom.AvailableRooms))
+                        ? Math.max(1, Number(selectedRoom.AvailableRooms))
+                        : 10
+                    }
                     required
                   />
+                  {Number.isFinite(Number(selectedRoom.AvailableRooms)) && (
+                    <small>Còn {selectedRoom.AvailableRooms} phòng trống.</small>
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn-cancel" onClick={this.closeModal}>
