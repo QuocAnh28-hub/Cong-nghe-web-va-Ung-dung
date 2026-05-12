@@ -760,7 +760,6 @@ class Hoadon extends Component {
       invoiceData.roomStays,
       [
         { getValue: (item) => item.roomNumber },
-        { getValue: (item) => item.roomType },
         { getValue: (item) => item.checkInTime },
         { getValue: (item) => item.checkOutTime },
         { getValue: (item) => this.formatCurrency(item.amount) },
@@ -856,7 +855,7 @@ class Hoadon extends Component {
 
           <h2>Danh sách phòng</h2>
           <table>
-            <thead><tr><th>Phòng</th><th>Loại phòng</th><th>Check-in</th><th>Check-out</th><th>Tiền phòng</th></tr></thead>
+            <thead><tr><th>Phòng</th><th>Check-in</th><th>Check-out</th><th>Tiền phòng</th></tr></thead>
             <tbody>${roomRows}</tbody>
           </table>
 
@@ -983,7 +982,6 @@ class Hoadon extends Component {
                   <thead>
                     <tr>
                       <th>Phòng</th>
-                      <th>Loại phòng</th>
                       <th>Check-in</th>
                       <th>Check-out</th>
                       <th>Tiền phòng</th>
@@ -998,7 +996,6 @@ class Hoadon extends Component {
                     {invoiceData.roomStays.map((item) => (
                       <tr key={item.id}>
                         <td>{item.roomNumber}</td>
-                        <td>{item.roomType}</td>
                         <td>{item.checkInTime}</td>
                         <td>{item.checkOutTime}</td>
                         <td>{this.formatCurrency(item.amount)}</td>
