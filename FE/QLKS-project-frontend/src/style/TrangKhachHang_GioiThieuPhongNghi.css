@@ -685,4 +685,25 @@
   background: #3b31e8;
 }
 
+.room-card__title-row h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.room-card__title-row h2 a:hover {
+  color: #4f46ff;
+}
+
+.room-card__detail-link {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 12px;
+  color: #4f46ff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.room-card__detail-link:hover {
+  text-decoration: underline;
+}
 

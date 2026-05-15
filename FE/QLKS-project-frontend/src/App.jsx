@@ -3,6 +3,7 @@ import Login from "./Components/Login";
 import QLKhachSan from "./Components/QLKhachSan";
 import TrangKhachHang from "./Components/TrangKhachHang";
 import TrangKhachHang_PhongNghi from "./Components/TrangKhachHang_PhongNghi";
+import TrangKhachHang_ChiTietPhong from "./Components/TrangKhachHang_ChiTietPhong";
 import TrangKhachHang_DatPhong from "./Components/TrangKhachHang_DatPhong";
 import TrangKhachHang_ThongTin from "./Components/TrangKhachHang_ThongTin";
 
@@ -36,6 +37,11 @@ function App() {
         <Route
           path="/trangkhachhang/phongnghi"
           element={<TrangKhachHang_PhongNghi />}
+        />
+
+        <Route
+          path="/trangkhachhang/phongnghi/:roomTypeId"
+          element={<TrangKhachHang_ChiTietPhong />}
         />
 
         <Route

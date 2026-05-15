@@ -1,4 +1,5 @@
 ﻿import React, { Component } from "react";
+import { Link } from "react-router-dom";
 import "../style/TrangKhachHang_GioiThieuPhongNghi.css";
 import { TrangKhachHang_Header, TrangKhachHang_Footer } from "./TrangKhachHang_Common";
 import { toast } from "react-toastify";
@@ -382,7 +383,11 @@ class TrangKhachHang_PhongNghi extends Component {
 
                   <div className="room-card__content">
                     <div className="room-card__title-row">
-                      <h2>{room.TenLoaiPhong}</h2>
+                      <h2>
+                        <Link to={`/trangkhachhang/phongnghi/${room.RoomTypeID}`}>
+                          {room.TenLoaiPhong}
+                        </Link>
+                      </h2>
                       <span className="room-card__capacity">
                         <i className="fa-solid fa-user-group" />
                         {room.SucChua} khách
@@ -418,6 +423,12 @@ class TrangKhachHang_PhongNghi extends Component {
                         : "Đặt phòng ngay"}
                       <i className="fa-solid fa-arrow-right" />
                     </button>
+                    <Link
+                      to={`/trangkhachhang/phongnghi/${room.RoomTypeID}`}
+                      className="room-card__detail-link"
+                    >
+                      Xem chi tiết
+                    </Link>
                   </div>
                 </article>
               );
