@@ -4,7 +4,7 @@ import { FeatureHeader } from "./Common";
 import { toast } from "react-toastify";
 
 const ROOMS_API_URL = "http://localhost:3000/api/rooms";
-const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
 const PAGE_SIZE = 6;
 const ALL_STATUS_VALUE = "all";
 const DEFAULT_STATUS = "AVAILABLE";

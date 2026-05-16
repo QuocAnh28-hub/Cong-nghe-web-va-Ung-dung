@@ -16,6 +16,9 @@ import Nhanvien from "./Nhanvien";
 class Navigation extends Component {
   render() {
     const { changePage, currentPage } = this.props;
+    const role = (localStorage.getItem("role") || "").trim();
+    const isAdmin = role === "ADMIN";
+
     return (
       <>
         <div className="Navigations">
@@ -80,18 +83,22 @@ class Navigation extends Component {
           >
             <i class="fa-solid fa-couch"></i>Loại phòng
           </button>
-          <button
-            className={`navigations-btn ${currentPage === Baocao ? "active" : ""}`}
-            onClick={() => changePage(Baocao)}
-          >
-            <i class="fa-solid fa-chart-simple"></i>Báo cáo
-          </button>
-          <button
-            className={`navigations-btn ${currentPage === Nhanvien ? "active" : ""}`}
-            onClick={() => changePage(Nhanvien)}
-          >
+          {isAdmin && (
+            <button
+              className={`navigations-btn ${currentPage === Baocao ? "active" : ""}`}
+              onClick={() => changePage(Baocao)}
+            >
+              <i class="fa-solid fa-chart-simple"></i>Báo cáo
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              className={`navigations-btn ${currentPage === Nhanvien ? "active" : ""}`}
+              onClick={() => changePage(Nhanvien)}
+            >
             <i class="fa-solid fa-person-military-pointing"></i>Nhân viên
-          </button>
+            </button>
+          )}
         </div>
       </>
     );
