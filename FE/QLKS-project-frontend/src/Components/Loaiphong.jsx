@@ -3,7 +3,7 @@ import "../style/Loaiphong.css";
 import { FeatureHeader } from "./Common";
 import { toast } from "react-toastify";
 
-const API_URL = "http://localhost:3000/api/room-types";
+const API_URL = "http://localhost:3000/api/get-room-types";
 const LOCAL_IMAGE_BASE_URL = "http://localhost:3000/local-images/";
 
 class Loaiphong extends Component {

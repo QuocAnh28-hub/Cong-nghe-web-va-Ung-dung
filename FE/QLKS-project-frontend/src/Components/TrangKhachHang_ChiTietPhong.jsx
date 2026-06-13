@@ -326,14 +326,6 @@ class TrangKhachHang_ChiTietPhong extends Component {
                       <i className="fa-solid fa-user-group" />
                       {room.SucChua} khách
                     </span>
-                    <span>
-                      <i className="fa-regular fa-square" />
-                      {room.DienTich}m²
-                    </span>
-                    <span>
-                      <i className="fa-solid fa-star" />
-                      4.8 (56 đánh giá)
-                    </span>
                   </div>
                 </div>
 
@@ -466,25 +458,6 @@ class TrangKhachHang_ChiTietPhong extends Component {
                     </li>
                   ))}
                 </ul>
-              </section>
-
-              <section className="room-detail-side-card room-detail-review-card">
-                <div className="room-detail-review-heading">
-                  <h2>Đánh giá từ khách hàng</h2>
-                  <a href="#reviews">Xem tất cả</a>
-                </div>
-                <div className="room-detail-score">
-                  <strong>4.8/5</strong>
-                  <span>Tuyệt vời</span>
-                </div>
-                <div className="room-detail-stars">
-                  <i className="fa-solid fa-star" />
-                  <i className="fa-solid fa-star" />
-                  <i className="fa-solid fa-star" />
-                  <i className="fa-solid fa-star" />
-                  <i className="fa-solid fa-star-half-stroke" />
-                  <span>(56 đánh giá)</span>
-                </div>
               </section>
             </aside>
           </div>
