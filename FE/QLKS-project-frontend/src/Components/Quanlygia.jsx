@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 
 const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Family"];
 const RATES_API_URL = "http://localhost:3000/api/rates";
-const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
 
 const formatDate = (dateString) => {
   if (!dateString) return "";

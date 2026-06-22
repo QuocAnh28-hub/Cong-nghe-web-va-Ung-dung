@@ -29,7 +29,7 @@ const PENALTY_BY_ID_API_URL = (penaltyId) =>
 const SERVICES_API_URL = "http://localhost:3000/api/services";
 const ROOMS_API_URL = "http://localhost:3000/api/rooms";
 const AVAILABLE_ROOMS_API_URL = `${ROOMS_API_URL}/available`;
-const ROOM_TYPES_API_URL = "http://localhost:3000/api/room-types";
+const ROOM_TYPES_API_URL = "http://localhost:3000/api/get-room-types";
 
 class NhanTraphong extends Component {
   createId = () => Date.now() + Math.floor(Math.random() * 1000);

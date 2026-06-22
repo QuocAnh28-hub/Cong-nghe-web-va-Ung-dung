@@ -2396,7 +2396,7 @@ EXEC sp_CancelReservation @ReservationID = 12;
 ---------666666666666666--------------------------------------------------------
 --------------------------------------------------------------------------------
 ---Load thông tin KH chờ CheckIn--------------------------------------------------------
-CREATE PROCEDURE sp_GetWaitingCheckInCustomers
+ALTER PROCEDURE sp_GetWaitingCheckInCustomers
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -2434,6 +2434,7 @@ BEGIN
         u.Email,
         r.CheckInDate,
         r.CheckOutDate,
+		rt.Name,
         er.RoomTypeID,
         er.PriceAtBooking
     FROM Reservations r
@@ -2441,6 +2442,7 @@ BEGIN
     LEFT JOIN Customers c ON c.UserID = u.UserID
     INNER JOIN ExpandedRooms er ON r.ReservationID = er.ReservationID
     LEFT JOIN CheckedInCount cic ON r.ReservationID = cic.ReservationID
+	INNER JOIN RoomTypes rt ON rt.RoomTypeID = er.RoomTypeID
 
     WHERE 
         r.Status IN ('BOOKED', 'CHECKED_IN')
@@ -3886,7 +3888,7 @@ BEGIN
         WHERE UserID = @UserID;
 
         -- Cập nhật bảng Customers
-        UPDATE Customers
+        UPDATE Receptionists
         SET FullName = @FullName,
             Phone = @Phone
         WHERE UserID = @UserID;
@@ -4423,7 +4425,7 @@ BEGIN
 
     WHERE u.UserID = @UserID
 END
-EXEC sp_GetCustomerInfoByUserID2 @UserID = 36
+EXEC sp_GetCustomerInfoByUserID2 @UserID = 30
 
 ---Update thông tin khách hàng----------------------
 CREATE PROCEDURE sp_UpdateCustomerProfile2
@@ -4830,3 +4832,23 @@ BEGIN
 
 END
 EXEC sp_UpdateReservationToBooked2 @ReservationID = 36
+
+CREATE PROCEDURE sp_CleanRoom
+    @RoomID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Rooms
+    SET Status = 'AVAILABLE'
+    WHERE RoomID = @RoomID;
+
+    -- Kiểm tra có cập nhật thành công không
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RAISERROR('Không tìm thấy phòng với RoomID này!', 16, 1);
+    END
+END
+GO
+
+EXEC sp_CleanRoom @RoomID = 21;
